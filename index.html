@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>App de Auditoría Sanitaria Profesional</title>
+    <link rel="stylesheet" href="style.css">
+    <I am Live>
+<body
+
+    <header>
+        <h1>Rúbrica de Auditoría Higiénico-Sanitaria</h1>
+        <p>Dispositivo de Inspección de Campo — 30 Puntos de Control</p>
+    </header>
+
+
+    <main class="container">
+        <div id="auditForm">
+            
+            <section class="audit-section">
+                <h2>1. Infraestructura y Equipos <span class="norm-ref">(RD 852/2004, ISO 22000)</span></h2>
+                
+                <div class="question-card">
+                    <p class="question-text">1.1. El diseño, distribución y dimensiones de los locales permiten un mantenimiento, limpieza y desinfección adecuados, evitando la contaminación cruzada.</p>
+                    <div class="btn-group-options">
+                        <label class="btn-option"><input type="radio" name="q1_1" value="0"><span>0 - No cumple</span></label>
+                        <label class="btn-option"><input type="radio" name="q1_1" value="1"><span>1 - Parcial</span></label>
+                        <label class="btn-option"><input type="radio" name="q1_1" value="2"><span>2 - Total</span></label>
+                    </div>
+                    <div class="evidence-inputs">
+                        <textarea placeholder="Observaciones..." class="obs-input" rows="2"></textarea>
+                        <div class="file-upload-wrapper">
+                            <input type="file" accept="image/*" capture="environment" class="file-input" id="f1_1">
+                            <label for="f1_1" class="btn-camera">📸 Foto</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="question-card">
+                    <p class="question-text">1.2. Las superficies de suelos, paredes y techos son de materiales impermeables, no absorbentes, lavables, no tóxicos y sin grietas.</p>
+                    <div class="btn-group-options">
+                        <label class="btn-option"><input type="radio" name="q1_2" value="0"><span>0 - No cumple</span></label>
+                        <label class="btn-option"><input type="radio" name="q1_2" value="1"><span>1 - Parcial</span></label>
+                        <label class="btn-option"><input type="radio" name="q1_2" value="2"><span>2 - Total</span></label>
+                    </div>
+                    <div class="evidence-inputs">
+                        <textarea placeholder="Observaciones..." class="obs-input" rows="2"></textarea>
+                        <div class="file-upload-wrapper">
+                            <input type="file" accept="image/*" capture="environment" class="file-input" id="f1_2">
+                            <label for="f1_2" class="btn-camera">📸 Foto</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="question-card">
+                    <p class="question-text">1.3. Las ventanas, huecos y puertas exteriores disponen de pantallas de protección contra insectos y plagas fácilmente desmontables y limpiables.</p>
+                    <div class="btn-group-options">
+                        <label class="btn-option"><input type="radio" name="q1_3" value="0"><span>0 - No cumple</span></label>
+                        <label class="btn-option"><input type="radio" name="q1_3" value="1"><span>1 - Parcial</span></label>
+                        <label class="btn-option"><input type="radio" name="q1_3" value="2"><span>2 - Total</span></label>
+                    </div>
+                    <div class="evidence-inputs">
+                        <textarea placeholder="Observaciones..." class="obs-input" rows="2"></textarea>
+                        <div class="file-upload-wrapper">
+                            <input type="file" accept="image/*" capture="environment" class="file-input" id="f1_3">
+                            <label for="f1_3" class="btn-camera">📸 Foto</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="question-card">
+                    <p class="question-text">1.4. Los sistemas de drenaje, desagües y canalizaciones tienen la capacidad adecuada, disponen de rejillas y evitan reflujos u olores.</p>
+                    <div class="btn-group-options">
+                        <label class="btn-option"><input type="radio" name="q1_4" value="0"><span>0 - No cumple</span></label>
+                        <label class="btn-option"><input type="radio" name="q1_4" value="1"><span>1 - Parcial</span></label>
+                        <label class="btn-option"><input type="radio" name="q1_4" value="2"><span>2 - Total</span></label>
+                    </div>
+                    <div class="evidence-inputs">
+                        <textarea placeholder="Observaciones..." class="obs-input" rows="2"></textarea>
+                        <div class="file-upload-wrapper">
+                            <input type="file" accept="image/*" capture="environment" class="file-input" id="f1_4">
+                            <label for="f1_4" class="btn-camera">📸 Foto</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="question-card">
+                    <p class="question-text">1.5. Existe ventilación suficiente (natural o mecánica) para evitar el calor excesivo, la condensación de vapor y la acumulación de polvo.</p>
+                    <div class="btn-group-options">
+                        <label class="btn-option"><input type="radio" name="q1_5" value="0"><span>0 - No cumple</span></label>
+                        <label class="btn-option"><input type="radio" name="q1_5" value="1"><span>1 - Parcial</span></label>
+                        <label class="btn-option"><input type="radio" name="q1_5" value="2"><span>2 - Total</span></label>
+                    </div>
+                    <div class="evidence-inputs">
+                        <textarea placeholder="Observaciones..." class="obs-input" rows="2"></textarea>
+                        <div class="file-upload-wrapper">
+                            <input type="file" accept="image/*" capture="environment" class="file-input" id="f1_5">
+                            <label for="f1_5" class="btn-camera">📸 Foto</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="question-card">
+                    <p class="question-text">1.6. Las instalaciones de iluminación proporcionan luz adecuada y los focos/luminarias cuentan con pantallas de protección antirotura.</p>
+                    <div class="btn-group-options">
+                        <label class="btn-option"><input type="radio" name="q1_6" value="0"><span>0 - No cumple</span></label>
+                        <label class="btn-option"><input type="radio" name="q1_6" value="1"><span>1 - Parcial</span></label>
+                        <label class="btn-option"><input type="radio" name="q1_6" value="2"><span>2 - Total</span></label>
+                    </div>
+                    <div class="evidence-inputs">
+                        <textarea placeholder="Observaciones..." class="obs-input" rows="2"></textarea>
+                        <div class="file-upload-wrapper">
+                            <input type="file" accept="image/*" capture="environment" class="file-input" id="f1_6">
+                            <label for="f1_6" class="btn-camera">📸 Foto</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="question-card critical">
+                    <p class="question-text"><strong>[CRÍTICO]</strong> 1.7. El suministro de agua potable es continuo, con presión suficiente y cumple estrictamente los parámetros sanitarios legales.</p>
+                    <div class="btn-group-options">
+                        <label class="btn-option opt-critica"><input type="radio" name="q1_7" value="0" data-critical="true"><span>0 - No cumple</span></label>
+                        <label class="btn-option"><input type="radio" name="q1_7" value="1"><span>1 - Parcial</span></label>
+                        <label class="btn-option"><input type="radio" name="q1_7" value="2"><span>2 - Total</span></label>
+                    </div>
+                    <div class="evidence-inputs">
+                        <textarea placeholder="Observaciones del punto crítico..." class="obs-input" rows="2"></textarea>
+                        <div class="file-upload-wrapper">
+                            <input type="file" accept="image/*" capture="environment" class="file-input" id="f1_7">
+                            <label for="f1_7" class="btn-camera">📸 Foto</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="question-card">
+                    <p class="question-text">1.8. Los lavamanos para el personal son de accionamiento no manual, con agua fría/caliente, jabón desinfectante y secado higiénico monofásico.</p>
+                    <div class="btn-group-options">
+                        <label class="btn-option"><input type="radio" name="q1_8" value="0"><span>0 - No cumple</span></label>
+                        <label class="btn-option"><input type="radio" name="q1_8" value="1"><span>1 - Parcial</span></label>
+                        <label class="btn-option"><input type="radio" name="q1_8" value="2"><span>2 - Total</span></label>
+                    </div>
+                    <div class="evidence-inputs">
+                        <textarea placeholder="Observaciones..." class="obs-input" rows="2"></textarea>
+                        <div class="file-upload-wrapper">
+                            <input type="file" accept="image/*" capture="environment" class="file-input" id="f1_8">
+                            <label for="f1_8" class="btn-camera">📸 Foto</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="question-card">
+                    <p class="question-text">1.9. Los contenedores e instalaciones para el almacenamiento de residuos están aislados de la producción, son estancos y señalizados.</p>
+                    <div class="btn-group-options">
+                        <label class="btn-option"><input type="radio" name="q1_9" value="0"><span>0 - No cumple</span></label>
+                        <label class="btn-option"><input type="radio" name="q1_9" value="1"><span>1 - Parcial</span></label>
+                        <label class="btn-option"><input type="radio" name="q1_9" value="2"><span>2 - Total</span></label>
+                    </div>
+                    <div class="evidence-inputs">
+                        <textarea placeholder="Observaciones..." class="obs-input" rows="2"></textarea>
+                        <div class="file-upload-wrapper">
+                            <input type="file" accept="image/*" capture="environment" class="file-input" id="f1_9">
+                            <label for="f1_9" class="btn-camera">📸 Foto</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="question-card">
+                    <p class="question-text">1.10. Las herramientas, superficies de trabajo y maquinaria en contacto directo con el alimento son de acero inoxidable o materiales inertes aprobados.</p>
+                    <div class="btn-group-options">
+                        <label class="btn-option"><input type="radio" name="q1_10" value="0"><span>0 - No cumple</span></label>
+                        <label class="btn-option"><input type="radio" name="q1_10" value="1"><span>1 - Parcial</span></label>
+                        <label class="btn-option"><input type="radio" name="q1_10" value="2"><span>2 - Total</span></label>
+                    </div>
+                    <div class="evidence-inputs">
+                        <textarea placeholder="Observaciones..." class="obs-input" rows="2"></textarea>
+                        <div class="file-upload-wrapper">
+                            <input type="file" accept="image/*" capture="environment" class="file-input" id="f1_10">
+                            <label for="f1_10" class="btn-camera">📸 Foto</label>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="audit-section">
+                <h2>2. Higiene y Manipulación <span class="norm-ref">(Codex Alimentarius, RD 1021/2022)</span></h2>
+                
+                <div class="question-card">
+                    <p class="question-text">2.1. El personal viste ropa protectora de color claro y exclusiva para las tareas de trabajo, cubrecabezas eficaz y calzado limpio.</p>
+                    <div class="btn-group-options">
+                        <label class="btn-option"><input type="radio" name="q2_1" value="0"><span>0 - No cumple</span></label>
+                        <label class="btn-option"><input type="radio" name="q2_1" value="1"><span>1 - Parcial</span></label>
+                        <label class="btn-option"><input type="radio" name="q2_1" value="2"><span>2 - Total</span></label>
+                    </div>
+                    <div class="evidence-inputs">
+                        <textarea placeholder="Observaciones..." class="obs-input" rows="2"></textarea>
+                        <div class="file-upload-wrapper">
+                            <input type="file" accept="image/*" capture="environment" class="file-input" id="f2_1">
+                            <label for="f2_1" class="btn-camera">📸 Foto</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="question-card">
+                    <p class="question-text">2.2. Se constata un lavado de manos sistemático y pautado antes del inicio de labores, cambios de puesto o tras ir al aseo.</p>
+                    <div class="btn-group-options">
+                        <label class="btn-option"><input type="radio" name="q2_2" value="0"><span>0 - No cumple</span></label>
+                        <label class="btn-option"><input type="radio" name="q2_2" value="1"><span>1 - Parcial</span></label>
+                        <label class="btn-option"><input type="radio" name="q2_2" value="2"><span>2 - Total</span></label>
+                    </div>
+                    <div class="evidence-inputs">
+                        <textarea placeholder="Observaciones..." class="obs-input" rows="2"></textarea>
+                        <div class="file-upload-wrapper">
+                            <input type="file" accept="image/*" capture="environment" class="file-input" id="f2_2">
+                            <label for="f2_2" class="btn-camera">📸 Foto</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="question-card">
+                    <p class="question-text">2.3. Las heridas o cortes corporales están cubiertos con apósitos impermeables de color visible (azul) y fijados de forma segura.</p>
+                    <div class="btn-group-options">
+                        <label class="btn-option"><input type="radio" name="q2_3" value="0"><span>0 - No cumple</span></label>
+                        <label class="btn-option"><input type="radio" name="q2_3" value="1"><span>1 - Parcial</span></label>
+                        <label class="btn-option"><input type="radio" name="q2_3" value="2"><span>2 - Total</span></label>
+                    </div>
+                    <div class="evidence-inputs">
+                        <textarea placeholder="Observaciones..." class="obs-input" rows="2"></textarea>
+                        <div class="file-upload-wrapper">
+                            <input type="file" accept="image/*" capture="environment" class="file-input" id="f2_3">
+                            <label for="f2_3" class="btn-camera">📸 Foto</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="question-card">
+                    <p class="question-text">2.4. Los operarios no portan objetos personales de riesgo (anillos, pendientes, relojes, pulseras) en las salas de procesado.</p>
+                    <div class="btn-group-options">
+                        <label class="btn-option"><input type="radio" name="q2_4" value="0"><span>0 - No cumple</span></label>
+                        <label class="btn-option"><input type="radio" name="q2_4" value="1"><span>1 - Parcial</span></label>
+                        <label class="btn-option"><input type="radio" name="q2_4" value="2"><span>2 - Total</span></label>
+                    </div>
+                    <div class="evidence-inputs">
+                        <textarea placeholder="Observaciones..." class="obs-input" rows="2"></textarea>
+                        <div class="file-upload-wrapper">
+                            <input type="file" accept="image/*" capture="environment" class="file-input" id="f2_4">
+                            <label for="f2_4" class="btn-camera">📸 Foto</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="question-card critical">
+                    <p class="question-text"><strong>[CRÍTICO]</strong> 2.5. Existe una política estricta de control y exclusión inmediata de operarios con sintomatología infecciosa o digestiva transmisible.</p>
+                    <div class="btn-group-options">
+                        <label class="btn-option opt-critica"><input type="radio" name="q2_5" value="0" data-critical="true"><span>0 - No cumple</span></label>
+                        <label class="btn-option"><input type="radio" name="q2_5" value="1"><span>1 - Parcial</span></label>
+                        <label class="btn-option"><input type="radio" name="q2_5" value="2"><span>2 - Total</span></label>
+                    </div>
+                    <div class="evidence-inputs">
+                        <textarea placeholder="Observaciones del punto crítico..." class="obs-input" rows="2"></textarea>
+                        <div class="file-upload-wrapper">
+                            <input type="file" accept="image/*" capture="environment" class="file-input" id="f2_5">
+                            <label for="f2_5" class="btn-camera">📸 Foto</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="question-card">
+                    <p class="question-text">2.6. Se respeta la prohibición estricta de comer, fumar, marcar chicle o almacenar comida personal en los recintos de procesado.</p>
+                    <div class="btn-group-options">
+                        <label class="btn-option"><input type="radio" name="q2_6" value="0"><span>0 - No cumple</span></label>
+                        <label class="btn-option"><input type="radio" name="q2_6" value="1"><span>1 - Parcial</span></label>
+                        <label class="btn-option"><input type="radio" name="q2_6" value="2"><span>2 - Total</span></label>
+                    </div>
+                    <div class="evidence-inputs">
+                        <textarea placeholder="Observaciones..." class="obs-input" rows="2"></textarea>
+                        <div class="file-upload-wrapper">
+                            <input type="file" accept="image/*" capture="environment" class="file-input" id="f2_6">
+                            <label for="f2_6" class="btn-camera">📸 Foto</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="question-card">
+                    <p class="question-text">2.7. Los visitantes ajenos a la producción e inspectores externos cumplen con idénticas medidas higiénicas y de vestimenta que los operarios.</p>
+                    <div class="btn-group-options">
+                        <label class="btn-option"><input type="radio" name="q2_7" value="0"><span>0 - No cumple</span></label>
+                        <label class="btn-option"><input type="radio" name="q2_7" value="1"><span>1 - Parcial</span></label>
+                        <label class="btn-option"><input type="radio" name="q2_7" value="2"><span>2 - Total</span></label>
+                    </div>
+                    <div class="evidence-inputs">
+                        <textarea placeholder="Observaciones..." class="obs-input" rows="2"></textarea>
+                        <div class="file-upload-wrapper">
+                            <input type="file" accept="image/*" capture="environment" class="file-input" id="f2_7">
+                            <label for="f2_7" class="btn-camera">📸 Foto</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="question-card">
+                    <p class="question-text">2.8. Existen registros que avalen la capacitación periódica y actualizada en seguridad alimentaria de todos los manipuladores del centro.</p>
+                    <div class="btn-group-options">
+                        <label class="btn-option"><input type="radio" name="q2_8" value="0"><span>0 - No cumple</span></label>
+                        <label class="btn-option"><input type="radio" name="q2_8" value="1"><span>1 - Parcial</span></label>
+                        <label class="btn-option"><input type="radio" name="q2_8" value="2"><span>2 - Total</span></label>
+                    </div>
+                    <div class="evidence-inputs">
+                        <textarea placeholder="Observaciones..." class="obs-input" rows="2"></textarea>
+                        <div class="file-upload-wrapper">
+                            <input type="file" accept="image/*" capture="environment" class="file-input" id="f2_8">
+                            <label for="f2_8" class="btn-camera">📸 Foto</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="question-card">
+                    <p class="question-text">2.9. Se evita el contacto de manos desnudas con el alimento libre, empleando de modo correcto pinzas, guantes o utensilios limpios.</p>
+                    <div class="btn-group-options">
+                        <label class="btn-option"><input type="radio" name="q2_9" value="0"><span>0 - No cumple</span></label>
+                        <label class="btn-option"><input type="radio" name="q2_9" value="1"><span>1 - Parcial</span></label>
+                        <label class="btn-option"><input type="radio" name="q2_9" value="2"><span>2 - Total</span></label>
+                    </div>
+                    <div class="evidence-inputs">
+                        <textarea placeholder="Observaciones..." class="obs-input" rows="2"></textarea>
+                        <div class="file-upload-wrapper">
+                            <input type="file" accept="image/*" capture="environment" class="file-input" id="f2_9">
+                            <label for="f2_9" class="btn-camera">📸 Foto</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="question-card">
+                    <p class="question-text">2.10. Las taquillas de vestuarios garantizan la separación física e higiénica total entre ropa de calle y ropa de trabajo limpia.</p>
+                    <div class="btn-group-options">
+                        <label class="btn-option"><input type="radio" name="q2_10" value="0"><span>0 - No cumple</span></label>
+                        <label class="btn-option"><input type="radio" name="q2_10" value="1"><span>1 - Parcial</span></label>
+                        <label class="btn-option"><input type="radio" name="q2_10" value="2"><span>2 - Total</span></label>
+                    </div>
+                    <div class="evidence-inputs">
+                        <textarea placeholder="Observaciones..." class="obs-input" rows="2"></textarea>
+                        <div class="file-upload-wrapper">
+                            <input type="file" accept="image/*" capture="environment" class="file-input" id="f2_10">
+                            <label for="f2_10" class="btn-camera">📸 Foto</label>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="audit-section">
+                <h2>3. Plan de Prerrequisitos y APPCC <span class="norm-ref">(APPCC, RD 562/2025, IFS)</span></h2>
+                
+                <div class="question-card critical">
+                    <p class="question-text"><strong>[CRÍTICO]</strong> 3.1. Se vigilan y registran las temperaturas críticas de almacenamiento de los productos refrigerados y congelados (Cadena de Frío).</p>
+                    <div class="btn-group-options">
+                        <label class="btn-option opt-critica"><input type="radio" name="q3_1" value="0" data-critical="true"><span>0 - No cumple</span></label>
+                        <label class="btn-option"><input type="radio" name="q3_1" value="1"><span>1 - Parcial</span></label>
+                        <label class="btn-option"><input type="radio" name="q3_1" value="2"><span>2 - Total</span></label>
+                    </div>
+                    <div class="evidence-inputs">
+                        <textarea placeholder="Observaciones del punto crítico..." class="obs-input" rows="2"></textarea>
+                        <div class="file-upload-wrapper">
+                            <input type="file" accept="image/*" capture="environment" class="file-input" id="f3_1">
+                            <label for="f3_1" class="btn-camera">📸 Foto</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="question-card">
+                    <p class="question-text">3.2. El Plan de Limpieza y Desinfección (L+D) se ejecuta de forma rigurosa y cuenta con registros de verificación firmados al día.</p>
+                    <div class="btn-group-options">
+                        <label class="btn-option"><input type="radio" name="q3_2" value="0"><span>0 - No cumple</span></label>
+                        <label class="btn-option"><input type="radio" name="q3_2" value="1"><span>1 - Parcial</span></label>
+                        <label class="btn-option"><input type="radio" name="q3_2" value="2"><span>2 - Total</span></label>
+                    </div>
+                    <div class="evidence-inputs">
+                        <textarea placeholder="Observaciones..." class="obs-input" rows="2"></textarea>
+                        <div class="file-upload-wrapper">
+                            <input type="file" accept="image/*" capture="environment" class="file-input" id="f3_2">
+                            <label for="f3_2" class="btn-camera">📸 Foto</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="question-card">
+                    <p class="question-text">3.3. Los productos químicos (detergentes and biocidas) cuentan con ficha técnica y de seguridad, guardándose fuera de producción bajo llave.</p>
+                    <div class="btn-group-options">
+                        <label class="btn-option"><input type="radio" name="q3_3" value="0"><span>0 - No cumple</span></label>
+                        <label class="btn-option"><input type="radio" name="q3_3" value="1"><span>1 - Parcial</span></label>
+                        <label class="btn-option"><input type="radio" name="q3_3" value="2"><span>2 - Total</span></label>
+                    </div>
+                    <div class="evidence-inputs">
+                        <textarea placeholder="Observaciones..." class="obs-input" rows="2"></textarea>
+                        <div class="file-upload-wrapper">
+                            <input type="file" accept="image/*" capture="environment" class="file-input" id="f3_3">
+                            <label for="f3_3" class="btn-camera">📸 Foto</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="question-card">
+                    <p class="question-text">3.4. El Plan de Control de Plagas presenta un plano de cebaderos al día, registros de monitorización e informes de empresa autorizada (DDD).</p>
+                    <div class="btn-group-options">
+                        <label class="btn-option"><input type="radio" name="q3_4" value="0"><span>0 - No cumple</span></label>
+                        <label class="btn-option"><input type="radio" name="q3_4" value="1"><span>1 - Parcial</span></label>
+                        <label class="btn-option"><input type="radio" name="q3_4" value="2"><span>2 - Total</span></label>
+                    </div>
+                    <div class="evidence-inputs">
+                        <textarea placeholder="Observaciones..." class="obs-input" rows="2"></textarea>
+                        <div class="file-upload-wrapper">
+                            <input type="file" accept="image/*" capture="environment" class="file-input" id="f3_4">
+                            <label for="f3_4" class="btn-camera">📸 Foto</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="question-card">
+                    <p class="question-text">3.5. El sistema garantiza la trazabilidad bidireccional completa (materias primas, interna y producto final) con registros claros.</p>
+                    <div class="btn-group-options">
+                        <label class="btn-option"><input type="radio" name="q3_5" value="0"><span>0 - No cumple</span></label>
+                        <label class="btn-option"><input type="radio" name="q3_5" value="1"><span>1 - Parcial</span></label>
+                        <label class="btn-option"><input type="radio" name="q3_5" value="2"><span>2 - Total</span></label>
+                    </div>
+                    <div class="evidence-inputs">
+                        <textarea placeholder="Observaciones..." class="obs-input" rows="2"></textarea>
+                        <div class="file-upload-wrapper">
+                            <input type="file" accept="image/*" capture="environment" class="file-input" id="f3_5">
+                            <label for="f3_5" class="btn-camera">📸 Foto</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="question-card">
+                    <p class="question-text">3.6. Existen fichas técnicas detalladas de materias primas y se gestionan rigurosamente las declaraciones de alérgenos.</p>
+                    <div class="btn-group-options">
+                        <label class="btn-option"><input type="radio" name="q3_6" value="0"><span>0 - No cumple</span></label>
+                        <label class="btn-option"><input type="radio" name="q3_6" value="1"><span>1 - Parcial</span></label>
+                        <label class="btn-option"><input type="radio" name="q3_6" value="2"><span>2 - Total</span></label>
+                    </div>
+                    <div class="evidence-inputs">
+                        <textarea placeholder="Observaciones..." class="obs-input" rows="2"></textarea>
+                        <div class="file-upload-wrapper">
+                            <input type="file" accept="image/*" capture="environment" class="file-input" id="f3_6">
+                            <label for="f3_6" class="btn-camera">📸 Foto</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="question-card">
+                    <p class="question-text">3.7. El Plan de Mantenimiento Preventivo recoge la calibración, contraste y revisión de termómetros, sondas y básculas de pesado.</p>
+                    <div class="btn-group-options">
+                        <label class="btn-option"><input type="radio" name="q3_7" value="0"><span>0 - No cumple</span></label>
+                        <label class="btn-option"><input type="radio" name="q3_7" value="1"><span>1 - Parcial</span></label>
+                        <label class="btn-option"><input type="radio" name="q3_7" value="2"><span>2 - Total</span></label>
+                    </div>
+                    <div class="evidence-inputs">
+                        <textarea placeholder="Observaciones..." class="obs-input" rows="2"></textarea>
+                        <div class="file-upload-wrapper">
+                            <input type="file" accept="image/*" capture="environment" class="file-input" id="f3_7">
+                            <label for="f3_7" class="btn-camera">📸 Foto</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="question-card">
+                    <p class="question-text">3.8. Se aplican medidas efectivas para prevenir la contaminación cruzada por alérgenos (utensilios codificados o líneas exclusivas).</p>
+                    <div class="btn-group-options">
+                        <label class="btn-option"><input type="radio" name="q3_8" value="0"><span>0 - No cumple</span></label>
+                        <label class="btn-option"><input type="radio" name="q3_8" value="1"><span>1 - Parcial</span></label>
+                        <label class="btn-option"><input type="radio" name="q3_8" value="2"><span>2 - Total</span></label>
+                    </div>
+                    <div class="evidence-inputs">
+                        <textarea placeholder="Observaciones..." class="obs-input" rows="2"></textarea>
+                        <div class="file-upload-wrapper">
+                            <input type="file" accept="image/*" capture="environment" class="file-input" id="f3_8">
+                            <label for="f3_8" class="btn-camera">📸 Foto</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="question-card">
+                    <p class="question-text">3.9. Se dispone de un protocolo ágil documentado para la gestión de alertas alimentarias y retirada veloz de lotes (Recall).</p>
+                    <div class="btn-group-options">
+                        <label class="btn-option"><input type="radio" name="q3_9" value="0"><span>0 - No cumple</span></label>
+                        <label class="btn-option"><input type="radio" name="q3_9" value="1"><span>1 - Parcial</span></label>
+                        <label class="btn-option"><input type="radio" name="q3_9" value="2"><span>2 - Total</span></label>
+                    </div>
+                    <div class="evidence-inputs">
+                        <textarea placeholder="Observaciones..." class="obs-input" rows="2"></textarea>
+                        <div class="file-upload-wrapper">
+                            <input type="file" accept="image/*" capture="environment" class="file-input" id="f3_9">
+                            <label for="f3_9" class="btn-camera">📸 Foto</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="question-card">
+                    <p class="question-text">3.10. Se planifican auditorías internas periódicas y la dirección evalúa el sistema para impulsar la mejora continua del APPCC.</p>
+                    <div class="btn-group-options">
+                        <label class="btn-option"><input type="radio" name="q3_10" value="0"><span>0 - No cumple</span></label>
+                        <label class="btn-option"><input type="radio" name="q3_10" value="1"><span>1 - Parcial</span></label>
+                        <label class="btn-option"><input type="radio" name="q3_10" value="2"><span>2 - Total</span></label>
+                    </div>
+                    <div class="evidence-inputs">
+                        <textarea placeholder="Observaciones..." class="obs-input" rows="2"></textarea>
+                        <div class="file-upload-wrapper">
+                            <input type="file" accept="image/*" capture="environment" class="file-input" id="f3_10">
+                            <label for="f3_10" class="btn-camera">📸 Foto</label>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <button type="button" id="btnCalcular" class="btn-submit">Finalizar y Evaluar Auditoría Completa</button>
+        </div>
+
+        <div id="resultBlock" class="result-card hidden">
+            <h2>Resultado de la Evaluación</h2>
+            <div id="scoreDisplay">0%</div>
+            <p id="messageDisplay"></p>
+            
+            <div class="global-obs-container">
+                <label style="font-weight:bold;">Conclusiones y Observaciones Generales del Informe:</label>
+                <textarea id="globalObsInput" rows="3" placeholder="Añada un comentario de cierre o dictamen final para el PDF..."></textarea>
+            </div>
+
+            <button type="button" id="btnImprimir" class="btn-print">🖨️ Guardar PDF / Imprimir Informe</button>
+        </div>
+    </main>
+
+    <div id="informePrintZone" class="print-only">
+        <div class="informe-header">
+            <h1>INFORME DE AUDITORÍA HIGIÉNICO-SANITARIA</h1>
+            <p>Conformidad Normativa Sanitaria Agroalimentaria (Codex, APPCC, Reales Decretos, ISO 22000, IFS)</p>
+        </div>
+        <table class="info-meta-table">
+            <tr><td><strong>Fecha de Inspección:</strong> <span id="infFecha">-</span></td><td><strong>Conformidad del Sistema:</strong> <span id="infScore">0%</span></td></tr>
+            <tr><td colspan="2"><strong>Dictamen Sanitario Oficial:</strong> <span id="infDictamen">-</span></td></tr>
+        </table>
+        
+        <div class="informe-section">
+            <h3>Conclusiones Generales del Auditor</h3>
+            <p id="infGlobalObs" style="white-space: pre-wrap; background: #fbfbfb; padding: 10px; border: 1px dashed #444;">-</p>
+        </div>
+
+        <h3>Desviaciones y Evidencias Registradas de Campo</h3>
+        <table class="deficiencias-table">
+            <thead>
+                <tr>
+                    <th style="width: 45%;">Requisito Legal Evaluado</th>
+                    <th style="width: 15%;">Conformidad</th>
+                    <th style="width: 40%;">Observaciones e Imagen Vinculada</th>
+                </tr>
+            </thead>
+            <tbody id="tablaDeficiencias"></tbody>
+        </table>
+        
+        <div class="firma-zone">
+            <div class="firma-line"><p>Firma Inspector / Auditor Técnico</p></div>
+            <div class="firma-line"><p>Firma Responsable Legal del Establecimiento</p></div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
+
