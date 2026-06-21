@@ -13,11 +13,7 @@ window.addEventListener('DOMContentLoaded', function() {
     // --- Selectores principales ---
     const btnCalcular = document.getElementById('btnCalcular');
     const btnImprimir = document.getElementById('btnImprimir');
-    const btnCompartir = document.getElementById('btnCompartir');
     const resultBlock = document.getElementById('resultBlock');
-    
-    // Flag para saber qué acción ejecutar tras firmar: 'imprimir' o 'compartir'
-    let accionPendiente = 'imprimir';
     
     const scoreDisplay = document.getElementById('scoreDisplay');
     const infScore = document.getElementById('infScore');
@@ -328,18 +324,7 @@ window.addEventListener('DOMContentLoaded', function() {
     if (btnImprimir) {
         btnImprimir.addEventListener('click', function(e) {
             e.preventDefault();
-            accionPendiente = 'imprimir';
-            if (signatureModal) {
-                signatureModal.classList.remove('hidden');
-            }
-        });
-    }
-
-    // --- Botón de Compartir PDF ---
-    if (btnCompartir) {
-        btnCompartir.addEventListener('click', function(e) {
-            e.preventDefault();
-            accionPendiente = 'compartir';
+            // Abrir el modal mostrando la interfaz
             if (signatureModal) {
                 signatureModal.classList.remove('hidden');
             }
@@ -390,6 +375,7 @@ window.addEventListener('DOMContentLoaded', function() {
                 
                 // Formatear fecha
                 if (fechaVal) {
+                    // Evitar desfase de zona horaria restando o usando parse de fecha local
                     const dateParts = fechaVal.split('-');
                     if (dateParts.length === 3) {
                         document.getElementById('infFecha').textContent = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
@@ -420,18 +406,13 @@ window.addEventListener('DOMContentLoaded', function() {
                     firmaAuditadoPDF.innerHTML = `<span style="color:#94a3b8; font-style:italic; font-size:0.85rem;">No firmada</span>`;
                 }
 
-                // Ocultar modal
+                // Ocultar modal y disparar impresión limpia
                 ocultarModal();
-
-                // 3. Ejecutar acción según el botón que inició el flujo
-                if (accionPendiente === 'compartir') {
-                    generarYCompartirPDF(empresaVal);
-                } else {
-                    // Breve retraso para asegurar que el modal se oculte antes de imprimir
-                    setTimeout(() => {
-                        window.print();
-                    }, 150);
-                }
+                
+                // Breve retraso para asegurar que el modal se oculte visualmente antes de la llamada de impresión
+                setTimeout(() => {
+                    window.print();
+                }, 150);
 
             } catch (err) {
                 mostrarNotificacion(
@@ -441,100 +422,6 @@ window.addEventListener('DOMContentLoaded', function() {
                 );
             }
         });
-    }
-
-    // --- Función de Compartir PDF con html2pdf.js + Web Share API ---
-    function generarYCompartirPDF(empresaNombre) {
-        const printZone = document.getElementById('informePrintZone');
-        if (!printZone) {
-            mostrarNotificacion('Error', 'No se encontró la zona de impresión del informe.', '❌');
-            return;
-        }
-
-        // Mostrar zona de impresión temporalmente para html2pdf
-        printZone.style.display = 'block';
-        printZone.style.position = 'absolute';
-        printZone.style.left = '-9999px';
-        printZone.style.top = '0';
-        printZone.style.width = '210mm';
-        printZone.style.background = 'white';
-        printZone.style.padding = '15mm 12mm';
-        printZone.style.color = 'black';
-        printZone.style.fontSize = '11pt';
-
-        // Mostrar firma-zone-pdf temporalmente
-        const firmaZone = printZone.querySelector('.firma-zone-pdf');
-        if (firmaZone) {
-            firmaZone.style.display = 'flex';
-            firmaZone.style.justifyContent = 'space-between';
-            firmaZone.style.marginTop = '40px';
-        }
-
-        const nombreArchivo = empresaNombre 
-            ? `Auditoria_${empresaNombre.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`
-            : 'Informe_Auditoria_Sanitaria.pdf';
-
-        const opciones = {
-            margin:       [0, 0, 0, 0],
-            filename:     nombreArchivo,
-            image:        { type: 'jpeg', quality: 0.95 },
-            html2canvas:  { scale: 2, useCORS: true, letterRendering: true },
-            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-            pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
-        };
-
-        // Generar PDF como blob
-        html2pdf().set(opciones).from(printZone).outputPdf('blob').then(function(pdfBlob) {
-            // Restaurar zona de impresión a oculta
-            printZone.removeAttribute('style');
-            if (firmaZone) firmaZone.removeAttribute('style');
-
-            const pdfFile = new File([pdfBlob], nombreArchivo, { type: 'application/pdf' });
-
-            // Intentar compartir con Web Share API (funciona en móviles y algunos escritorios)
-            if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
-                navigator.share({
-                    title: 'Informe de Auditoría Higiénico-Sanitaria',
-                    text: empresaNombre ? `Informe de auditoría de ${empresaNombre}` : 'Informe de auditoría sanitaria',
-                    files: [pdfFile]
-                }).catch(function(err) {
-                    // Si el usuario cancela el share, no es un error
-                    if (err.name !== 'AbortError') {
-                        console.warn('Error al compartir:', err);
-                        descargarPDFFallback(pdfBlob, nombreArchivo);
-                    }
-                });
-            } else {
-                // Fallback: descargar el archivo directamente
-                descargarPDFFallback(pdfBlob, nombreArchivo);
-                mostrarNotificacion(
-                    'PDF Generado',
-                    'El PDF se ha descargado a su dispositivo. Puede compartirlo manualmente desde su carpeta de descargas.',
-                    '✅'
-                );
-            }
-        }).catch(function(err) {
-            // Restaurar zona en caso de error
-            printZone.removeAttribute('style');
-            if (firmaZone) firmaZone.removeAttribute('style');
-            mostrarNotificacion(
-                'Error al Generar PDF',
-                'No se pudo generar el PDF para compartir: ' + err.message,
-                '❌'
-            );
-        });
-    }
-
-    // Fallback de descarga directa
-    function descargarPDFFallback(blob, nombreArchivo) {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = nombreArchivo;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
     }
 
     // --- 5. Manejo de vistas previas de fotos y eliminación en el formulario ---
