@@ -35,6 +35,32 @@ window.addEventListener('DOMContentLoaded', function() {
         return;
     }
 
+    // --- Selectores del Modal de Notificación ---
+    const notifModal = document.getElementById('notifModal');
+    const notifIcon = document.getElementById('notifIcon');
+    const notifTitle = document.getElementById('notifTitle');
+    const notifMessage = document.getElementById('notifMessage');
+    const btnCloseNotif = document.getElementById('btnCloseNotif');
+    const closeNotifModal = document.getElementById('closeNotifModal');
+
+    function mostrarNotificacion(titulo, mensaje, icono) {
+        if (!notifModal) return;
+        notifIcon.textContent = icono || '⚠️';
+        notifTitle.textContent = titulo || 'Atención';
+        notifMessage.textContent = mensaje || '';
+        notifModal.classList.remove('hidden');
+    }
+
+    function ocultarNotificacion() {
+        if (notifModal) notifModal.classList.add('hidden');
+    }
+
+    if (btnCloseNotif) btnCloseNotif.addEventListener('click', ocultarNotificacion);
+    if (closeNotifModal) closeNotifModal.addEventListener('click', ocultarNotificacion);
+    window.addEventListener('click', function(e) {
+        if (e.target === notifModal) ocultarNotificacion();
+    });
+
     btnCalcular.addEventListener('click', function(event) {
         event.preventDefault();
         event.stopPropagation();
@@ -72,7 +98,11 @@ window.addEventListener('DOMContentLoaded', function() {
         });
         
         if (!formsValidos) {
-            alert("⚠️ Por favor, rellene todos los datos generales de la empresa marcados en rojo.");
+            mostrarNotificacion(
+                'Campos Obligatorios Incompletos',
+                'Por favor, rellene todos los datos generales de la empresa marcados en rojo antes de continuar.',
+                '🚫'
+            );
             // Enfocar el primer input vacío
             const primerVacio = inputsMeta.find(input => input && input.value.trim() === "");
             if (primerVacio) primerVacio.focus();
@@ -83,7 +113,11 @@ window.addEventListener('DOMContentLoaded', function() {
             const questionCards = document.querySelectorAll('.question-card');
             
             if (questionCards.length === 0) {
-                alert("⚠️ Error: No se encontraron tarjetas de preguntas (.question-card). Revisa el HTML.");
+                mostrarNotificacion(
+                    'Error de Estructura',
+                    'No se encontraron tarjetas de preguntas (.question-card). Revise el HTML.',
+                    '❌'
+                );
                 return;
             }
 
@@ -107,11 +141,14 @@ window.addEventListener('DOMContentLoaded', function() {
                 let imgTagHTML = "";
                 
                 if (fileInput && fileInput.files && fileInput.files[0]) {
-                    try {
-                        const imgURL = URL.createObjectURL(fileInput.files[0]);
-                        imgTagHTML = `<img src="${imgURL}" class="img-evidencia">`;
-                    } catch (e) {
-                        imgTagHTML = `<p style="color:red; font-size:0.75rem; margin-top:5px;">⚠️ [Imagen acoplada]</p>`;
+                    // Se usa el data URL ya almacenado en la vista previa para que funcione en el PDF
+                    const previewContainer = card.querySelector('.preview-container');
+                    const imgPreview = previewContainer ? previewContainer.querySelector('.img-preview') : null;
+                    if (imgPreview && imgPreview.src && imgPreview.src.startsWith('data:')) {
+                        imgTagHTML = `<img src="${imgPreview.src}" class="img-evidencia">`;
+                    } else {
+                        // Fallback: leer con FileReader sincronizado (la imagen aún no estará lista si no se previsualizo)
+                        imgTagHTML = `<p style="color:orange; font-size:0.75rem; margin-top:5px;">📷 [Imagen adjuntada - vista previa no disponible]</p>`;
                     }
                 }
 
@@ -198,7 +235,11 @@ window.addEventListener('DOMContentLoaded', function() {
             resultBlock.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
         } catch (error) {
-            alert("Error al procesar la auditoría: " + error.message);
+            mostrarNotificacion(
+                'Error de Procesamiento',
+                'Error al procesar la auditoría: ' + error.message,
+                '❌'
+            );
         }
     });
 
@@ -374,7 +415,11 @@ window.addEventListener('DOMContentLoaded', function() {
                 }, 150);
 
             } catch (err) {
-                alert("Error al formatear firmas o generar la impresión: " + err.message);
+                mostrarNotificacion(
+                    'Error de Generación',
+                    'Error al formatear firmas o generar la impresión: ' + err.message,
+                    '❌'
+                );
             }
         });
     }
