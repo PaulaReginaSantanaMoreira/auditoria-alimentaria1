@@ -1,6 +1,15 @@
 // Esperar a que la página esté cargada por completo
 window.addEventListener('DOMContentLoaded', function() {
 
+    // --- Pre-seleccionar "0 - No cumple" por defecto en todas las preguntas ---
+    const optionGroups = document.querySelectorAll('.btn-group-options');
+    optionGroups.forEach(group => {
+        const firstRadio = group.querySelector('input[type="radio"][value="0"]');
+        if (firstRadio && !group.querySelector('input[type="radio"]:checked')) {
+            firstRadio.checked = true;
+        }
+    });
+
     // --- Selectores principales ---
     const btnCalcular = document.getElementById('btnCalcular');
     const btnImprimir = document.getElementById('btnImprimir');
@@ -26,10 +35,49 @@ window.addEventListener('DOMContentLoaded', function() {
         return;
     }
 
-    // --- 1. Lógica de Evaluación de la Auditoría ---
     btnCalcular.addEventListener('click', function(event) {
         event.preventDefault();
         event.stopPropagation();
+
+        // 1. Validar campos obligatorios de datos generales
+        const inputsMeta = [
+            document.getElementById('empresaInput'),
+            document.getElementById('cifInput'),
+            document.getElementById('fechaInput'),
+            document.getElementById('direccionInput')
+        ];
+        
+        let formsValidos = true;
+        
+        inputsMeta.forEach(input => {
+            if (!input) return;
+            if (input.value.trim() === "") {
+                input.classList.add('invalid-input');
+                formsValidos = false;
+            } else {
+                input.classList.remove('invalid-input');
+            }
+            
+            // Limpiar la advertencia visual en rojo en tiempo real cuando escriban o editen
+            if (!input.dataset.hasValidationListener) {
+                const limpiarWarning = () => {
+                    if (input.value.trim() !== "") {
+                        input.classList.remove('invalid-input');
+                    }
+                };
+                input.addEventListener('input', limpiarWarning);
+                input.addEventListener('change', limpiarWarning);
+                input.dataset.hasValidationListener = "true";
+            }
+        });
+        
+        if (!formsValidos) {
+            alert("⚠️ Por favor, rellene todos los datos generales de la empresa marcados en rojo.");
+            // Enfocar el primer input vacío
+            const primerVacio = inputsMeta.find(input => input && input.value.trim() === "");
+            if (primerVacio) primerVacio.focus();
+            return;
+        }
 
         try {
             const questionCards = document.querySelectorAll('.question-card');
