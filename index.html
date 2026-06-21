@@ -5,18 +5,39 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>App de Auditoría Sanitaria Profesional</title>
     <link rel="stylesheet" href="style.css">
-    <I am Live>
-<body
+</head>
+<body>
 
     <header>
         <h1>Rúbrica de Auditoría Higiénico-Sanitaria</h1>
         <p>Dispositivo de Inspección de Campo — 30 Puntos de Control</p>
     </header>
-
-
+    
     <main class="container">
+        <section class="metadata-card no-print">
+            <h2>Datos Generales de la Inspección Higiénico-Sanitaria</h2>
+            <div class="meta-grid-tres">
+                <div class="form-group-meta">
+                    <label for="empresaInput">1.1. Nombre de la Empresa Auditada:</label>
+                    <input type="text" id="empresaInput" placeholder="Ej: Matadero Insular de Tenerife">
+                </div>
+                <div class="form-group-meta">
+                    <label for="cifInput">1.2. CIF / NIF:</label>
+                    <input type="text" id="cifInput" placeholder="Ej: A38000000">
+                </div>
+                <div class="form-group-meta">
+                    <label for="fechaInput">Fecha de la Auditoría:</label>
+                    <input type="date" id="fechaInput">
+                </div>
+            </div>
+            <div class="form-group-meta" style="margin-top: 10px;">
+                <label for="direccionInput">1.3. Dirección del Establecimiento:</label>
+                <input type="text" id="direccionInput" placeholder="Ej: Calle San Francisco, Nº 4, Tenerife">
+            </div>
+        </section>
+
         <div id="auditForm">
-            
+            <!-- Sección 1 -->
             <section class="audit-section">
                 <h2>1. Infraestructura y Equipos <span class="norm-ref">(RD 852/2004, ISO 22000)</span></h2>
                 
@@ -181,6 +202,7 @@
                 </div>
             </section>
 
+            <!-- Sección 2 -->
             <section class="audit-section">
                 <h2>2. Higiene y Manipulación <span class="norm-ref">(Codex Alimentarius, RD 1021/2022)</span></h2>
                 
@@ -345,6 +367,7 @@
                 </div>
             </section>
 
+            <!-- Sección 3 -->
             <section class="audit-section">
                 <h2>3. Plan de Prerrequisitos y APPCC <span class="norm-ref">(APPCC, RD 562/2025, IFS)</span></h2>
                 
@@ -526,14 +549,28 @@
         </div>
     </main>
 
+    <!-- ÚNICO BLOQUE DE IMPRESIÓN OFICIAL DEL PDF (OCULTO EN WEB) -->
     <div id="informePrintZone" class="print-only">
         <div class="informe-header">
             <h1>INFORME DE AUDITORÍA HIGIÉNICO-SANITARIA</h1>
-            <p>Conformidad Normativa Sanitaria Agroalimentaria (Codex, APPCC, Reales Decretos, ISO 22000, IFS)</p>
+            <p>Conformidad Normativa Sanitaria Agroalimentaria (Codex, APPCC, Reales Decretos, ISO 22000)</p>
         </div>
+        
         <table class="info-meta-table">
-            <tr><td><strong>Fecha de Inspección:</strong> <span id="infFecha">-</span></td><td><strong>Conformidad del Sistema:</strong> <span id="infScore">0%</span></td></tr>
-            <tr><td colspan="2"><strong>Dictamen Sanitario Oficial:</strong> <span id="infDictamen">-</span></td></tr>
+            <tr>
+                <td><strong>Empresa Auditada:</strong> <span id="infEmpresa">-</span></td>
+                <td><strong>CIF:</strong> <span id="infCif">-</span></td>
+            </tr>
+            <tr>
+                <td colspan="2"><strong>Dirección del Establecimiento:</strong> <span id="infDireccion">-</span></td>
+            </tr>
+            <tr>
+                <td><strong>Fecha de Inspección:</strong> <span id="infFecha">-</span></td>
+                <td><strong>Conformidad del Sistema:</strong> <span id="infScore">0%</span></td>
+            </tr>
+            <tr>
+                <td colspan="2"><strong>Dictamen Sanitario Oficial:</strong> <span id="infDictamen">-</span></td>
+            </tr>
         </table>
         
         <div class="informe-section">
@@ -553,13 +590,54 @@
             <tbody id="tablaDeficiencias"></tbody>
         </table>
         
-        <div class="firma-zone">
-            <div class="firma-line"><p>Firma Inspector / Auditor Técnico</p></div>
-            <div class="firma-line"><p>Firma Responsable Legal del Establecimiento</p></div>
+        <div class="firma-zone-pdf">
+            <div class="firma-box-pdf">
+                <div id="firmaDigitalAuditorPDF"></div>
+                <p style="border-top: 1px solid #000; padding-top: 5px; margin-top: 5px;">Firma Inspector / Auditor Técnico</p>
+            </div>
+            <div class="firma-box-pdf">
+                <div id="firmaDigitalAuditadoPDF"></div>
+                <p style="border-top: 1px solid #000; padding-top: 5px; margin-top: 5px;">Firma Responsable Legal del Establecimiento</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE FIRMAS DIGITALES INTERACTIVAS -->
+    <div id="signatureModal" class="modal hidden no-print">
+        <div class="modal-content">
+            <span class="close-modal" id="closeModal">&times;</span>
+            <h2>Firmar Informe de Auditoría</h2>
+            <p class="modal-subtitle">Dibuje las firmas correspondientes con el ratón o el dedo directamente sobre los paneles blancos.</p>
+            
+            <div class="modal-firmas-grid">
+                <div class="signature-block">
+                    <label>✍️ Firma Inspector / Auditor Técnico</label>
+                    <div class="canvas-container">
+                        <canvas id="canvasAuditor" width="360" height="130"></canvas>
+                    </div>
+                    <div class="sig-actions">
+                        <button type="button" id="clearAuditor" class="btn-clear-sig">🔄 Borrar</button>
+                    </div>
+                </div>
+                
+                <div class="signature-block">
+                    <label>✍️ Firma Responsable Legal del Establecimiento</label>
+                    <div class="canvas-container">
+                        <canvas id="canvasAuditado" width="360" height="130"></canvas>
+                    </div>
+                    <div class="sig-actions">
+                        <button type="button" id="clearAuditado" class="btn-clear-sig">🔄 Borrar</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-actions">
+                <button type="button" id="btnCancelSignature" class="btn-modal-cancel">Cancelar</button>
+                <button type="button" id="btnConfirmSignature" class="btn-modal-confirm">Confirmar y Generar PDF</button>
+            </div>
         </div>
     </div>
 
     <script src="app.js"></script>
 </body>
 </html>
-

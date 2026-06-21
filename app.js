@@ -1,24 +1,41 @@
-// Forzar que el código espere a que la página esté cargada del todo en el móvil
+// Esperar a que la página esté cargada por completo
 window.addEventListener('DOMContentLoaded', function() {
 
+    // --- Selectores principales ---
     const btnCalcular = document.getElementById('btnCalcular');
+    const btnImprimir = document.getElementById('btnImprimir');
+    const resultBlock = document.getElementById('resultBlock');
     
+    const scoreDisplay = document.getElementById('scoreDisplay');
+    const infScore = document.getElementById('infScore');
+    const messageDisplay = document.getElementById('messageDisplay');
+    const infDictamen = document.getElementById('infDictamen');
+    const tablaDeficiencias = document.getElementById('tablaDeficiencias');
+    const infFecha = document.getElementById('infFecha');
+    
+    // --- Selectores del Modal de Firma ---
+    const signatureModal = document.getElementById('signatureModal');
+    const closeModal = document.getElementById('closeModal');
+    const btnCancelSignature = document.getElementById('btnCancelSignature');
+    const btnConfirmSignature = document.getElementById('btnConfirmSignature');
+    const canvasAuditor = document.getElementById('canvasAuditor');
+    const canvasAuditado = document.getElementById('canvasAuditado');
+
     if (!btnCalcular) {
-        alert("⚠️ Error crítico: No se encuentra el botón 'btnCalcular' en el HTML.");
+        console.error("⚠️ Error crítico: No se encuentra el botón 'btnCalcular' en el HTML.");
         return;
     }
 
+    // --- 1. Lógica de Evaluación de la Auditoría ---
     btnCalcular.addEventListener('click', function(event) {
-        // Bloquear cualquier comportamiento raro del navegador del móvil
         event.preventDefault();
         event.stopPropagation();
 
         try {
-            // Buscamos todas las tarjetas de preguntas
             const questionCards = document.querySelectorAll('.question-card');
             
             if (questionCards.length === 0) {
-                alert("⚠️ Error: No se encontraron tarjetas con la clase '.question-card'. Revisa tu HTML.");
+                alert("⚠️ Error: No se encontraron tarjetas de preguntas (.question-card). Revisa el HTML.");
                 return;
             }
 
@@ -27,31 +44,30 @@ window.addEventListener('DOMContentLoaded', function() {
             let criticalFailTriggered = false;
             let reportRowsHTML = ""; 
 
-            // Recorremos las 30 preguntas de forma ultra-segura
+            // Recorrer las 30 preguntas de control
             questionCards.forEach(card => {
                 const selectedRadio = card.querySelector('input[type="radio"]:checked');
                 
-                // Usamos selectores genéricos para evitar fallos si cambian los textos del HTML
                 const questionTextElement = card.querySelector('.question-text') || card.querySelector('p');
                 const questionText = questionTextElement ? questionTextElement.innerText : "Punto de control sin texto";
                 
                 const obsInputElement = card.querySelector('.obs-input') || card.querySelector('textarea');
                 const obsInput = obsInputElement ? obsInputElement.value.trim() : "";
                 
-                // Procesar imágenes evitando bloqueos de memoria del teléfono
+                // Procesamiento de imágenes (fotos adjuntas)
                 const fileInput = card.querySelector('.file-input') || card.querySelector('input[type="file"]');
                 let imgTagHTML = "";
                 
                 if (fileInput && fileInput.files && fileInput.files[0]) {
                     try {
                         const imgURL = URL.createObjectURL(fileInput.files[0]);
-                        imgTagHTML = `<img src="${imgURL}" class="img-evidencia" style="max-width: 100%; max-height: 180px; display: block; margin-top: 8px; border-radius: 4px; border: 1px solid #cbd5e1;">`;
+                        imgTagHTML = `<img src="${imgURL}" class="img-evidencia">`;
                     } catch (e) {
-                        imgTagHTML = `<p style="color:red; font-size:0.8rem;">⚠️ [Imagen acoplada]</p>`;
+                        imgTagHTML = `<p style="color:red; font-size:0.75rem; margin-top:5px;">⚠️ [Imagen acoplada]</p>`;
                     }
                 }
 
-                let val = 0; // Si no está marcado, cuenta como 0 por seguridad
+                let val = 0; // Valor por defecto si no se responde es 0
                 let estadoTexto = "No Cumple";
                 let badgeClase = "status-nocumple";
 
@@ -68,6 +84,7 @@ window.addEventListener('DOMContentLoaded', function() {
                         badgeClase = "status-nocumple";
                     }
                     
+                    // Comprobar si es un fallo crítico obligatorio
                     if (selectedRadio.dataset.critical === "true" && val === 0) {
                         criticalFailTriggered = true;
                     }
@@ -76,15 +93,15 @@ window.addEventListener('DOMContentLoaded', function() {
                 totalScore += val;
                 maxPossibleScore += 2;
 
-                // Añadir fila si hay fallos (0 o 1), fotos o comentarios escritos
+                // Añadir fila al PDF si hay un fallo (0 o 1), si hay comentarios o si hay fotos
                 if (val === 0 || val === 1 || obsInput !== "" || imgTagHTML !== "" || !selectedRadio) {
                     reportRowsHTML += `
                         <tr>
-                            <td style="padding: 10px; border: 1px solid #cbd5e1; font-size: 0.85rem; line-height: 1.4;"><strong>${questionText}</strong></td>
-                            <td style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; vertical-align: middle;">
-                                <span class="badge-status ${badgeClase}" style="padding:4px 8px; font-weight:bold; border-radius:4px; font-size:0.75rem;">${estadoTexto}</span>
+                            <td><strong>${questionText}</strong></td>
+                            <td style="text-align: center; vertical-align: middle;">
+                                <span class="badge-status ${badgeClase}">${estadoTexto}</span>
                             </td>
-                            <td style="padding: 10px; border: 1px solid #cbd5e1; font-size: 0.85rem;">
+                            <td>
                                 <div style="margin-bottom: 5px; color: #333;">${obsInput ? obsInput : "<em>Verificado sin novedades.</em>"}</div>
                                 ${imgTagHTML}
                             </td>
@@ -93,7 +110,7 @@ window.addEventListener('DOMContentLoaded', function() {
                 }
             });
 
-            // Cálculos finales
+            // Cálculos finales de conformidad
             const finalPercentage = Math.round((totalScore / maxPossibleScore) * 100);
             
             let dictamenTexto = "";
@@ -105,45 +122,268 @@ window.addEventListener('DOMContentLoaded', function() {
                 dictamenTexto = "Excelente cumplimiento. Sistema robusto y conforme.";
             }
 
-            // =======================================================
-            // SOLUCIÓN MÓVIL: FORZAR MOSTRAR EL BLOQUE ELIMINANDO LA CLASE CSS HIDDEN
-            // =======================================================
-            const resultBlock = document.getElementById('resultBlock');
+            // Mostrar el bloque de resultados
             if (resultBlock) {
-                // Borramos las clases viejas y forzamos de manera nativa que aparezca en pantalla
-                resultBlock.removeAttribute('class'); 
-                resultBlock.setAttribute('class', 'result-card'); 
-                resultBlock.style.display = "block"; 
-                resultBlock.style.visibility = "visible";
-                resultBlock.style.opacity = "1";
+                resultBlock.classList.remove('hidden');
             }
 
-            // Inyectar los datos en los textos correspondientes
-            document.getElementById('scoreDisplay').textContent = `Puntuación: ${finalPercentage}%`;
-            document.getElementById('infScore').textContent = `${finalPercentage}%`;
-            document.getElementById('messageDisplay').textContent = dictamenTexto;
-            document.getElementById('infDictamen').textContent = dictamenTexto;
+            // Inyectar datos calculados
+            scoreDisplay.textContent = `${finalPercentage}%`;
+            infScore.textContent = `${finalPercentage}%`;
+            messageDisplay.textContent = dictamenTexto;
+            infDictamen.textContent = dictamenTexto;
             
-            // Volcar las filas del informe final
-            document.getElementById('tablaDeficiencias').innerHTML = reportRowsHTML;
-            document.getElementById('infFecha').textContent = new Date().toLocaleDateString('es-ES');
-
-            // Scroll automático para que el móvil baje solo hasta los resultados
+            // Si no hay desviaciones o evidencias
+            if (reportRowsHTML === "") {
+                reportRowsHTML = `
+                    <tr>
+                        <td colspan="3" style="text-align: center; color: #475569; padding: 15px;">
+                            <em>Cumplimiento del 100% de los requisitos evaluados de campo. Sin desviaciones ni observaciones registradas.</em>
+                        </td>
+                    </tr>
+                `;
+            }
+            
+            tablaDeficiencias.innerHTML = reportRowsHTML;
+            
+            // Scroll suave hacia los resultados
             resultBlock.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-        } catch (errorGeneral) {
-            alert("Ocurrió un contratiempo técnico al procesar el botón: " + errorGeneral.message);
+        } catch (error) {
+            alert("Error al procesar la auditoría: " + error.message);
         }
     });
 
-    // Evento del botón de Imprimir / Generar PDF
-    const btnImprimir = document.getElementById('btnImprimir');
+    // --- 2. Lógica del Canvas para Firmas Digitales ---
+    function inicializarCanvasFirma(canvas, clearBtnId) {
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        let dibujando = false;
+
+        // Estilo del trazo digital (trazo profesional)
+        ctx.strokeStyle = "#0f172a"; 
+        ctx.lineWidth = 3;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+
+        // Obtener coordenadas ajustadas al tamaño del cliente y factor de escala
+        function obtenerCoordenadas(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            
+            // Escalar de forma proporcional según las propiedades HTML width/height del canvas
+            return {
+                x: (clientX - rect.left) * (canvas.width / rect.width),
+                y: (clientY - rect.top) * (canvas.height / rect.height)
+            };
+        }
+
+        const iniciarTrazo = (e) => {
+            dibujando = true;
+            canvas.dataset.signed = "true";
+            const p = obtenerCoordenadas(e);
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            // Evitar comportamiento por defecto en móviles (scroll o pull-to-refresh)
+            if (e.cancelable) e.preventDefault();
+        };
+
+        const dibujarTrazo = (e) => {
+            if (!dibujando) return;
+            const p = obtenerCoordenadas(e);
+            ctx.lineTo(p.x, p.y);
+            ctx.stroke();
+            if (e.cancelable) e.preventDefault();
+        };
+
+        const finalizarTrazo = () => {
+            dibujando = false;
+        };
+
+        // Eventos táctiles
+        canvas.addEventListener('touchstart', iniciarTrazo, { passive: false });
+        canvas.addEventListener('touchmove', dibujarTrazo, { passive: false });
+        canvas.addEventListener('touchend', finalizarTrazo);
+        canvas.addEventListener('touchcancel', finalizarTrazo);
+
+        // Eventos de ratón
+        canvas.addEventListener('mousedown', iniciarTrazo);
+        canvas.addEventListener('mousemove', dibujarTrazo);
+        window.addEventListener('mouseup', finalizarTrazo);
+
+        // Botón de borrado
+        const clearBtn = document.getElementById(clearBtnId);
+        if (clearBtn) {
+            clearBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                canvas.dataset.signed = "false";
+            });
+        }
+
+        // Estado inicial de firma vacía
+        canvas.dataset.signed = "false";
+    }
+
+    // Inicializar ambos paneles de firma
+    inicializarCanvasFirma(canvasAuditor, 'clearAuditor');
+    inicializarCanvasFirma(canvasAuditado, 'clearAuditado');
+
+
+    // --- 3. Control del Modal de Firmas ---
     if (btnImprimir) {
-        btnImprimir.addEventListener('click', function() {
-            const globalObsInput = document.getElementById('globalObsInput');
-            const globalObsValue = globalObsInput ? globalObsInput.value.trim() : "";
-            document.getElementById('infGlobalObs').textContent = globalObsValue ? globalObsValue : "Sin observaciones o conclusiones finales añadidas por el auditor.";
-            window.print();
+        btnImprimir.addEventListener('click', function(e) {
+            e.preventDefault();
+            // Abrir el modal mostrando la interfaz
+            if (signatureModal) {
+                signatureModal.classList.remove('hidden');
+            }
         });
     }
+
+    // Cerrar el modal
+    function ocultarModal() {
+        if (signatureModal) {
+            signatureModal.classList.add('hidden');
+        }
+    }
+
+    if (closeModal) closeModal.addEventListener('click', ocultarModal);
+    if (btnCancelSignature) btnCancelSignature.addEventListener('click', ocultarModal);
+
+    // Cerrar al pulsar fuera del contenido
+    window.addEventListener('click', function(e) {
+        if (e.target === signatureModal) {
+            ocultarModal();
+        }
+    });
+
+    // --- 4. Confirmación de Firmas y Generación de PDF ---
+    if (btnConfirmSignature) {
+        btnConfirmSignature.addEventListener('click', function(e) {
+            e.preventDefault();
+
+            const firmadoAuditor = canvasAuditor.dataset.signed === "true";
+            const firmadoAuditado = canvasAuditado.dataset.signed === "true";
+
+            // Advertencia opcional si las firmas están vacías
+            if (!firmadoAuditor || !firmadoAuditado) {
+                const continuar = confirm("⚠️ Al menos una de las firmas requeridas está vacía. ¿Desea proceder y generar el documento de todos modos?");
+                if (!continuar) return;
+            }
+
+            try {
+                // 1. Rellenar datos de cabecera generales del PDF
+                const empresaVal = document.getElementById('empresaInput').value.trim();
+                const cifVal = document.getElementById('cifInput').value.trim();
+                const direccionVal = document.getElementById('direccionInput').value.trim();
+                const fechaVal = document.getElementById('fechaInput').value;
+
+                document.getElementById('infEmpresa').textContent = empresaVal || "Establecimiento no especificado";
+                document.getElementById('infCif').textContent = cifVal || "-";
+                document.getElementById('infDireccion').textContent = direccionVal || "No registrada";
+                
+                // Formatear fecha
+                if (fechaVal) {
+                    // Evitar desfase de zona horaria restando o usando parse de fecha local
+                    const dateParts = fechaVal.split('-');
+                    if (dateParts.length === 3) {
+                        document.getElementById('infFecha').textContent = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
+                    } else {
+                        document.getElementById('infFecha').textContent = new Date(fechaVal).toLocaleDateString('es-ES');
+                    }
+                } else {
+                    document.getElementById('infFecha').textContent = new Date().toLocaleDateString('es-ES');
+                }
+
+                // Observaciones finales generales
+                const globalObsVal = document.getElementById('globalObsInput').value.trim();
+                document.getElementById('infGlobalObs').textContent = globalObsVal || "Sin observaciones finales añadidas por el auditor.";
+
+                // 2. Insertar las firmas dibujadas al PDF final
+                const firmaAuditorPDF = document.getElementById('firmaDigitalAuditorPDF');
+                const firmaAuditadoPDF = document.getElementById('firmaDigitalAuditadoPDF');
+
+                if (firmadoAuditor) {
+                    firmaAuditorPDF.innerHTML = `<img src="${canvasAuditor.toDataURL()}" alt="Firma Inspector/Auditor">`;
+                } else {
+                    firmaAuditorPDF.innerHTML = `<span style="color:#94a3b8; font-style:italic; font-size:0.85rem;">No firmada</span>`;
+                }
+
+                if (firmadoAuditado) {
+                    firmaAuditadoPDF.innerHTML = `<img src="${canvasAuditado.toDataURL()}" alt="Firma Responsable">`;
+                } else {
+                    firmaAuditadoPDF.innerHTML = `<span style="color:#94a3b8; font-style:italic; font-size:0.85rem;">No firmada</span>`;
+                }
+
+                // Ocultar modal y disparar impresión limpia
+                ocultarModal();
+                
+                // Breve retraso para asegurar que el modal se oculte visualmente antes de la llamada de impresión
+                setTimeout(() => {
+                    window.print();
+                }, 150);
+
+            } catch (err) {
+                alert("Error al formatear firmas o generar la impresión: " + err.message);
+            }
+        });
+    }
+
+    // --- 5. Manejo de vistas previas de fotos y eliminación en el formulario ---
+    const fileInputs = document.querySelectorAll('.file-input');
+    fileInputs.forEach(fileInput => {
+        fileInput.addEventListener('change', function() {
+            const card = fileInput.closest('.question-card');
+            if (!card) return;
+
+            // Buscar si ya existe un contenedor de vista previa
+            let previewContainer = card.querySelector('.preview-container');
+
+            if (fileInput.files && fileInput.files[0]) {
+                const file = fileInput.files[0];
+                
+                // Si no existe el contenedor de vista previa, lo creamos
+                if (!previewContainer) {
+                    previewContainer = document.createElement('div');
+                    previewContainer.className = 'preview-container';
+                    previewContainer.innerHTML = `
+                        <img class="img-preview" src="" alt="Vista previa">
+                        <button type="button" class="btn-remove-file" title="Eliminar foto">✖</button>
+                    `;
+                    
+                    // Insertar al final del área de evidencias
+                    const evidenceInputs = card.querySelector('.evidence-inputs');
+                    if (evidenceInputs) {
+                        evidenceInputs.appendChild(previewContainer);
+                    }
+                    
+                    // Añadir evento al botón de eliminación
+                    const removeBtn = previewContainer.querySelector('.btn-remove-file');
+                    removeBtn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        fileInput.value = ""; // Vaciar archivo en el input
+                        previewContainer.remove(); // Quitar de pantalla
+                    });
+                }
+
+                // Cargar y mostrar la miniatura de la imagen
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const imgPreview = previewContainer.querySelector('.img-preview');
+                    if (imgPreview) {
+                        imgPreview.src = e.target.result;
+                    }
+                };
+                reader.readAsDataURL(file);
+            } else {
+                // Si el usuario cancela o limpia, borramos el contenedor
+                if (previewContainer) {
+                    previewContainer.remove();
+                }
+            }
+        });
+    });
+
 });
