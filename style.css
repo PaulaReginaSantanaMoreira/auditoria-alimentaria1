@@ -273,6 +273,50 @@ header p {
     margin-top: 15px;
 }
 
+.btn-share {
+    display: block;
+    width: 100%;
+    padding: 16px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    margin-top: 10px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    transition: opacity 0.2s, transform 0.15s;
+}
+
+.btn-share:hover {
+    opacity: 0.92;
+}
+
+.btn-share:active {
+    transform: scale(0.98);
+}
+
+.result-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 15px;
+}
+
+@media (min-width: 500px) {
+    .result-actions {
+        flex-direction: row;
+        gap: 12px;
+    }
+    .result-actions .btn-print,
+    .result-actions .btn-share {
+        flex: 1;
+        margin-top: 0;
+    }
+}
+
 /* ==========================================================================
    7. BLOQUE DE RESULTADOS
    ========================================================================== */
