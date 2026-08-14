@@ -1,0 +1,671 @@
+/* ==========================================================================
+   MÓDULO DE CONSULTA NORMATIVA — normativa.css
+   Complemento para auditoria-alimentaria1
+   ========================================================================== */
+
+/* --- Botón FAB (Floating Action Button) --- */
+.norm-fab {
+  position: fixed;
+  bottom: 24px;
+  right: 20px;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #1a6b3a, #0f4d2b);
+  color: #ffffff;
+  border: none;
+  border-radius: 50px;
+  padding: 14px 20px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(15, 77, 43, 0.45);
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.norm-fab:hover {
+  background: linear-gradient(135deg, #1e8a49, #145f35);
+  box-shadow: 0 8px 28px rgba(15, 77, 43, 0.55);
+  transform: translateY(-2px) scale(1.03);
+}
+
+.norm-fab:active {
+  transform: scale(0.97);
+}
+
+.norm-fab.activo {
+  background: linear-gradient(135deg, #0f4d2b, #0a3320);
+  box-shadow: 0 4px 12px rgba(15, 77, 43, 0.35);
+}
+
+.norm-fab-icono {
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.norm-fab-texto {
+  letter-spacing: 0.02em;
+}
+
+/* --- Overlay oscuro de fondo --- */
+.norm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1150;
+  background-color: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: normFadeIn 0.2s ease;
+}
+
+@keyframes normFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* --- Panel lateral --- */
+.norm-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 1200;
+  width: 100%;
+  max-width: 460px;
+  height: 100%;
+  background-color: #ffffff;
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: normSlideIn 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes normSlideIn {
+  from { transform: translateX(100%); opacity: 0.5; }
+  to   { transform: translateX(0);   opacity: 1; }
+}
+
+/* --- Cabecera del panel --- */
+.norm-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px 14px;
+  background: linear-gradient(135deg, #1a6b3a, #0f4d2b);
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.norm-panel-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.norm-panel-icono {
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.norm-panel-titulo {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0;
+  color: #ffffff;
+}
+
+.norm-panel-subtitulo {
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.8);
+  margin: 2px 0 0;
+}
+
+.norm-panel-cerrar {
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.3);
+  color: #ffffff;
+  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.norm-panel-cerrar:hover {
+  background: rgba(255,255,255,0.28);
+}
+
+/* --- Buscador --- */
+.norm-buscador-wrapper {
+  position: relative;
+  padding: 14px 16px 10px;
+  flex-shrink: 0;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.norm-buscador-icono {
+  position: absolute;
+  left: 28px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.95rem;
+  pointer-events: none;
+  color: #64748b;
+}
+
+.norm-buscador {
+  width: 100%;
+  padding: 10px 36px 10px 36px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  color: #1e293b;
+  background: #ffffff;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.norm-buscador:focus {
+  border-color: #1a6b3a;
+  box-shadow: 0 0 0 3px rgba(26, 107, 58, 0.15);
+}
+
+.norm-buscador::placeholder {
+  color: #94a3b8;
+}
+
+.norm-buscador-limpiar {
+  position: absolute;
+  right: 28px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #e2e8f0;
+  border: none;
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #475569;
+  transition: background 0.2s;
+}
+
+.norm-buscador-limpiar:hover {
+  background: #cbd5e1;
+}
+
+/* --- Filtros de categoría --- */
+.norm-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 16px 12px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
+.norm-filtro-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 20px;
+  background: #ffffff;
+  color: #475569;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+
+.norm-filtro-btn:hover {
+  border-color: #1a6b3a;
+  color: #1a6b3a;
+}
+
+.norm-filtro-btn.activo {
+  background: #1a6b3a;
+  border-color: #1a6b3a;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(26, 107, 58, 0.3);
+}
+
+/* --- Contador de resultados --- */
+.norm-contador {
+  padding: 8px 16px 6px;
+  font-size: 0.78rem;
+  color: #64748b;
+  background: #f8fafc;
+  border-bottom: 1px solid #f1f5f9;
+  flex-shrink: 0;
+}
+
+.norm-contador strong {
+  color: #1a6b3a;
+  font-weight: 700;
+}
+
+/* --- Lista scrollable de tarjetas --- */
+.norm-lista {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 14px 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  scroll-behavior: smooth;
+}
+
+.norm-lista::-webkit-scrollbar {
+  width: 5px;
+}
+
+.norm-lista::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+}
+
+/* --- Tarjeta de normativa --- */
+.norm-tarjeta {
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px 16px 12px;
+  transition: box-shadow 0.2s, border-color 0.2s, transform 0.15s;
+  cursor: default;
+}
+
+.norm-tarjeta:hover {
+  border-color: #a7f3d0;
+  box-shadow: 0 4px 16px rgba(26, 107, 58, 0.12);
+  transform: translateY(-1px);
+}
+
+.norm-tarjeta-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.norm-tarjeta-codigo {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #1e293b;
+  background: #f1f5f9;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.norm-tarjeta-badges {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.norm-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.norm-badge-ambito {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.norm-badge-cat {
+  border: 1px solid transparent;
+}
+
+.norm-tarjeta-titulo {
+  font-size: 0.85rem;
+  color: #334155;
+  line-height: 1.4;
+  margin-bottom: 12px;
+}
+
+.norm-tarjeta-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.norm-tarjeta-requisitos-count {
+  font-size: 0.72rem;
+  color: #64748b;
+}
+
+.norm-btn-ver {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 14px;
+  background: linear-gradient(135deg, #1a6b3a, #0f4d2b);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(15, 77, 43, 0.25);
+}
+
+.norm-btn-ver:hover {
+  background: linear-gradient(135deg, #1e8a49, #145f35);
+  box-shadow: 0 4px 12px rgba(15, 77, 43, 0.35);
+  transform: translateY(-1px);
+}
+
+.norm-btn-ver:active {
+  transform: scale(0.97);
+}
+
+/* --- Sin resultados --- */
+.norm-sin-resultados {
+  text-align: center;
+  padding: 48px 20px;
+  color: #64748b;
+}
+
+.norm-sin-resultados span {
+  font-size: 2.5rem;
+  display: block;
+  margin-bottom: 12px;
+}
+
+.norm-sin-resultados p {
+  font-size: 0.9rem;
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.norm-sin-resultados button {
+  padding: 8px 18px;
+  background: #1a6b3a;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+/* --- Modal de detalle --- */
+.norm-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
+  background-color: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+  animation: normFadeIn 0.2s ease;
+}
+
+@media (min-width: 560px) {
+  .norm-modal {
+    align-items: center;
+    padding: 20px;
+  }
+}
+
+.norm-modal-content {
+  background: #ffffff;
+  border-radius: 20px 20px 0 0;
+  width: 100%;
+  max-width: 620px;
+  max-height: 92vh;
+  overflow-y: auto;
+  position: relative;
+  padding: 24px 22px 32px;
+  animation: normModalUp 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  scroll-behavior: smooth;
+}
+
+@media (min-width: 560px) {
+  .norm-modal-content {
+    border-radius: 16px;
+    max-height: 88vh;
+  }
+}
+
+@keyframes normModalUp {
+  from { transform: translateY(30px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.norm-modal-content::-webkit-scrollbar {
+  width: 5px;
+}
+
+.norm-modal-content::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+}
+
+.norm-modal-cerrar {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: #f1f5f9;
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  font-size: 1rem;
+  color: #475569;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+  z-index: 10;
+}
+
+.norm-modal-cerrar:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+/* --- Contenido del detalle --- */
+.norm-detalle-header {
+  margin-bottom: 16px;
+  padding-right: 40px;
+}
+
+.norm-detalle-badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.norm-detalle-codigo {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 8px;
+}
+
+.norm-detalle-titulo-completo {
+  font-size: 0.82rem;
+  color: #475569;
+  line-height: 1.55;
+  margin: 0;
+  border-left: 3px solid #1a6b3a;
+  padding-left: 10px;
+}
+
+/* --- Palabras clave --- */
+.norm-keywords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.norm-keyword {
+  display: inline-block;
+  padding: 3px 10px;
+  background: #f0fdf4;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+  border-radius: 20px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+/* --- Acordeones --- */
+.norm-acordeon {
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+.norm-acordeon-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 16px;
+  background: #f8fafc;
+  border: none;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #1e293b;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.18s;
+  gap: 8px;
+}
+
+.norm-acordeon-btn:hover {
+  background: #f1f5f9;
+}
+
+.norm-acordeon-btn.abierto {
+  background: #f0fdf4;
+  color: #166534;
+  border-bottom: 1.5px solid #d1fae5;
+}
+
+.norm-acordeon-icono {
+  font-size: 0.7rem;
+  flex-shrink: 0;
+  transition: transform 0.2s;
+}
+
+.norm-acordeon-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease, padding 0.3s ease;
+  padding: 0 16px;
+}
+
+.norm-acordeon-body.visible {
+  max-height: 600px;
+  padding: 14px 16px;
+}
+
+/* --- Listas dentro del acordeón --- */
+.norm-lista-items {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.norm-lista-items li {
+  font-size: 0.85rem;
+  color: #334155;
+  line-height: 1.55;
+}
+
+.norm-lista-auditables li {
+  color: #1e3a5f;
+}
+
+.norm-lista-auditables li::marker {
+  color: #1a6b3a;
+}
+
+.norm-pyme-text {
+  font-size: 0.85rem;
+  color: #334155;
+  line-height: 1.6;
+  margin: 0;
+  font-style: italic;
+  border-left: 3px solid #f59e0b;
+  padding-left: 12px;
+  background: #fffbeb;
+  padding: 10px 12px;
+  border-radius: 0 6px 6px 0;
+}
+
+/* --- Clase hidden --- */
+#normativa-modulo .hidden {
+  display: none !important;
+}
+
+/* --- Responsive: en móviles muy pequeños ocultar texto del FAB --- */
+@media (max-width: 380px) {
+  .norm-fab-texto {
+    display: none;
+  }
+  .norm-fab {
+    padding: 14px 16px;
+    border-radius: 50%;
+    width: 54px;
+    height: 54px;
+    justify-content: center;
+  }
+}
+
+/* --- No imprimir el módulo normativa --- */
+@media print {
+  #normativa-modulo {
+    display: none !important;
+  }
+}
