@@ -113,8 +113,62 @@
             border-radius: 7px; cursor: pointer;
             font-size: .8rem; font-weight: 600;
             color: var(--muted); transition: all .2s;
-            letter-spacing: .5px;
+            letter-spacing: 2px;
         }
+        /* ── SCORING REPORT ─────────────────────────────────────── */
+        #pantalla-informe { animation: slideIn .4s ease-out; }
+        .score-ring-wrap {
+            display: flex; flex-direction: column;
+            align-items: center; margin: 0 auto 28px;
+        }
+        .score-ring { position: relative; width: 160px; height: 160px; }
+        .score-ring svg { transform: rotate(-90deg); }
+        .score-ring-text {
+            position: absolute; inset: 0;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+        }
+        .score-number {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 3rem; font-weight: 900; line-height: 1;
+        }
+        .score-label { font-size: .7rem; color: var(--muted); letter-spacing: 1px; margin-top: 2px; }
+        .score-verdict { font-size: 1.1rem; font-weight: 700; margin-top: 10px; text-align: center; }
+        .score-bars { margin-bottom: 24px; }
+        .score-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .score-bar-label { font-size: .78rem; color: var(--muted); width: 130px; flex-shrink: 0; text-align: right; }
+        .score-bar-track { flex: 1; height: 8px; background: var(--border); border-radius: 999px; overflow: hidden; }
+        .score-bar-fill { height: 100%; border-radius: 999px; transition: width 1s cubic-bezier(.4,0,.2,1); }
+        .score-bar-val { font-size: .78rem; font-weight: 700; width: 26px; text-align: left; }
+        .report-section { margin-bottom: 20px; }
+        .report-section h4 {
+            font-size: .8rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 1.5px;
+            margin-bottom: 10px; padding-bottom: 6px;
+            border-bottom: 1px solid var(--border);
+        }
+        .report-items { display: flex; flex-direction: column; gap: 8px; }
+        .report-item {
+            display: flex; gap: 10px;
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 8px; padding: 10px 14px;
+            font-size: .82rem; line-height: 1.45; align-items: flex-start;
+        }
+        .report-item .ri-icon { font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+        .report-item.positive { border-color: rgba(16,185,129,.3); }
+        .report-item.improve  { border-color: rgba(245,158,11,.3); }
+        .report-item.critical { border-color: rgba(239,68,68,.3); }
+        .btn-new-session {
+            background: var(--primary); color: #fff;
+            width: 100%; justify-content: center; padding: 14px; margin-top: 8px;
+        }
+        .btn-new-session:hover { background: var(--primary-dk); box-shadow: var(--glow-blue); }
+        .btn-save-report {
+            background: var(--card); color: var(--accent);
+            border: 1px solid rgba(245,158,11,.3);
+            width: 100%; justify-content: center; padding: 12px; margin-top: 8px;
+        }
+        .btn-save-report:hover { border-color: var(--accent); }
         .tab-btn.active {
             background: var(--card); color: var(--text);
             box-shadow: 0 2px 8px rgba(0,0,0,.4);
@@ -455,7 +509,54 @@
                         <label><input type="radio" name="q5" value="5"> 😱 5</label>
                     </div>
                 </div>
-                <button class="btn-submit" onclick="guardarChecklist()">💾 Guardar y Finalizar Sesión</button>
+                <button class="btn-submit" onclick="calcularYMostrarInforme()">📊 Ver Informe de Actuación →</button>
+            </div>
+        </div>
+
+        <!-- PANTALLA: INFORME DE ACTUACIÓN -->
+        <div id="pantalla-informe" class="hidden">
+            <div class="checklist-card">
+                <div class="session-done-header" style="margin-bottom:24px;">
+                    <div class="icon">📋</div>
+                    <h2>Informe de Actuación</h2>
+                    <p id="informe-fecha">—</p>
+                </div>
+                <!-- Anillo de puntuación -->
+                <div class="score-ring-wrap">
+                    <div class="score-ring">
+                        <svg width="160" height="160" viewBox="0 0 160 160">
+                            <circle cx="80" cy="80" r="68" fill="none" stroke="var(--border)" stroke-width="12"/>
+                            <circle id="score-arc" cx="80" cy="80" r="68" fill="none"
+                                stroke="var(--success)" stroke-width="12" stroke-linecap="round"
+                                stroke-dasharray="427" stroke-dashoffset="427"
+                                style="transition:stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1),stroke .4s"/>
+                        </svg>
+                        <div class="score-ring-text">
+                            <div class="score-number" id="score-num">—</div>
+                            <div class="score-label">/ 10</div>
+                        </div>
+                    </div>
+                    <div class="score-verdict" id="score-verdict"></div>
+                </div>
+                <!-- Barras por dimensión -->
+                <div class="score-bars" id="score-bars"></div>
+                <!-- Puntos fuertes -->
+                <div class="report-section">
+                    <h4 style="color:var(--success);">✅ Puntos Fuertes de la Sesión</h4>
+                    <div class="report-items" id="report-positivos"></div>
+                </div>
+                <!-- Áreas a mejorar -->
+                <div class="report-section">
+                    <h4 style="color:var(--accent);">🎯 Áreas a Mejorar</h4>
+                    <div class="report-items" id="report-mejorar"></div>
+                </div>
+                <!-- Recomendaciones -->
+                <div class="report-section">
+                    <h4 style="color:var(--primary);">💡 Recomendaciones para la Próxima Sesión</h4>
+                    <div class="report-items" id="report-recomendaciones"></div>
+                </div>
+                <button class="btn-save-report" onclick="guardarChecklist()">💾 Guardar Informe en Historial</button>
+                <button class="btn-new-session" onclick="location.reload()">▶ Iniciar Nueva Sesión</button>
             </div>
         </div>
     </section>
@@ -769,23 +870,181 @@ function descargarAudio() {
     a.click();
 }
 
-function guardarChecklist() {
+/* ── ALGORITMO DE PUNTUACIÓN ────────────────────────────────────── */
+function calcularPuntuacion(q1, q2, q3, q4, q5, tiempoSeg) {
+    const pts = { Si:10, Parcialmente:5, No:0, 'N/A':5 };
+    const ansPts = { '1':10, '2':8, '3':6, '4':3, '5':0 };
+    // Tiempo real: ≤15min=10, ≤16min=7, ≤17min=5, >17min=2
+    let ptTiempoReal = 10;
+    if (tiempoSeg > 1020) ptTiempoReal = 2;
+    else if (tiempoSeg > 960) ptTiempoReal = 5;
+    else if (tiempoSeg > 900) ptTiempoReal = 7;
+    const dim = [
+        { label:'Gestión del Tiempo',  val: Math.round((pts[q1] + ptTiempoReal) / 2) },
+        { label:'Pacing / Ritmo',      val: pts[q2] ?? 5 },
+        { label:'Pronunciación',       val: pts[q3] ?? 5 },
+        { label:'Foco del Mensaje',    val: pts[q4] ?? 5 },
+        { label:'Control de Ansiedad', val: ansPts[q5] ?? 5 }
+    ];
+    const total = parseFloat((dim.reduce((s, d) => s + d.val, 0) / dim.length / 10 * 10).toFixed(1));
+    return { dim, total };
+}
+
+function calcularYMostrarInforme() {
     const get = name => document.querySelector('input[name="' + name + '"]:checked')?.value ?? 'N/A';
+    const q1=get('q1'), q2=get('q2'), q3=get('q3'), q4=get('q4'), q5=get('q5');
+    estado._q = { q1, q2, q3, q4, q5 };
+
+    const { dim, total } = calcularPuntuacion(q1, q2, q3, q4, q5, estado.tiempoFinalSegundos);
+    const score10 = Math.max(1, Math.min(10, total));
+    estado._score = score10;
+
+    $('pantalla-checklist').classList.add('hidden');
+    $('pantalla-informe').classList.remove('hidden');
+
+    // Fecha y tiempo
+    $('informe-fecha').textContent =
+        new Date().toLocaleString('es-ES', { dateStyle:'long', timeStyle:'short' }) +
+        ' · Tiempo: ' + fmtMM_SS(estado.tiempoFinalSegundos);
+
+    // Anillo SVG animado
+    const arc = $('score-arc');
+    const circ = 2 * Math.PI * 68;
+    const pct  = score10 / 10;
+    const strokeColor = score10 >= 8 ? '#10b981' : score10 >= 5 ? '#f59e0b' : '#ef4444';
+    $('score-num').textContent = score10 % 1 === 0 ? score10 : score10.toFixed(1);
+    $('score-num').style.color = strokeColor;
+    arc.setAttribute('stroke', strokeColor);
+    arc.style.strokeDasharray  = circ;
+    arc.style.strokeDashoffset = circ;
+    setTimeout(() => { arc.style.strokeDashoffset = circ * (1 - pct); }, 120);
+
+    // Veredicto
+    const veredictos = [
+        { min:9, txt:'🏆 ¡Excelente! Estás lista para el tribunal.', col:'var(--success)' },
+        { min:7, txt:'💪 ¡Muy bien! Pule los últimos detalles.', col:'#34d399' },
+        { min:5, txt:'📈 Buen progreso. Sigue entrenando a diario.', col:'var(--accent)' },
+        { min:3, txt:'🔄 En construcción. ¡Cada sesión suma!', col:'#fb923c' },
+        { min:0, txt:'💡 Inicio difícil. Mañana será mejor.', col:'var(--danger)' }
+    ];
+    const v = veredictos.find(x => score10 >= x.min);
+    $('score-verdict').textContent = v.txt;
+    $('score-verdict').style.color = v.col;
+
+    // Barras por dimensión con animación
+    $('score-bars').innerHTML = dim.map(d => {
+        const col = d.val >= 7 ? '#10b981' : d.val >= 4 ? '#f59e0b' : '#ef4444';
+        return '<div class="score-bar-row">' +
+            '<div class="score-bar-label">' + d.label + '</div>' +
+            '<div class="score-bar-track"><div class="score-bar-fill" style="width:0%;background:' + col + '" data-target="' + d.val + '"></div></div>' +
+            '<div class="score-bar-val" style="color:' + col + '">' + d.val + '</div></div>';
+    }).join('');
+    setTimeout(() => {
+        document.querySelectorAll('.score-bar-fill').forEach(el => { el.style.width = el.dataset.target + '%'; });
+    }, 180);
+
+    // ── INFORME PERSONALIZADO ────────────────────────────────
+    const positivos = [], mejorar = [], recomendaciones = [];
+    const pts2 = { Si:10, Parcialmente:5, No:0, 'N/A':5 };
+
+    // Q1: Tiempo por slide
+    if (q1 === 'Si')
+        positivos.push({ icon:'⏱', txt:'Excelente control del tiempo: mantuviste cada diapositiva dentro del minuto permitido.' });
+    else if (q1 === 'Parcialmente') {
+        mejorar.push({ icon:'⏱', txt:'Algunas diapositivas superaron el minuto. Identifica cuáles y practica esos bloques por separado.' });
+        recomendaciones.push({ icon:'🎯', txt:'Practica la regla del "minuto por slide": cronométrate en cada una de forma individual.' });
+    } else {
+        mejorar.push({ icon:'🚨', txt:'Superaste el tiempo en varias diapositivas. Esto puede comprometer la percepción del tribunal.' });
+        recomendaciones.push({ icon:'✂️', txt:'Recorta el guión de cada slide a su esencia: 3-4 ideas máximo por diapositiva.' });
+    }
+
+    // Q2: Pacing
+    if (q2 === 'Si')
+        positivos.push({ icon:'🌬', txt:'Ritmo pausado y respiración controlada. Transmites autoridad y seguridad al tribunal.' });
+    else if (q2 === 'Parcialmente') {
+        mejorar.push({ icon:'🌬', txt:'En algunos momentos el ritmo se aceleró. La velocidad excesiva dificulta la comprensión.' });
+        recomendaciones.push({ icon:'⏸', txt:'Antes de cada diapositiva, haz una pausa de 1 segundo y exhala. Ancla el ritmo con esta rutina.' });
+    } else {
+        mejorar.push({ icon:'💨', txt:'Hablaste muy rápido. Este es el impacto directo de la ansiedad en tu oratoria.' });
+        recomendaciones.push({ icon:'🧘', txt:'Practica la técnica 4-7-8: inhala 4s, retén 7s, exhala 8s antes de cada entrenamiento.' });
+    }
+
+    // Q3: Pronunciación
+    if (q3 === 'Si')
+        positivos.push({ icon:'🎙', txt:'Mantuviste la calma ante tropiezos. Esta resiliencia oral es fundamental en defensas académicas.' });
+    else if (q3 === 'Parcialmente') {
+        mejorar.push({ icon:'🎙', txt:'Tuviste breves bloqueos. El tribunal entiende que es una presentación, no una actuación perfecta.' });
+        recomendaciones.push({ icon:'🔄', txt:'Ante un bloqueo, usa el conector: "Permítanme retomar ese punto..." y continúa con fluidez.' });
+    } else {
+        mejorar.push({ icon:'🔴', txt:'Los bloqueos interrumpieron el flujo de la presentación. Necesitas una estrategia de recuperación.' });
+        recomendaciones.push({ icon:'📌', txt:'Memoriza la frase de apertura de cada diapositiva. Son tu ancla de recuperación ante bloqueos.' });
+    }
+
+    // Q4: Foco del mensaje
+    if (q4 === 'Si')
+        positivos.push({ icon:'🎯', txt:'Priorizaste la claridad del mensaje sobre la perfección. Esta mentalidad es exactamente la que el tribunal valora.' });
+    else if (q4 === 'Parcialmente') {
+        mejorar.push({ icon:'🎯', txt:'A veces la autocrítica interrumpió el flujo. Recuerda: el TFM es lo importante, no sonar perfecta.' });
+        recomendaciones.push({ icon:'💬', txt:'Practica el mantra: "Mi investigación tiene valor. Estoy aquí para compartirla."' });
+    } else {
+        mejorar.push({ icon:'😟', txt:'La autocrítica fue muy elevada. Este pensamiento es el principal enemigo de la oratoria eficaz.' });
+        recomendaciones.push({ icon:'📓', txt:'Lleva un diario de autoeficacia: anota 1 logro por sesión. La acumulación reduce la autocrítica.' });
+    }
+
+    // Q5: Ansiedad
+    const niv = parseInt(q5) || 3;
+    if (niv <= 2)
+        positivos.push({ icon:'😌', txt:'Nivel de ansiedad muy bajo (' + q5 + '/5). Tu sistema nervioso está respondiendo positivamente al entrenamiento.' });
+    else if (niv === 3) {
+        mejorar.push({ icon:'😐', txt:'Ansiedad moderada (3/5). Es completamente normal. El objetivo es reducirla a 1-2 con el entrenamiento diario.' });
+        recomendaciones.push({ icon:'📅', txt:'Cada sesión diaria reduce la ansiedad un 5-10%. La constancia es tu mejor herramienta.' });
+    } else if (niv === 4) {
+        mejorar.push({ icon:'😰', txt:'Ansiedad elevada (4/5). Incorpora técnicas de relajación progresiva antes de cada entrenamiento.' });
+        recomendaciones.push({ icon:'🧘', txt:'10 minutos de mindfulness antes de entrenar reducen significativamente la respuesta ansiosa.' });
+    } else {
+        mejorar.push({ icon:'🚨', txt:'Ansiedad muy alta (5/5). El entrenamiento diario es exactamente la intervención que necesitas.' });
+        recomendaciones.push({ icon:'💊', txt:'Habla con tu tutor/a sobre técnicas de exposición gradual al estrés de la defensa.' });
+    }
+
+    // Tiempo total vs objetivo
+    if (estado.tiempoFinalSegundos <= 900)
+        positivos.push({ icon:'⏰', txt:'¡Presentación dentro del tiempo! (' + fmtMM_SS(estado.tiempoFinalSegundos) + ' / 15:00). ¡Perfecto!' });
+    else {
+        mejorar.push({ icon:'⏰', txt:'Superaste el tiempo total (' + fmtMM_SS(estado.tiempoFinalSegundos) + '). El tribunal puede cortar la palabra al llegar a 15:00.' });
+        recomendaciones.push({ icon:'✂️', txt:'Ensaya en 13:00 para tener 2 minutos de margen ante imprevistos del tribunal.' });
+    }
+
+    if (positivos.length === 0)
+        positivos.push({ icon:'🌱', txt:'Cada sesión es un paso adelante. El entrenamiento diario generará cambios visibles en 7-10 días.' });
+
+    const renderItems = (items, cls) => items.map(it =>
+        '<div class="report-item ' + cls + '"><span class="ri-icon">' + it.icon + '</span><span>' + it.txt + '</span></div>'
+    ).join('');
+
+    $('report-positivos').innerHTML      = renderItems(positivos, 'positive');
+    $('report-mejorar').innerHTML        = renderItems(mejorar, mejorar.some(m => m.icon==='🚨'||m.icon==='🔴') ? 'critical' : 'improve');
+    $('report-recomendaciones').innerHTML = renderItems(recomendaciones, 'improve');
+}
+
+function guardarChecklist() {
+    const q = estado._q || {};
+    const get = name => q[name] || (document.querySelector('input[name="' + name + '"]:checked')?.value ?? 'N/A');
     const sesion = {
-        fecha: new Date().toLocaleDateString('es-ES'),
-        hora:  new Date().toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' }),
+        fecha:         new Date().toLocaleDateString('es-ES'),
+        hora:          new Date().toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' }),
         gestionTiempo: get('q1'),
         pacing:        get('q2'),
         pronunciacion: get('q3'),
         focoMensaje:   get('q4'),
         ansiedad:      get('q5'),
         tiempoTotal:   estado.tiempoFinalSegundos,
-        tiempoFmt:     fmtMM_SS(estado.tiempoFinalSegundos)
+        tiempoFmt:     fmtMM_SS(estado.tiempoFinalSegundos),
+        puntuacion:    estado._score ?? null
     };
     const historico = JSON.parse(localStorage.getItem('historico_tfm') || '[]');
     historico.push(sesion);
     localStorage.setItem('historico_tfm', JSON.stringify(historico));
-    alert('✅ ¡Progreso guardado! Tu autoeficacia crece con cada práctica. ¡Sigue así!');
+    alert('✅ Informe guardado en el historial. ¡Sigue entrenando a diario!');
     location.reload();
 }
 
