@@ -1,86 +1,128 @@
 # TRABAJO DE FIN DE MÁSTER / PROYECTO DE FIN DE GRADO
 
-**Título del Proyecto:** Desarrollo de una Aplicación Web Interactiva para Auditorías Higiénico-Sanitarias y Control del Sistema APPCC en la Industria Alimentaria.
+**Título del Proyecto:** Desarrollo de una Aplicación Web Interactiva para Auditorías Higiénico-Sanitarias y Control del Sistema APPCC en la Industria Alimentaria.  
+**Plataforma de Producción:** **BioAudit Pro** — Next.js 15 (App Router) · OpenNext Cloudflare Workers · Clean Architecture · Domain-Driven Design (DDD) · Supabase PostgreSQL & Storage · Vitest Testing Suite.
 
 ---
 
-## RESUMEN
-El presente proyecto describe el diseño, desarrollo e implementación de una aplicación web, orientada a dispositivos móviles y tablets, destinada a la ejecución de auditorías higiénico-sanitarias in situ. La herramienta permite a los auditores e inspectores evaluar puntos de control normativos, adjuntar evidencias fotográficas, registrar observaciones, recoger firmas digitales mediante interfaz táctil y generar un informe oficial en formato PDF de manera instantánea, sin necesidad de conexión a un servidor backend.
+## RESUMEN EJECUTIVO
+El presente proyecto describe el diseño, desarrollo e implementación de una solución web de grado industrial, orientada a dispositivos móviles y tablets, destinada a la ejecución de auditorías higiénico-sanitarias in situ bajo el marco normativo del **Reglamento (CE) Nº 852/2004**, **Codex Alimentarius** e **ISO 22000**.
+
+La solución ha sido completamente estructurada bajo **Clean Architecture** y **Domain-Driven Design (DDD)**, separando de forma estricta los flujos de Frontend (PWA Offline-First con IndexedDB, Canvas API para firmas y cámara en tiempo real) y Backend (Route Handlers Edge, Casos de Uso aislados, Repositorios con Supabase y políticas RLS), preparada para despliegue distribuido de alto rendimiento en **Cloudflare Workers** mediante **OpenNext** (`@opennextjs/cloudflare`).
 
 ---
 
-## ÍNDICE
-1. [Introducción](#1-introducción)
-2. [Objetivos del Proyecto](#2-objetivos-del-proyecto)
-3. [Marco Teórico y Normativo](#3-marco-teórico-y-normativo)
-4. [Metodología y Desarrollo Técnico](#4-metodología-y-desarrollo-técnico)
-5. [Estructura del Proyecto y Arquitectura](#5-estructura-del-proyecto-y-arquitectura)
-6. [Resultados y Funcionamiento](#6-resultados-y-funcionamiento)
-7. [Conclusiones](#7-conclusiones)
-8. [Referencias y Bibliografía](#8-referencias-y-bibliografía)
+## 1. MARCO NORMATIVO Y TEÓRICO
+El sistema modela fielmente los principios de inocuidad y control oficial de alimentos:
+* **Reglamento (CE) Nº 178/2002:** Principios generales de la legislación alimentaria y trazabilidad bidireccional (Artículos 17 y 18).
+* **Reglamento (CE) Nº 852/2004:** Higiene de los productos alimenticios y aplicación de los 7 principios del sistema APPCC.
+* **Norma ISO 22000:2018:** Sistemas de gestión de inocuidad alimentaria y control de Puntos de Control Crítico (PCC/CCP) y Programas de Prerrequisitos (PPR).
+* **Rúbrica de 30 Puntos de Control:** Dividida en tres categorías con detección automática de vetos sanitarios ante no conformidades críticas:
+  1. *Infraestructura y Equipos* (Puntos 1.1 a 1.10) — Punto crítico 1.7 (Agua potable).
+  2. *Higiene y Manipulación del Personal* (Puntos 2.1 a 2.10) — Punto crítico 2.5 (Exclusión por sintomatología infecciosa).
+  3. *APPCC, Cadena de Frío y Procesos* (Puntos 3.1 a 3.10) — Punto crítico 3.1 (Monitorización de temperaturas críticas de frío).
 
 ---
 
-## 1. INTRODUCCIÓN
-La digitalización de los procesos de control de calidad en la industria alimentaria es una necesidad crítica. Tradicionalmente, las inspecciones higiénico-sanitarias se han realizado utilizando soportes físicos (papel), lo cual retrasa el procesamiento de datos, dificulta la trazabilidad y aumenta el margen de error. Esta aplicación surge como una solución tecnológica para estandarizar, agilizar y asegurar el rigor de las inspecciones en la industria alimentaria.
+## 2. ARQUITECTURA DE SOFTWARE & PILA TECNOLÓGICA
 
-## 2. OBJETIVOS DEL PROYECTO
+```
+src/
+├── domain/                                  # CAPA DE DOMINIO (Independiente de librerías externas)
+│   ├── entities/                            # Audit (Aggregate Root), Company, Auditor, ControlPoint
+│   ├── value-objects/                       # Cif, Score, Signature, EvidencePhoto
+│   ├── services/                            # ComplianceCalculatorService, NormativeCatalogService
+│   ├── repositories/                        # IAuditRepository, ICompanyRepository, IStorageRepository
+│   ├── constants/                           # default-control-points.ts (30 puntos normativos)
+│   └── errors/                              # DomainError, InvalidCifError, IncompleteAuditError
+│
+├── application/                             # CAPA DE APLICACIÓN (Casos de Uso & DTOs)
+│   ├── dtos/                                # CreateAuditDTO, EvaluatePointDTO, FinalizeAuditDTO (Zod)
+│   └── use-cases/                           # CreateAuditUseCase, EvaluatePointUseCase, FinalizeAndSignAuditUseCase, GetAuditReportUseCase
+│
+├── infrastructure/                          # CAPA DE INFRAESTRUCTURA (Adaptadores Secundarios)
+│   ├── database/supabase/                   # SupabaseClient SSR, Migraciones SQL, SupabaseAuditRepository, SupabaseCompanyRepository
+│   ├── storage/                             # SupabaseStorageRepository (Evidencias y Firmas)
+│   └── offline/                             # Dexie.js (IndexedDB) para operación de campo sin internet
+│
+└── presentation/                            # CAPA DE PRESENTACIÓN (Next.js & Frontend)
+    ├── app/                                 # Next.js App Router (Páginas y Route Handlers Edge)
+    │   ├── api/audits/                      # API Endpoints (POST /api/audits, GET, evaluate, finalize)
+    │   ├── (auth)/login/                    # Portal oficial de inspectores
+    │   └── (dashboard)/auditorias/          # Rúbrica de campo (/rubrica), Laudo oficial (/relatorio), Solicitud (/nova)
+    └── components/                          # Design System "Clinical Assurance" (Header, ProgressTracker, RubricControlCard, SignatureModal, ReportView)
+```
 
-### Objetivo General
-Desarrollar una herramienta digital autónoma e intuitiva para la realización de auditorías de calidad alimentaria que permita la evaluación automatizada y la emisión de dictámenes in situ.
-
-### Objetivos Específicos
-* Digitalizar la rúbrica de inspección higiénico-sanitaria con base en normativas europeas e internacionales.
-* Implementar un sistema de cálculo dinámico para determinar el porcentaje de conformidad (Cumple, Parcial, No Cumple).
-* Desarrollar un módulo de recolección de evidencias que permita la captura de fotografías en tiempo real.
-* Integrar un panel de firmas digitales táctiles (Canvas API) para validar legalmente el documento por ambas partes (Auditor y Auditado).
-* Garantizar la generación de un informe PDF limpio y formateado, asegurando la privacidad de los datos (procesamiento 100% en el cliente).
-
-## 3. MARCO TEÓRICO Y NORMATIVO
-El proyecto se fundamenta fuertemente en las directrices globales y europeas de seguridad alimentaria:
-* **Codex Alimentarius:** Principios Generales de Higiene de los Alimentos y directrices para la aplicación del sistema APPCC (Análisis de Peligros y Puntos de Control Crítico).
-* **Reglamento (CE) Nº 852/2004:** Relativo a la higiene de los productos alimenticios, que obliga a los operadores de empresas alimentarias a crear, aplicar y mantener procedimientos basados en los principios del APPCC.
-* **Norma ISO 22000:** Estándar internacional para sistemas de gestión de inocuidad alimentaria.
-* La rúbrica evalúa dimensiones clave: Infraestructura y Equipos, Higiene y Manipulación, y Control de Procesos (Trazabilidad, Plagas, Alérgenos).
-
-## 4. METODOLOGÍA Y DESARROLLO TÉCNICO
-
-### Pila Tecnológica (Tech Stack)
-El desarrollo se rigió por el principio de "cero dependencias externas" (Zero-Backend) para garantizar que la aplicación funcione en entornos aislados o con conectividad limitada.
-* **Frontend Estructural:** HTML5 semántico.
-* **Estilos y Diseño:** CSS3 (Vanilla) con un enfoque *Mobile-First*, utilizando Flexbox/Grid y un diseño responsivo. Se incluye un sofisticado módulo `@media print` para la reestructuración del DOM al generar el PDF.
-* **Lógica de Negocio:** JavaScript (Vanilla, ES6). Manejo avanzado del DOM, gestión de estados del formulario, y cálculos de cumplimiento.
-* **Gestión de Archivos:** `FileReader` API para la previsualización en base64 de imágenes adjuntas en tiempo real sin subir a un servidor.
-* **Firmas Digitales:** HTML `<canvas>` API con captura de eventos táctiles (`touchstart`, `touchmove`) y de ratón.
-
-### Decisiones de Diseño y Arquitectura
-* **Generación de PDF Nativo:** Tras evaluar librerías de terceros (como html2pdf.js), se optó por una solución nativa basada en la API de impresión del navegador (`window.print()`). Esta decisión (reflejada en los últimos *commits*) soluciona problemas de renderizado en blanco, optimiza el tamaño del archivo y aprovecha el motor del navegador para respetar los saltos de página (`page-break-inside`) y la calidad tipográfica del informe oficial.
-
-## 5. ESTRUCTURA DEL PROYECTO Y ARQUITECTURA
-El proyecto se compone de los siguientes archivos en la raíz:
-
-* `index.html`: Contiene el esqueleto de la aplicación, el formulario de 30 puntos de control divididos por categorías, las ventanas modales de firma y notificaciones, y la plantilla oculta que servirá como informe final para la impresión.
-* `style.css`: Estilos visuales del *Dashboard* de auditoría (colores, alertas visuales de error, tarjetas de evaluación) y reglas críticas de impresión (`@media print`, `.print-only`) que ocultan la interfaz de usuario y muestran únicamente el dictamen formal al generar el documento.
-* `app.js`: Script principal que controla la validación de campos obligatorios, el despliegue del modal de firmas, la lógica de dibujo en el Canvas, el cálculo del porcentaje de idoneidad, y la inyección de datos dinámicos en la plantilla del informe antes de invocar la impresión.
-
-## 6. RESULTADOS Y FUNCIONAMIENTO
-El flujo de usuario (User Journey) establecido es:
-1. **Recolección de Metadatos:** El auditor introduce Nombre, CIF, Fecha y Dirección. Si falta algún dato, el sistema bloquea el avance y marca los campos en rojo.
-2. **Evaluación Continua:** Se responde a cada punto (0 - No Cumple, 1 - Parcial, 2 - Cumple). Por defecto, la app preselecciona "No Cumple" para adoptar un enfoque de precaución.
-3. **Aportación de Pruebas:** Se pueden escribir observaciones y adjuntar una foto por cada punto de control.
-4. **Validación:** Al presionar "Finalizar y Evaluar", el sistema calcula la nota (%).
-5. **Aceptación y Firma:** Al presionar "Guardar PDF", se abre un modal para las firmas manuscritas de ambas partes.
-6. **Exportación:** Se genera y formatea automáticamente un informe profesional en A4 con la conclusión, las firmas y el listado exclusivo de desviaciones y evidencias, listo para ser archivado, enviado por correo o impreso.
-
-## 7. CONCLUSIONES
-Se ha logrado desarrollar una aplicación de auditoría robusta, ágil y escalable. La decisión de utilizar tecnologías nativas web garantiza la compatibilidad universal en dispositivos móviles sin necesidad de instalación desde tiendas de aplicaciones (App Store / Google Play). La herramienta cumple con los estándares exigidos por las bancas evaluadoras tanto a nivel técnico (código limpio, manejo de APIs nativas, diseño responsivo) como a nivel funcional y legal (cumplimiento de la normativa APPCC).
-
-## 8. REFERENCIAS Y BIBLIOGRAFÍA
-1. Parlamento Europeo y Consejo de la Unión Europea. (2004). *Reglamento (CE) nº 852/2004 relativo a la higiene de los productos alimenticios.*
-2. Comisión del Codex Alimentarius. (2020). *Principios Generales de Higiene de los Alimentos (CXC 1-1969).*
-3. Organización Internacional de Normalización (ISO). (2018). *ISO 22000:2018. Sistemas de gestión de la inocuidad de los alimentos.*
-4. Mozilla Developer Network (MDN). *Documentación sobre Canvas API y Web Print API.*
-5. W3C. *Especificaciones HTML5 y CSS3 Paged Media.*
+### Pila Tecnológica
+* **Framework:** Next.js 15.5+ (App Router, Server Components y Edge Route Handlers).
+* **Adaptador Cloudflare:** `@opennextjs/cloudflare` + `wrangler` (`.open-next/worker.js`).
+* **Base de Datos & Auth:** Supabase (PostgreSQL 15+, Row Level Security - RLS, Supabase Storage).
+* **Diseño & UI:** Tailwind CSS v3 con tokens del Design System *Clinical Assurance* (paleta esmeralda `#059669`, pizarra `#1E293B`, tipografía Inter, iconos Material Symbols).
+* **Modo Offline:** Dexie.js (IndexedDB local replica).
+* **Firmas & Evidencias:** HTML5 Canvas API táctil + captura de cámara en tiempo real.
+* **Generación de Laudo:** Estilizado `@media print` A4 para impresión o exportación instantánea a PDF nativo sin librerías pesadas en el cliente.
+* **Testing:** Vitest + React Testing Library (100% testabilidad en dominio y casos de uso con repositorios en memoria).
 
 ---
-*Documento autogenerado en cumplimiento de los requisitos de presentación técnica, teórica y normativa del Trabajo de Fin de Máster / Proyecto de Fin de Grado.*
+
+## 3. INSTALACIÓN Y EJECUCIÓN
+
+### Requisitos Previos
+* Node.js v20+ o v22 LTS instalado.
+* NPM v10+.
+
+### 1. Instalación de Dependencias
+```bash
+npm install
+```
+
+### 2. Ejecución de la Suíte de Testes Unitários
+```bash
+npm test
+```
+*Executa 19 testes automatizados cobrindo entidades, value objects, cálculo de APPCC e casos de uso isolados.*
+
+### 3. Modo Desenvolvimento
+```bash
+npm run dev
+```
+Acessar `http://localhost:3000`.
+
+### 4. Compilação de Produção Next.js & Cloudflare Worker (OpenNext)
+```bash
+# Build do Next.js
+npm run build
+
+# Build e empacotamento do Cloudflare Worker com OpenNext
+npm run build:worker
+```
+O pacote compilado do worker será gerado em `.open-next/worker.js`.
+
+### 5. Pré-visualização com Wrangler
+```bash
+npm run preview
+```
+
+---
+
+## 4. MAPEAMENTO DE TELAS E ROTAS
+
+| Tela do Sistema | Rota Next.js | Referência em `@temp` | Funcionalidade Principal |
+| :--- | :--- | :--- | :--- |
+| **Login do Inspetor** | `/login` | `temp/iniciar_sesi_n_bioaudit_pro` | Autenticação NIF/NIE, status PWA offline, seleção de perfil oficial. |
+| **Solicitação de Auditoria** | `/auditorias/nova` | `temp/solicitud_y_propuesta_de_auditor_a` | Stepper em 3 passos: normativa, escopo da planta e abertura da auditoria. |
+| **Rúbrica de Inspeção** | `/auditorias/[id]/rubrica` | `temp/r_brica_de_inspecci_n_sanitaria` | 30 pontos de controle com avaliação (0/1/2), fotos com pré-visualização, medidor circular SVG dinâmico e filtro por categorias. |
+| **Laudo Técnico Oficial** | `/auditorias/[id]/relatorio` | `index.html` (Relatório A4) | Laudo técnico formatado para impressão A4 (`window.print()`), exibição de assinaturas ratificadas e tabela de não-conformidades. |
+| **Controle de Licença** | `/suscripcion` | `temp/control_de_suscripci_n` / `control_de_acceso` | Gestão de planos profissionais, conformidade regulatória e bloqueio de acesso. |
+
+---
+
+## 5. CONCLUSÕES DO TRABALHO DE FIM DE MÁSTER (TFM)
+A modernização da solução para **Next.js com OpenNext no Cloudflare**, aliada à **Clean Architecture** e **DDD**, resolveu os desafios de escalabilidade e confiabilidade do protótipo inicial:
+1. **Separação Rígida de Responsabilidades:** O núcleo de regras de segurança alimentar (cálculos de conformidade, classificação de CCPs e validações) encontra-se totalmente desacoplado da tecnologia de persistência e da interface visual.
+2. **Resiliência de Campo:** A combinação de PWA com IndexedDB garante que inspetores atuem com total fluidez em áreas sem cobertura de rede (câmaras frigoríficas, porões e áreas rurais), sincronizando dados com o Supabase quando a conexão for reestabelecida.
+3. **Desempenho Global na Borda:** A compilação em Cloudflare Workers elimina custos de servidores virtuais e reduz a latência de carregamento a milissegundos em qualquer localidade.
+4. **Auditabilidade e Segurança:** O banco de dados PostgreSQL estruturado com políticas RLS garante isolamento criptográfico entre inspetores e empresas auditadas, em conformidade com o RGPD e as exigências sanitárias europeias.
+
+---
+*Documento gerado em cumprimento aos requisitos de apresentação técnica, teórica e normativa do Trabalho de Fim de Máster (TFM).*

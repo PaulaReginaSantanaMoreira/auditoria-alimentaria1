@@ -1,0 +1,120 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body {
+    width: 100%;
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+    font-family: 'Inter', sans-serif;
+    background-color: #f7f9fb;
+    color: #191c1e;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+}
+
+/* Ocultar barra de desplazamiento por defecto */
+::-webkit-scrollbar {
+  display: none;
+}
+* {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Símbolos Material */
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Estilos de Impresión Oficial A4 */
+@media print {
+  /* Ocultar elementos desnecessários na impressão */
+  .no-print, header, nav, .sticky, button {
+    display: none !important;
+  }
+
+  /* Reset de layout e fundo para A4 limpo */
+  html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    min-height: auto !important;
+    background: transparent !important;
+  }
+
+  .avoid-break {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .page-break {
+    break-before: page !important;
+    page-break-before: always !important;
+  }
+
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  thead {
+    display: table-header-group !important;
+  }
+
+  tr {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Imagens de assinaturas e evidências devem manter proporções e sempre serem impressas */
+  img {
+    max-width: 100% !important;
+    print-color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+  }
+
+  /* Forçar impressão fiel de cores e planos de fundo (backgrounds, badges, bordas) */
+  * {
+    print-color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 1.2cm 1cm;
+  }
+}
