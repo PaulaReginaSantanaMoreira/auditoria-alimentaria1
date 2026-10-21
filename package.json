@@ -15,7 +15,8 @@
     "build:worker": "opennextjs-cloudflare build",
     "preview": "opennextjs-cloudflare build && wrangler dev",
     "deploy": "opennextjs-cloudflare build && wrangler deploy",
-    "create:superadmin": "node --env-file=.env.develop scripts/create-superadmin.mjs"
+    "create:superadmin": "node --env-file=.env.develop scripts/create-superadmin.mjs",
+    "postinstall": "npx github:fabioferreccio/antigravity-skills install"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
@@ -51,5 +52,17 @@
     "postcss-selector-parser": "^7.1.7",
     "formdata-node": "^6.0.3",
     "glob": "^13.0.6"
+  },
+  "antigravity": {
+    "skills": {
+      "clean-architecture": "^1.2.0",
+      "frontend-architect": "^1.1.0",
+      "dba-agent": "^1.0.0",
+      "migration-reviewer": "^1.1.0",
+      "bug-hunter": "^1.2.0",
+      "devops-agent": "^1.0.0",
+      "web-pentest-agent": "^1.0.0",
+      "ai-onboarding": "^1.0.0"
+    }
   }
 }

@@ -120,3 +120,9 @@ $RECYCLE.BIN/
 .idea/
 *.sublime-workspace
 *.sublime-project
+
+
+# ==========================================
+# Antigravity Skills (Restored via postinstall)
+# ==========================================
+.agents/skills/
