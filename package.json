@@ -39,11 +39,17 @@
     "@types/react-dom": "^19.0.3",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
-    "jsdom": "^26.0.0",
-    "postcss": "^8.5.2",
-    "tailwindcss": "^3.4.17",
+    "jsdom": "^29.1.1",
+    "postcss": "^8.5.31",
+    "tailwindcss": "^3.4.19",
     "typescript": "^5.7.3",
-    "vitest": "^3.0.5",
+    "vitest": "^4.1.12",
     "wrangler": "^4.148.0"
+  },
+  "overrides": {
+    "postcss": "^8.5.31",
+    "postcss-selector-parser": "^7.1.7",
+    "formdata-node": "^6.0.3",
+    "glob": "^13.0.6"
   }
 }
