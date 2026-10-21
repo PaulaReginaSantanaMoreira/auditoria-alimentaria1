@@ -13,8 +13,9 @@ The project strictly follows **Clean Architecture** and **Domain-Driven Design (
 ```
 src/
 ├── domain/                  # Enterprise Business Rules & Entities (zero external dependencies)
-│   ├── entities/            # Audit (Aggregate Root), Company, Auditor, ControlPoint
+│   ├── entities/            # Audit (Aggregate Root), Company, Auditor, ControlPoint, Tenant, Subscription
 │   ├── value-objects/       # Cif, Score, Signature, EvidencePhoto
+│   ├── security/            # roles-and-permissions.ts (UserRole, Permission, AuditAccessScope, hasPermission)
 │   ├── services/            # ComplianceCalculatorService, NormativeCatalogService
 │   ├── repositories/        # IAuditRepository, ICompanyRepository, IStorageRepository
 │   ├── constants/           # default-control-points.ts (30 regulatory inspection points)
@@ -76,4 +77,5 @@ src/
 2. **Critical Food Safety Vetoes (APPCC):** Non-compliance on points 1.7 (Potable Water), 2.5 (Infectious Symptom Exclusion), or 3.1 (Cold Chain Critical Temperature) automatically triggers an immediate sanitary veto in `ComplianceCalculatorService`.
 3. **Offline-First Synchronization:** The field inspector rubric operates primarily against Dexie.js in IndexedDB. Remote synchronizations to Supabase must be idempotent and handle conflict resolution without losing evidence photos or signatures.
 4. **Evidence & Signature Integrity:** Digital signatures captured via Canvas must be encoded in base64 / PNG and validated before committing to Supabase Storage.
-5. **No Direct Secret Leaks:** Never commit `.env` or production credentials. Use Cloudflare Worker environment variables and Supabase RLS for data isolation.
+5. **Multi-Tenant Isolation & RBAC Governance:** All operations are scoped by `Tenant`. Access control is enforced via `UserRole` (`PLATFORM_SUPERADMIN`, `TENANT_ADMIN`, `AUDITOR`, `VIEWER`), `ROLE_PERMISSIONS`, and `AuditAccessScope` (`TENANT`, `CONFIDENTIAL`, `PRIVATE`) through `hasPermission()` and `canAccessAuditScope()`.
+6. **Strict Environment Secrets Protection (PROHIBITED ACCESS):** The AI assistant is strictly forbidden from reading, displaying, logging, or accessing the contents of `.env.develop`, `.env.local`, `.env.production`, or any `.env*` file containing actual credentials. The **only** environment file the AI is authorized to inspect is `.env.example` as a template reference. All configuration must be handled abstractly via `process.env.<VARIABLE_NAME>`.
