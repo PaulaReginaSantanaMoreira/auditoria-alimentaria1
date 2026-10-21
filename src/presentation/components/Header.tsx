@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/infrastructure/database/supabase/supabase-client";
+import { ChangePasswordModal } from "./ChangePasswordModal";
 
 interface HeaderProps {
   title?: string;
@@ -17,6 +19,7 @@ export function Header({
 }: HeaderProps) {
   const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [userEmail, setUserEmail] = useState("auditor@sanidad.es");
   const [userRole, setUserRole] = useState("Inspector Sanitario Oficial");
   const menuRef = useRef<HTMLDivElement>(null);
@@ -49,14 +52,16 @@ export function Header({
     };
   }, [isMenuOpen]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     try {
       localStorage.removeItem("bioaudit_session");
+      const supabase = createClient();
+      await supabase.auth.signOut();
     } catch {
       // ignore
     }
     setIsMenuOpen(false);
-    router.push("/login");
+    window.location.href = "/login";
   };
 
   const userInitials = (userEmail.split("@")[0] || "AU").slice(0, 2).toUpperCase();
@@ -151,6 +156,36 @@ export function Header({
                     <span>Mi Suscripción</span>
                   </Link>
 
+                  <Link
+                    href="/gestao/equipe"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-dark hover:bg-slate-surface transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-[18px] text-primary">group</span>
+                    <span>Equipo e Inspectores</span>
+                  </Link>
+
+                  <Link
+                    href="/superadmin"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-emerald-800 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-[18px] text-emerald-600">admin_panel_settings</span>
+                    <span>SuperAdmin Master</span>
+                  </Link>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      setIsChangePasswordOpen(true);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-slate-dark hover:bg-slate-surface transition-colors text-left cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[18px] text-primary">key</span>
+                    <span>Cambiar Contraseña</span>
+                  </button>
+
                   <div className="my-1 border-t border-slate-border/70" />
 
                   <button
@@ -167,6 +202,12 @@ export function Header({
           </div>
         </div>
       </div>
+
+      {/* Modal para redefinir senha informando a antiga */}
+      <ChangePasswordModal
+        isOpen={isChangePasswordOpen}
+        onClose={() => setIsChangePasswordOpen(false)}
+      />
     </header>
   );
 }

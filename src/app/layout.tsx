@@ -20,6 +20,9 @@ export const viewport: Viewport = {
   themeColor: "#006948",
 };
 
+import { CookieConsentBanner } from "@/presentation/components/CookieConsentBanner";
+import { LegalFooter } from "@/presentation/components/LegalFooter";
+
 export default function RootLayout({
   children,
 }: {
@@ -32,7 +35,11 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
       <body className="bg-surface text-on-surface antialiased flex flex-col min-h-screen">
-        {children}
+        <main className="flex-1 flex flex-col">
+          {children}
+        </main>
+        <LegalFooter />
+        <CookieConsentBanner />
       </body>
     </html>
   );

@@ -68,9 +68,12 @@ old/
 .env
 .env*.local
 .env.local
+.env.develop
+.env.development
 .env.development.local
 .env.test.local
 .env.production.local
+!.env.example
 *.pem
 *.key
 *.cert

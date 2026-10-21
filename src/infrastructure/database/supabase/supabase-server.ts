@@ -24,3 +24,35 @@ export async function createServerSupabaseClient() {
     },
   });
 }
+
+/**
+ * Validação rigorosa de privilégio de SuperAdministrador.
+ * Lança erro se o usuário não estiver autenticado ou não pertencer a platform_superusers.
+ */
+export async function ensureSuperAdmin() {
+  if (process.env.NEXT_PUBLIC_APP_MODE === "demo") {
+    return { id: "demo-superadmin", email: "admin@bioauditpro.com" };
+  }
+
+  const supabase = await createServerSupabaseClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    throw new Error("UNAUTHORIZED: Sessão expirada ou não autenticada.");
+  }
+
+  const { data: superuser, error: dbError } = await supabase
+    .from("platform_superusers")
+    .select("id, email")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (dbError || !superuser) {
+    throw new Error("FORBIDDEN: Apenas SuperAdministradores têm acesso a este recurso.");
+  }
+
+  return user;
+}

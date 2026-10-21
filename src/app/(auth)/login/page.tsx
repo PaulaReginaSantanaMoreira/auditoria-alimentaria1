@@ -1,19 +1,25 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { createClient } from "@/infrastructure/database/supabase/supabase-client";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [identifier, setIdentifier] = useState("auditor@sanidad.es");
-  const [password, setPassword] = useState("Admin1234!");
+  const [isDemoMode, setIsDemoMode] = useState(false);
+
+  const [identifier, setIdentifier] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<"auditor" | "consultor">("auditor");
   const [isLoading, setIsLoading] = useState(false);
 
-  // Validation States
-  const [errors, setErrors] = useState<{ identifier?: string; password?: string; general?: string }>({});
+  // Validation & Error States
+  const [errors, setErrors] = useState<{
+    identifier?: string;
+    password?: string;
+    general?: string;
+    success?: string;
+  }>({});
 
   // Password Recovery Modal State
   const [isRecoverModalOpen, setIsRecoverModalOpen] = useState(false);
@@ -22,174 +28,288 @@ export default function LoginPage() {
   const [recoverSuccess, setRecoverSuccess] = useState(false);
   const [recoverError, setRecoverError] = useState("");
 
+  useEffect(() => {
+    // Limpar imediatamente qualquer parâmetro da URL que possa ter sido exposto por submissão GET
+    if (typeof window !== "undefined" && window.location.search) {
+      const search = window.location.search;
+      if (search.includes("password") || search.includes("identifier")) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    }
+
+    const mode = process.env.NEXT_PUBLIC_APP_MODE;
+    setIsDemoMode(mode === "demo");
+    if (mode === "demo") {
+      setIdentifier("auditor@sanidad.es");
+      setPassword("Admin1234!");
+    }
+  }, []);
+
   const validateIdentifier = (value: string): boolean => {
     const trimmed = value.trim();
     if (!trimmed) return false;
-    // Email regex
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    // Spanish NIF/NIE/CIF regex
-    const nifCifRegex = /^[0-9]{8}[A-Z]$|^[XYZ][0-9]{7}[A-Z]$|^[ABCDEFGHJNPQRSUVW][0-9]{7}[0-9A-J]$/i;
-    return emailRegex.test(trimmed) || nifCifRegex.test(trimmed);
+    return emailRegex.test(trimmed);
   };
 
   const validatePassword = (value: string): boolean => {
     return value.length >= 6;
   };
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    const newErrors: { identifier?: string; password?: string; general?: string } = {};
-
-    if (!validateIdentifier(identifier)) {
-      newErrors.identifier = "Introduce un correo válido o NIF/NIE/CIF oficial (ej. auditor@sanidad.es o 12345678Z)";
+  const handleLogin = async (e?: React.SyntheticEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
     }
 
-    if (!validatePassword(password)) {
-      newErrors.password = "La clave de acceso debe contener al menos 6 caracteres";
+    // Extrai do state ou do elemento DOM nativo para garantir compatibilidade com autofill
+    const emailEl = document.getElementById("identifier") as HTMLInputElement | null;
+    const passwordEl = document.getElementById("password") as HTMLInputElement | null;
+
+    const emailVal = (identifier || emailEl?.value || "").trim();
+    const passwordVal = password || passwordEl?.value || "";
+
+    if (!emailVal) {
+      setErrors({ general: "Por favor, introduce tu correo electrónico corporativo." });
+      return;
     }
 
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailVal)) {
+      setErrors({
+        general: "Formato de correo no válido. Introduce tu dirección completa (ej: moreirapaulars@gmail.com).",
+      });
+      return;
+    }
+
+    if (!passwordVal) {
+      setErrors({ general: "Por favor, introduce tu contraseña." });
+      return;
+    }
+
+    if (passwordVal.length < 6) {
+      setErrors({ general: "La contraseña debe tener al menos 6 caracteres." });
       return;
     }
 
     setErrors({});
     setIsLoading(true);
 
-    // Persistir datos de sesión local para demo y modo offline
-    try {
-      localStorage.setItem(
-        "bioaudit_session",
-        JSON.stringify({
-          identifier: identifier.trim(),
-          role: selectedRole,
-          loginAt: new Date().toISOString(),
-        })
-      );
-    } catch {
-      // Ignorar fallback de storage
+    // MODO DEMO: Simulação local
+    if (isDemoMode) {
+      try {
+        localStorage.setItem(
+          "bioaudit_session",
+          JSON.stringify({
+            identifier: emailVal,
+            role: "auditor",
+            fullName: "Inspector Oficial Demo",
+            loginAt: new Date().toISOString(),
+          })
+        );
+      } catch {}
+
+      setTimeout(() => {
+        setIsLoading(false);
+        window.location.href = "/auditorias/nova";
+      }, 500);
+      return;
     }
 
-    setTimeout(() => {
+    // Autenticação via API Route oficial
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: emailVal, password: passwordVal }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data.success) {
+        setErrors({
+          general: data.error || "Credenciales de acceso no válidas. Contacte a su administrador.",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      if (data.user) {
+        localStorage.setItem(
+          "bioaudit_session",
+          JSON.stringify({
+            userId: data.user.id,
+            identifier: data.user.email,
+            role: data.user.role,
+            loginAt: new Date().toISOString(),
+          })
+        );
+      }
+
+      const searchParams = new URLSearchParams(window.location.search);
+      const redirectParam = searchParams.get("redirect");
+
+      const targetUrl =
+        data.redirectTo ||
+        (redirectParam && redirectParam.startsWith("/") ? redirectParam : "/auditorias/nova");
+
       setIsLoading(false);
-      router.push("/auditorias/nova");
-    }, 500);
+      window.location.href = targetUrl;
+    } catch (err: any) {
+      setErrors({ general: err.message || "Error al conectar con el servidor de autenticación." });
+      setIsLoading(false);
+    }
   };
 
-  const handleRecoverSubmit = (e: React.FormEvent) => {
+  const handleRecoverSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setRecoverError("");
     if (!validateIdentifier(recoverEmail)) {
-      setRecoverError("Por favor introduce un correo electrónico o NIF válido registrado.");
+      setRecoverError("Por favor introduce un correo electrónico válido registrado.");
       return;
     }
 
     setRecoverLoading(true);
-    setTimeout(() => {
+
+    if (isDemoMode) {
+      setTimeout(() => {
+        setRecoverLoading(false);
+        setRecoverSuccess(true);
+      }, 600);
+      return;
+    }
+
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.resetPasswordForEmail(recoverEmail.trim(), {
+        redirectTo: `${window.location.origin}/login`,
+      });
+
       setRecoverLoading(false);
-      setRecoverSuccess(true);
-    }, 800);
+      if (error) {
+        setRecoverError(error.message);
+      } else {
+        setRecoverSuccess(true);
+      }
+    } catch (err: any) {
+      setRecoverLoading(false);
+      setRecoverError(err.message || "Error al procesar recuperación.");
+    }
   };
 
   return (
     <main className="flex flex-col flex-1 relative w-full bg-surface pt-safe pb-safe min-h-screen justify-center items-center py-8">
       <div className="flex flex-col w-full px-margin-mobile pb-space-xl max-w-md mx-auto">
         {/* Corporate Header Card */}
-        <div className="bg-surface-container-lowest rounded-xl p-space-md shadow-sm mb-space-lg flex flex-col items-center text-center border border-slate-border/50">
+        <div className="bg-surface-container-lowest rounded-2xl p-space-md shadow-sm mb-space-md flex flex-col items-center text-center border border-slate-border">
           {/* Emblem */}
-          <div className="relative w-16 h-16 rounded-xl bg-status-pass-bg flex items-center justify-center text-primary mb-space-sm shadow-sm">
+          <div className="relative w-16 h-16 rounded-2xl bg-status-pass-bg flex items-center justify-center text-primary mb-space-sm shadow-sm">
             <span className="material-symbols-outlined text-[36px]">verified_user</span>
-            <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-primary text-on-primary flex items-center justify-center shadow-sm">
-              <span className="material-symbols-outlined text-[14px]">lock</span>
+            <div className="absolute -bottom-1 -right-1 bg-status-pass text-white rounded-full p-1 shadow-sm flex items-center justify-center">
+              <span className="material-symbols-outlined text-[16px]">lock</span>
             </div>
           </div>
-          <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight">BioAudit Pro</h1>
-          <p className="font-body-md text-body-md text-slate-subtext mt-0.5">
-            Control e Inocuidad Alimentaria Certificada
-          </p>
-          {/* Inspection Context Tag */}
-          <div className="mt-space-sm inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-surface-container-low text-on-surface-variant font-label-md text-label-md">
-            <span className="material-symbols-outlined text-[16px] text-primary">fact_check</span>
-            <span>Portal Oficial de Inspectores & Auditorías Sanitarias</span>
+
+          <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight">
+            BioAudit Pro
+          </h1>
+          <span className="font-label-sm text-label-sm text-slate-subtext uppercase tracking-wider mt-0.5">
+            Control Oficial e Inocuidad Alimentaria
+          </span>
+
+          <div className="mt-space-sm inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container text-on-surface-variant font-label-sm text-label-sm border border-slate-border/50">
+            <span className="material-symbols-outlined text-[14px] text-primary">policy</span>
+            <span>Reglamento (CE) 852/2004 • ISO 22000</span>
           </div>
         </div>
 
-        {/* Main Login Card */}
-        <div className="bg-surface-container-lowest rounded-xl p-space-lg shadow-sm mb-space-md border border-slate-border/50">
-          <form className="flex flex-col gap-space-md" onSubmit={handleLogin} noValidate>
-            {/* User / Auditor ID Field */}
+        {/* Form Container */}
+        <div className="bg-surface-container-lowest rounded-2xl p-space-lg shadow-sm border border-slate-border">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleLogin(e);
+            }}
+            action="javascript:void(0);"
+            method="POST"
+            noValidate
+            className="flex flex-col gap-space-md"
+          >
+            {/* Mensagem de Erro Geral */}
+            {errors.general && (
+              <div className="p-space-sm bg-alert-red-bg/25 border border-alert-red/30 rounded-xl flex items-start gap-2 text-alert-red font-label-md text-label-md animate-in fade-in duration-150">
+                <span className="material-symbols-outlined text-[20px] shrink-0">error</span>
+                <span>{errors.general}</span>
+              </div>
+            )}
+
+            {/* Identificador / Email */}
             <div className="flex flex-col gap-1">
-              <label className="font-label-md text-label-md text-on-surface font-semibold flex items-center justify-between" htmlFor="auditorIdentifier">
-                <span>Identificador Oficial o Correo</span>
-                <span className="font-label-sm text-label-sm text-slate-subtext">NIF / NIE / Email</span>
+              <label className="font-label-md text-label-md font-bold text-on-surface" htmlFor="identifier">
+                Correo Electrónico Corporativo
               </label>
               <div className="relative flex items-center">
-                <span className="absolute left-3.5 text-slate-subtext pointer-events-none material-symbols-outlined text-[20px]">
-                  badge
+                <span className="material-symbols-outlined absolute left-3 text-slate-subtext text-[20px] pointer-events-none">
+                  mail
                 </span>
                 <input
-                  className={`w-full h-12 pl-11 pr-4 bg-surface-container-lowest border rounded-lg font-body-lg text-body-lg text-on-surface placeholder:text-outline-variant focus:outline-none focus:border-primary shadow-sm transition-all ${
-                    errors.identifier ? "border-red-500 bg-red-50/20" : "border-slate-border"
-                  }`}
-                  id="auditorIdentifier"
-                  placeholder="ej. auditor@sanidad.es o 12345678Z"
-                  type="text"
+                  id="identifier"
+                  type="email"
                   value={identifier}
-                  onChange={(e) => {
-                    setIdentifier(e.target.value);
-                    if (errors.identifier) setErrors((prev) => ({ ...prev, identifier: undefined }));
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleLogin();
+                    }
                   }}
+                  placeholder="moreirapaulars@gmail.com"
+                  className="w-full h-11 pl-10 pr-space-sm rounded-xl bg-surface border border-slate-border text-on-surface text-body-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                 />
               </div>
               {errors.identifier && (
-                <span className="text-xs text-red-600 font-medium flex items-center gap-1 mt-0.5">
-                  <span className="material-symbols-outlined text-[14px]">error</span>
-                  {errors.identifier}
-                </span>
+                <span className="text-alert-red font-label-sm text-label-sm mt-0.5">{errors.identifier}</span>
               )}
             </div>
 
-            {/* Password Field */}
+            {/* Contraseña */}
             <div className="flex flex-col gap-1">
               <div className="flex items-center justify-between">
-                <label className="font-label-md text-label-md text-on-surface font-semibold" htmlFor="passwordField">
-                  Clave de Acceso Encriptada
+                <label className="font-label-md text-label-md font-bold text-on-surface" htmlFor="password">
+                  Contraseña
                 </label>
                 <button
                   type="button"
-                  onClick={() => {
-                    setRecoverEmail(identifier.includes("@") ? identifier : "");
-                    setRecoverSuccess(false);
-                    setRecoverError("");
-                    setIsRecoverModalOpen(true);
-                  }}
-                  className="font-label-md text-label-md text-primary font-semibold hover:underline"
+                  onClick={() => { setIsRecoverModalOpen(true); setRecoverSuccess(false); setRecoverError(""); }}
+                  className="text-primary hover:underline font-label-sm text-label-sm font-semibold cursor-pointer"
                 >
-                  ¿Olvidaste tu contraseña?
+                  ¿Olvidaste tu clave?
                 </button>
               </div>
               <div className="relative flex items-center">
-                <span className="absolute left-3.5 text-slate-subtext pointer-events-none material-symbols-outlined text-[20px]">
+                <span className="material-symbols-outlined absolute left-3 text-slate-subtext text-[20px] pointer-events-none">
                   key
                 </span>
                 <input
-                  className={`w-full h-12 pl-11 pr-12 bg-surface-container-lowest border rounded-lg font-body-lg text-body-lg text-on-surface placeholder:text-outline-variant focus:outline-none focus:border-primary shadow-sm transition-all ${
-                    errors.password ? "border-red-500 bg-red-50/20" : "border-slate-border"
-                  }`}
-                  id="passwordField"
-                  placeholder="Introduce tu clave de acceso"
+                  id="password"
                   type={showPassword ? "text" : "password"}
                   value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }));
+                  onChange={(e) => setPassword(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleLogin();
+                    }
                   }}
+                  placeholder="••••••••"
+                  className="w-full h-11 pl-10 pr-10 rounded-xl bg-surface border border-slate-border text-on-surface text-body-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                 />
                 <button
-                  aria-label="Mostrar u ocultar contraseña"
-                  className="absolute right-2 w-9 h-9 flex items-center justify-center text-slate-subtext hover:text-on-surface"
-                  onClick={() => setShowPassword(!showPassword)}
                   type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 text-slate-subtext hover:text-on-surface transition-colors p-1 cursor-pointer"
+                  aria-label={showPassword ? "Ocultar contraseña" : "Ver contraseña"}
                 >
                   <span className="material-symbols-outlined text-[20px]">
                     {showPassword ? "visibility_off" : "visibility"}
@@ -197,162 +317,91 @@ export default function LoginPage() {
                 </button>
               </div>
               {errors.password && (
-                <span className="text-xs text-red-600 font-medium flex items-center gap-1 mt-0.5">
-                  <span className="material-symbols-outlined text-[14px]">error</span>
-                  {errors.password}
-                </span>
+                <span className="text-alert-red font-label-sm text-label-sm mt-0.5">{errors.password}</span>
               )}
-            </div>
-
-            {/* Role Selection */}
-            <div className="flex flex-col gap-1.5">
-              <span className="font-label-sm text-label-sm text-slate-subtext font-semibold uppercase tracking-wider">
-                Perfil de Operación
-              </span>
-              <div className="grid grid-cols-2 gap-space-xs">
-                <button
-                  type="button"
-                  onClick={() => setSelectedRole("auditor")}
-                  className={`p-2.5 rounded-lg border text-left flex items-center gap-2 transition-all ${
-                    selectedRole === "auditor"
-                      ? "border-primary bg-primary/5 text-primary font-semibold"
-                      : "border-slate-border text-on-surface-variant hover:bg-slate-surface"
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-[18px]">gavel</span>
-                  <div className="flex flex-col">
-                    <span className="text-xs font-bold">Inspector Oficial</span>
-                    <span className="text-[10px] text-slate-subtext">Actas y Sanciones</span>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setSelectedRole("consultor")}
-                  className={`p-2.5 rounded-lg border text-left flex items-center gap-2 transition-all ${
-                    selectedRole === "consultor"
-                      ? "border-primary bg-primary/5 text-primary font-semibold"
-                      : "border-slate-border text-on-surface-variant hover:bg-slate-surface"
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-[18px]">verified</span>
-                  <div className="flex flex-col">
-                    <span className="text-xs font-bold">Consultor / Calidad</span>
-                    <span className="text-[10px] text-slate-subtext">Autocontrol APPCC</span>
-                  </div>
-                </button>
-              </div>
             </div>
 
             {/* Submit Button */}
             <button
-              className="w-full h-12 bg-primary text-on-primary rounded-lg font-title-md text-title-md font-bold hover:bg-primary-container shadow flex items-center justify-center gap-2 transition-all mt-2 cursor-pointer disabled:opacity-50"
+              type="button"
+              onClick={handleLogin}
               disabled={isLoading}
-              type="submit"
+              className="w-full h-12 rounded-xl bg-primary text-white font-title-sm text-title-sm font-bold shadow-md hover:bg-primary-container active:scale-[0.99] transition-all flex items-center justify-center gap-2 mt-space-xs disabled:opacity-50 cursor-pointer"
             >
               {isLoading ? (
-                <span className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[20px] animate-spin">refresh</span>
-                  Validando Credenciales...
-                </span>
+                <>
+                  <span className="material-symbols-outlined text-[20px] animate-spin">progress_activity</span>
+                  <span>Autenticando credenciales...</span>
+                </>
               ) : (
                 <>
                   <span className="material-symbols-outlined text-[20px]">login</span>
-                  <span>Acceder al Dispositivo de Auditoría</span>
+                  <span>Autenticar y Acceder</span>
                 </>
               )}
             </button>
           </form>
         </div>
-
-        {/* Links adicionais */}
-        <div className="flex items-center justify-between text-xs text-slate-subtext px-2">
-          <Link href="/suscripcion" className="hover:text-primary transition-colors">
-            Información de Suscripción & Planes
-          </Link>
-          <span>Normativa CE 852/2004</span>
-        </div>
       </div>
 
-      {/* Modal de Recuperação de Senha */}
+      {/* Modal de Recuperação */}
       {isRecoverModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-border animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-border">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary text-[24px]">lock_reset</span>
-                <h3 className="font-bold text-base text-slate-dark">Recuperar Contraseña</h3>
-              </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-on-surface/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-sm bg-surface-container-lowest rounded-2xl p-space-lg shadow-xl border border-slate-border animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between mb-space-sm">
+              <h2 className="font-title-md text-title-md text-on-surface font-bold">
+                Recuperar Contraseña
+              </h2>
               <button
                 type="button"
                 onClick={() => setIsRecoverModalOpen(false)}
-                className="text-slate-subtext hover:text-slate-dark text-lg p-1 rounded-full hover:bg-slate-surface"
+                className="w-8 h-8 rounded-full text-slate-subtext hover:bg-surface-container flex items-center justify-center cursor-pointer"
               >
-                ✕
+                <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
             </div>
 
             {recoverSuccess ? (
-              <div className="py-6 flex flex-col items-center text-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-status-pass-bg flex items-center justify-center text-status-pass">
-                  <span className="material-symbols-outlined text-[28px]">mark_email_read</span>
-                </div>
-                <h4 className="font-bold text-slate-dark text-base">Instrucciones enviadas</h4>
-                <p className="text-xs text-slate-subtext">
-                  Hemos enviado un enlace de restablecimiento seguro a <strong>{recoverEmail}</strong>. Por favor,
-                  revisa tu bandeja de entrada o carpeta de spam para renovar tu clave de acceso.
-                </p>
+              <div className="text-center py-space-sm">
+                <span className="material-symbols-outlined text-status-pass text-[48px] mb-2">check_circle</span>
+                <p className="text-body-sm text-on-surface font-semibold">Enlace de recuperación enviado</p>
+                <p className="text-label-sm text-slate-subtext mt-1">Revisa tu bandeja de correo para reestablecer tu contraseña.</p>
                 <button
                   type="button"
                   onClick={() => setIsRecoverModalOpen(false)}
-                  className="mt-3 px-6 py-2.5 rounded-lg bg-primary text-white font-bold text-xs shadow hover:bg-primary-container"
+                  className="mt-4 w-full h-10 rounded-xl bg-primary text-white font-semibold text-xs cursor-pointer"
                 >
-                  Volver al Inicio de Sesión
+                  Cerrar
                 </button>
               </div>
             ) : (
-              <form onSubmit={handleRecoverSubmit} className="py-4 flex flex-col gap-4">
-                <p className="text-xs text-slate-subtext leading-relaxed">
-                  Introduce tu correo corporativo oficial o el NIF/NIE con el que estás dado de alta en el censo de inspectores sanitarios:
+              <form onSubmit={handleRecoverSubmit} className="space-y-4">
+                <p className="text-body-sm text-slate-subtext">
+                  Introduce tu correo registrado para recibir las instrucciones de restablecimiento.
                 </p>
-
-                <div className="flex flex-col gap-1">
-                  <label htmlFor="recoverEmail" className="text-xs font-semibold text-slate-dark">
-                    Correo Electrónico o NIF Oficial
-                  </label>
-                  <input
-                    id="recoverEmail"
-                    type="text"
-                    required
-                    placeholder="ej. auditor@sanidad.es"
-                    value={recoverEmail}
-                    onChange={(e) => setRecoverEmail(e.target.value)}
-                    className="w-full h-11 px-3.5 border border-slate-border rounded-lg text-sm bg-surface-container-low focus:outline-none focus:border-primary"
-                  />
-                  {recoverError && <span className="text-xs text-red-600 mt-0.5">{recoverError}</span>}
-                </div>
-
-                <div className="flex justify-end gap-2 pt-2 border-t border-slate-border">
+                <input
+                  type="email"
+                  required
+                  placeholder="ejemplo@sanidad.es"
+                  value={recoverEmail}
+                  onChange={(e) => setRecoverEmail(e.target.value)}
+                  className="w-full h-11 px-space-sm rounded-xl bg-surface border border-slate-border text-on-surface text-body-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                />
+                {recoverError && <p className="text-xs text-alert-red">{recoverError}</p>}
+                <div className="flex items-center justify-end gap-2 pt-2">
                   <button
                     type="button"
                     onClick={() => setIsRecoverModalOpen(false)}
-                    className="px-4 py-2 rounded-lg text-xs font-semibold text-slate-subtext hover:bg-slate-surface"
+                    className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-subtext hover:bg-surface-container cursor-pointer"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
                     disabled={recoverLoading}
-                    className="px-5 py-2 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary-container flex items-center gap-1 shadow"
+                    className="px-4 py-2 rounded-xl text-xs font-bold bg-primary text-white hover:bg-primary-container cursor-pointer"
                   >
-                    {recoverLoading ? (
-                      <span>Enviando enlace...</span>
-                    ) : (
-                      <>
-                        <span className="material-symbols-outlined text-[16px]">send</span>
-                        <span>Enviar Enlace</span>
-                      </>
-                    )}
+                    {recoverLoading ? "Enviando..." : "Enviar Enlace"}
                   </button>
                 </div>
               </form>

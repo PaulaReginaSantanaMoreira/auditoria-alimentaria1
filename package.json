@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:develop": "node --env-file=.env.develop node_modules/next/dist/bin/next dev",
     "build": "next build",
+    "build:develop": "node --env-file=.env.develop node_modules/next/dist/bin/next build",
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
@@ -12,7 +14,8 @@
     "test:coverage": "vitest run --coverage",
     "build:worker": "opennextjs-cloudflare build",
     "preview": "opennextjs-cloudflare build && wrangler dev",
-    "deploy": "opennextjs-cloudflare build && wrangler deploy"
+    "deploy": "opennextjs-cloudflare build && wrangler deploy",
+    "create:superadmin": "node --env-file=.env.develop scripts/create-superadmin.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
