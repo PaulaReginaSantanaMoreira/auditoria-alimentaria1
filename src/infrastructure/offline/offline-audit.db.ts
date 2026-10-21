@@ -1,4 +1,5 @@
 import Dexie, { type Table } from "dexie";
+import { AuditAccessScope } from "@/domain/security/roles-and-permissions";
 
 export interface OfflineEvaluationRecord {
   code: string;
@@ -20,6 +21,9 @@ export interface OfflineAuditRecord {
   auditorSignatureName?: string;
   auditedSignatureBase64?: string;
   auditedSignatureName?: string;
+  accessScope?: AuditAccessScope;
+  createdByRole?: string;
+  createdByEmail?: string;
   isSynced: boolean;
   updatedAt: string;
 }
@@ -29,8 +33,8 @@ export class BioAuditOfflineDatabase extends Dexie {
 
   constructor() {
     super("BioAuditPro_OfflineDB");
-    this.version(1).stores({
-      audits: "id, companyCif, status, isSynced, updatedAt",
+    this.version(3).stores({
+      audits: "id, companyCif, status, accessScope, isSynced, updatedAt",
     });
   }
 }

@@ -32,13 +32,16 @@ export class CreateAuditUseCase {
       await this.companyRepository.save(company);
     }
 
+    const accessScope = input.accessScope ?? "TENANT";
+    const isConfidential = accessScope === "CONFIDENTIAL";
+
     // Instancia o Auditor atribuído
     const auditor = new Auditor({
       id: input.auditorId,
       authUserId: input.auditorId,
-      fullName: "Auditor Oficial BioAudit",
-      officialId: "B-SANIDAD",
-      email: "auditor@sanidad.es",
+      fullName: isConfidential ? "Administrador Master BioAudit" : "Auditor Oficial BioAudit",
+      officialId: isConfidential ? "B-SUPERADMIN" : "B-SANIDAD",
+      email: input.auditorId.includes("@") ? input.auditorId : "auditor@sanidad.es",
     });
 
     const auditId = crypto.randomUUID();
@@ -50,6 +53,7 @@ export class CreateAuditUseCase {
       auditor,
       inspectionDate,
       normativeFramework: input.normativeFramework || "Reglamento (CE) 852/2004 · APPCC / ISO 22000",
+      accessScope,
     });
 
     // Inicializa os 30 pontos de controle oficiais na auditoria (padrão 0 - Não Cumpre como precaução)

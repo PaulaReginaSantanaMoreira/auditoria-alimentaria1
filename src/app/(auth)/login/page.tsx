@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/infrastructure/database/supabase/supabase-client";
+import { Header } from "@/presentation/components/Header";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -29,7 +30,7 @@ export default function LoginPage() {
   const [recoverError, setRecoverError] = useState("");
 
   useEffect(() => {
-    // Limpar imediatamente qualquer parâmetro da URL que possa ter sido exposto por submissão GET
+    // Limpar parâmetros sensíveis expostos por eventual GET
     if (typeof window !== "undefined" && window.location.search) {
       const search = window.location.search;
       if (search.includes("password") || search.includes("identifier")) {
@@ -40,9 +41,75 @@ export default function LoginPage() {
     const mode = process.env.NEXT_PUBLIC_APP_MODE;
     setIsDemoMode(mode === "demo");
     if (mode === "demo") {
-      setIdentifier("auditor@sanidad.es");
+      setIdentifier("auditor@bioauditpro.com");
       setPassword("Admin1234!");
     }
+
+    // 1. Validação de Usuário Já Autenticado (Sessão Ativa e Não Expirada)
+    const checkActiveSession = async () => {
+      try {
+        const searchParams = new URLSearchParams(window.location.search);
+        const redirectParam = searchParams.get("redirect");
+
+        // 1.1 Se estiver em modo Demo, validação local é instantânea
+        if (mode === "demo") {
+          const sessionRaw = localStorage.getItem("bioaudit_session");
+          if (sessionRaw) {
+            const session = JSON.parse(sessionRaw);
+            const isExpired = session.expiresAt && Date.now() > session.expiresAt;
+            if (isExpired) {
+              localStorage.removeItem("bioaudit_session");
+            } else if (session.role) {
+              const isSuper =
+                String(session.role).toLowerCase().includes("superadmin") ||
+                session.role === "PLATFORM_SUPERADMIN";
+              const targetUrl = isSuper
+                ? "/superadmin"
+                : redirectParam && redirectParam.startsWith("/") && redirectParam !== "/login"
+                ? redirectParam
+                : "/auditorias/nova";
+              window.location.href = targetUrl;
+              return;
+            }
+          }
+        }
+
+        // 1.2 Validação com Supabase e API (timeout de 1.5s para nunca travar o carregamento)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 1500);
+
+        const res = await fetch("/api/auth/session", { signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.authenticated && data.user) {
+            const isSuper =
+              String(data.user.role).toLowerCase().includes("superadmin") ||
+              data.user.role === "PLATFORM_SUPERADMIN";
+
+            const targetUrl = isSuper
+              ? "/superadmin"
+              : redirectParam && redirectParam.startsWith("/") && redirectParam !== "/login"
+              ? redirectParam
+              : "/auditorias/nova";
+
+            window.location.href = targetUrl;
+            return;
+          } else {
+            // Sessão foi invalidada ou revogada no Supabase!
+            localStorage.removeItem("bioaudit_session");
+          }
+        } else {
+          // Status 401: sessão expirada ou revogada no Supabase
+          localStorage.removeItem("bioaudit_session");
+        }
+      } catch {
+        // Se a validação falhar ou der timeout, usuário permanece na tela de login sem interrupção
+      }
+    };
+
+    checkActiveSession();
   }, []);
 
   const validateIdentifier = (value: string): boolean => {
@@ -52,17 +119,12 @@ export default function LoginPage() {
     return emailRegex.test(trimmed);
   };
 
-  const validatePassword = (value: string): boolean => {
-    return value.length >= 6;
-  };
-
   const handleLogin = async (e?: React.SyntheticEvent) => {
     if (e) {
       e.preventDefault();
       e.stopPropagation();
     }
 
-    // Extrai do state ou do elemento DOM nativo para garantir compatibilidade com autofill
     const emailEl = document.getElementById("identifier") as HTMLInputElement | null;
     const passwordEl = document.getElementById("password") as HTMLInputElement | null;
 
@@ -77,7 +139,7 @@ export default function LoginPage() {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(emailVal)) {
       setErrors({
-        general: "Formato de correo no válido. Introduce tu dirección completa (ej: moreirapaulars@gmail.com).",
+        general: "Formato de correo no válido. Introduce tu dirección completa (ej: auditor@bioauditpro.com).",
       });
       return;
     }
@@ -95,7 +157,7 @@ export default function LoginPage() {
     setErrors({});
     setIsLoading(true);
 
-    // MODO DEMO: Simulação local
+    // MODO DEMO: Simulação local com JWT de 1 dia
     if (isDemoMode) {
       try {
         localStorage.setItem(
@@ -104,6 +166,7 @@ export default function LoginPage() {
             identifier: emailVal,
             role: "auditor",
             fullName: "Inspector Oficial Demo",
+            expiresAt: Date.now() + 24 * 60 * 60 * 1000, // 1 dia
             loginAt: new Date().toISOString(),
           })
         );
@@ -116,7 +179,7 @@ export default function LoginPage() {
       return;
     }
 
-    // Autenticação via API Route oficial
+    // Autenticação oficial via API Route
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
@@ -135,12 +198,15 @@ export default function LoginPage() {
       }
 
       if (data.user) {
+        // Salva a sessão com o JWT assinado e expiração de 1 dia
         localStorage.setItem(
           "bioaudit_session",
           JSON.stringify({
             userId: data.user.id,
             identifier: data.user.email,
             role: data.user.role,
+            token: data.token,
+            expiresAt: data.expiresAt || (Date.now() + 24 * 60 * 60 * 1000),
             loginAt: new Date().toISOString(),
           })
         );
@@ -151,7 +217,9 @@ export default function LoginPage() {
 
       const targetUrl =
         data.redirectTo ||
-        (redirectParam && redirectParam.startsWith("/") ? redirectParam : "/auditorias/nova");
+        (redirectParam && redirectParam.startsWith("/") && redirectParam !== "/login"
+          ? redirectParam
+          : "/auditorias/nova");
 
       setIsLoading(false);
       window.location.href = targetUrl;
@@ -197,8 +265,12 @@ export default function LoginPage() {
     }
   };
 
+  
+
   return (
-    <main className="flex flex-col flex-1 relative w-full bg-surface pt-safe pb-safe min-h-screen justify-center items-center py-8">
+    <>
+      <Header title="BioAudit Pro" subtitle="Acceso Corporativo" planActive={false} />
+      <main className="flex flex-col flex-1 relative w-full bg-surface dark:bg-slate-950 pt-24 pb-safe min-h-screen justify-center items-center py-8 transition-colors duration-150">
       <div className="flex flex-col w-full px-margin-mobile pb-space-xl max-w-md mx-auto">
         {/* Corporate Header Card */}
         <div className="bg-surface-container-lowest rounded-2xl p-space-md shadow-sm mb-space-md flex flex-col items-center text-center border border-slate-border">
@@ -264,7 +336,7 @@ export default function LoginPage() {
                       handleLogin();
                     }
                   }}
-                  placeholder="moreirapaulars@gmail.com"
+                  placeholder="auditor@bioauditpro.com"
                   className="w-full h-11 pl-10 pr-space-sm rounded-xl bg-surface border border-slate-border text-on-surface text-body-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                 />
               </div>
@@ -410,5 +482,6 @@ export default function LoginPage() {
         </div>
       )}
     </main>
+    </>
   );
 }

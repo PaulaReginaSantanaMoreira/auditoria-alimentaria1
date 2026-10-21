@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Header } from "@/presentation/components/Header";
 import { offlineDb } from "@/infrastructure/offline/offline-audit.db";
+import { AuditAccessScope } from "@/domain/security/roles-and-permissions";
 
 interface ActiveDraft {
   id: string;
@@ -15,6 +16,7 @@ interface ActiveDraft {
   normative: string;
   updatedAt: string;
   answeredCount?: number;
+  accessScope?: AuditAccessScope;
 }
 
 export default function NovaAuditoriaPage() {
@@ -34,6 +36,7 @@ export default function NovaAuditoriaPage() {
   const [inspectionDate, setInspectionDate] = useState(() => new Date().toISOString().split("T")[0]);
   const normative = "Reglamento (CE) 852/2004 · APPCC / ISO 22000";
   const [auditorName, setAuditorName] = useState("auditor@sanidad.es");
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -67,6 +70,7 @@ export default function NovaAuditoriaPage() {
             normative: "Reglamento (CE) 852/2004 · APPCC",
             updatedAt: lastPending.updatedAt || new Date().toISOString(),
             answeredCount: evaluatedCount,
+            accessScope: lastPending.accessScope,
           });
         }
       } catch (err) {
@@ -82,6 +86,10 @@ export default function NovaAuditoriaPage() {
       if (session) {
         const parsed = JSON.parse(session);
         if (parsed.identifier) setAuditorName(parsed.identifier);
+        if (parsed.role) {
+          const roleLower = String(parsed.role).toLowerCase();
+          setIsSuperAdmin(roleLower === "superadmin" || roleLower.includes("superadmin"));
+        }
       }
     } catch {
       // Ignorar fallback
@@ -145,6 +153,8 @@ export default function NovaAuditoriaPage() {
     const newAuditId = crypto.randomUUID();
 
     // Guardar borrador activo en localStorage para continuidad inmediata
+    const accessScope: AuditAccessScope = isSuperAdmin ? "CONFIDENTIAL" : "TENANT";
+
     const draftPayload: ActiveDraft = {
       id: newAuditId,
       companyName: companyName.trim(),
@@ -155,6 +165,7 @@ export default function NovaAuditoriaPage() {
       normative,
       updatedAt: new Date().toISOString(),
       answeredCount: 0,
+      accessScope,
     };
 
     try {
@@ -169,6 +180,9 @@ export default function NovaAuditoriaPage() {
         inspectionDate,
         status: "IN_PROGRESS",
         evaluations: {},
+        accessScope,
+        createdByRole: isSuperAdmin ? "PLATFORM_SUPERADMIN" : "AUDITOR",
+        createdByEmail: auditorName,
         isSynced: false,
         updatedAt: new Date().toISOString(),
       });
@@ -185,6 +199,7 @@ export default function NovaAuditoriaPage() {
             companyAddress: address.trim(),
             sanitaryRegistryNumber: rgseaa.trim(),
             normativeFramework: normative,
+            accessScope,
           }),
         });
       } catch {
@@ -206,47 +221,45 @@ export default function NovaAuditoriaPage() {
     <>
       <Header title="BioAudit Pro" subtitle="Identificación Oficial" />
 
-      <main className="flex flex-col flex-1 relative w-full pt-16 pb-24 bg-surface min-h-screen">
-        <div className="flex flex-col w-full max-w-4xl mx-auto px-gutter-mobile">
-          {/* Mensaje de confirmación temporal */}
+      <main className="flex-1 flex flex-col relative w-full pt-16 pb-20 bg-surface min-h-screen">
+        <div className="flex flex-col w-full max-w-3xl mx-auto px-margin-mobile">
+          {/* Mensagem de Feedback ao Anular */}
           {draftAlertMessage && (
-            <div className="my-3 p-3.5 bg-status-pass-bg border border-status-pass text-status-pass rounded-xl text-xs font-semibold flex items-center gap-2 animate-in fade-in">
+            <div className="p-3.5 my-2 rounded-xl bg-status-pass-bg border border-status-pass/30 text-status-pass text-xs font-semibold flex items-center gap-2 animate-in fade-in">
               <span className="material-symbols-outlined text-[18px]">check_circle</span>
-              {draftAlertMessage}
+              <span>{draftAlertMessage}</span>
             </div>
           )}
 
-          {/* Banner de Auditoria en Curso en este Dispositivo */}
+          {/* Banner de Borrador Activo Detectado */}
           {!isCheckingDraft && activeDraft && (
-            <section className="my-space-md p-space-md rounded-2xl bg-amber-50/70 border-2 border-amber-300 shadow-sm animate-in fade-in duration-300">
+            <section
+              aria-label="Auditoría en curso detectada"
+              className="bg-amber-50 dark:bg-amber-950/40 border-2 border-amber-400/80 rounded-2xl p-space-md shadow-md my-space-sm animate-in fade-in slide-in-from-top-2 duration-200"
+            >
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-space-sm">
-                <div className="flex items-start gap-space-sm">
-                  <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-sm">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">
                     <span className="material-symbols-outlined text-[24px]">pending_actions</span>
                   </div>
                   <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-sm text-slate-dark">
-                        Formulario de Auditoría en Curso en este Dispositivo
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="px-2 py-0.5 rounded text-[11px] font-black uppercase tracking-wider bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-100">
+                        Formulario en Curso en este Dispositivo
                       </span>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-200 text-amber-900 uppercase">
-                        Borrador Activo
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-dark/80 mt-0.5">
-                      Existe una inspección no finalizada para{" "}
-                      <strong className="text-slate-dark">{activeDraft.companyName}</strong> (CIF:{" "}
-                      <span className="font-mono">{activeDraft.companyCif}</span>).
-                    </p>
-                    <div className="text-[11px] text-slate-subtext mt-1 flex items-center gap-3">
-                      <span>
-                        Última actualización: {new Date(activeDraft.updatedAt).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
-                      </span>
-                      {activeDraft.answeredCount !== undefined && (
-                        <span className="font-semibold text-primary">
+                      {activeDraft.answeredCount !== undefined && activeDraft.answeredCount > 0 && (
+                        <span className="text-[11px] font-semibold text-amber-800 dark:text-amber-200 bg-amber-100 dark:bg-amber-950 px-2 py-0.5 rounded-full border border-amber-300/40">
                           {activeDraft.answeredCount} de 30 puntos evaluados
                         </span>
                       )}
+                    </div>
+                    <h3 className="font-bold text-sm text-slate-dark dark:text-white mt-1 leading-tight">
+                      {activeDraft.companyName}
+                    </h3>
+                    <div className="text-xs text-slate-subtext dark:text-slate-300 mt-0.5 flex items-center gap-2 flex-wrap">
+                      <span className="font-mono">CIF: {activeDraft.companyCif}</span>
+                      <span>•</span>
+                      <span>Última modificación: {new Date(activeDraft.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
                   </div>
                 </div>
@@ -256,7 +269,7 @@ export default function NovaAuditoriaPage() {
                   <button
                     type="button"
                     onClick={handleDiscardDraft}
-                    className="px-3.5 py-2 rounded-lg border border-red-300 bg-white text-red-700 hover:bg-red-50 text-xs font-semibold flex items-center gap-1 transition-all shadow-sm"
+                    className="px-3.5 py-2 rounded-lg border border-red-300 bg-white text-red-700 hover:bg-red-50 text-xs font-semibold flex items-center gap-1 transition-all shadow-sm cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-[16px]">delete_forever</span>
                     <span>Anular Formulario</span>
@@ -265,7 +278,7 @@ export default function NovaAuditoriaPage() {
                   <button
                     type="button"
                     onClick={handleResumeDraft}
-                    className="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary-container text-xs font-bold flex items-center gap-1.5 transition-all shadow"
+                    className="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary-container text-xs font-bold flex items-center gap-1.5 transition-all shadow cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-[16px]">play_arrow</span>
                     <span>Continuar Auditoría</span>
@@ -277,7 +290,7 @@ export default function NovaAuditoriaPage() {
 
           {/* Encabezado Principal */}
           <section className="bg-surface-container-low p-space-md rounded-2xl shadow-sm border border-slate-border/50 my-space-sm">
-            <div className="flex items-center gap-space-xs mb-1">
+            <div className="flex items-center gap-space-xs mb-1 flex-wrap">
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-status-pass-bg text-status-pass font-label-sm text-label-sm uppercase tracking-wider font-bold">
                 <span className="material-symbols-outlined text-[14px]">fact_check</span>
                 Protocolo de Inspección Sanitaria Oficial
@@ -294,6 +307,18 @@ export default function NovaAuditoriaPage() {
               Complete los datos legales del acta antes de iniciar la verificación de campo.
             </p>
           </section>
+
+          {/* Alerta de Modo SuperAdmin Confidencial */}
+          {isSuperAdmin && (
+            <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-500/30 rounded-xl p-3.5 flex items-center gap-3 text-xs text-emerald-900 dark:text-emerald-200 font-semibold mb-2 shadow-sm">
+              <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-[20px]">verified_user</span>
+              </div>
+              <p className="leading-relaxed">
+                <strong>Inspección Sanitaria de Administrador:</strong> Esta auditoría quedará clasificada con visibilidade confidencial. Exclusivamente usted como Administrador Master podrá visualizar sus registros e informes.
+              </p>
+            </div>
+          )}
 
           {/* Formulario Unificado de Identificación */}
           <form onSubmit={handleStartAudit} className="flex flex-col gap-space-md" noValidate>
@@ -341,11 +366,11 @@ export default function NovaAuditoriaPage() {
                     required
                     value={cif}
                     onChange={(e) => {
-                      setCif(e.target.value.toUpperCase());
+                      setCif(e.target.value);
                       if (formErrors.cif) setFormErrors((prev) => ({ ...prev, cif: "" }));
                     }}
-                    placeholder="Ej: B-84920194 o A38000000"
-                    className={`h-11 px-3 rounded-lg border text-sm font-mono uppercase bg-surface-container-low focus:outline-none focus:border-primary transition-all ${
+                    placeholder="Ej: B-84920194"
+                    className={`h-11 px-3 rounded-lg border text-sm bg-surface-container-low focus:outline-none focus:border-primary font-mono transition-all ${
                       formErrors.cif ? "border-red-500 bg-red-50/20" : "border-slate-border"
                     }`}
                   />

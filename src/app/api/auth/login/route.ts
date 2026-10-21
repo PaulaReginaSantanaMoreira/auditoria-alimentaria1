@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { createServerSupabaseClient } from "@/infrastructure/database/supabase/supabase-server";
 import { createAdminClient } from "@/infrastructure/database/supabase/supabase-admin";
+import { signSessionToken } from "@/infrastructure/security/jwt-service";
 
 export async function POST(request: Request) {
   try {
@@ -24,14 +26,32 @@ export async function POST(request: Request) {
 
     // Modo Demo
     if (process.env.NEXT_PUBLIC_APP_MODE === "demo") {
-      return NextResponse.json({
+      const { token, expiresAt } = await signSessionToken({
+        sub: "demo-user-id",
+        email: cleanEmail,
+        role: "auditor",
+      });
+
+      const res = NextResponse.json({
         success: true,
-        user: { email: cleanEmail, role: "auditor" },
+        token,
+        expiresAt,
+        user: { id: "demo-user-id", email: cleanEmail, role: "auditor" },
         redirectTo: "/auditorias/nova",
       });
+
+      res.cookies.set("bioaudit_token", token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 24 * 60 * 60, // 1 dia
+        path: "/",
+      });
+
+      return res;
     }
 
-    // 1. Autenticar usuário via Supabase Auth no servidor (configura cookies HTTP de sessão automaticamente)
+    // 1. Autenticar usuário via Supabase Auth no servidor
     const supabase = await createServerSupabaseClient();
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
       email: cleanEmail,
@@ -77,17 +97,78 @@ export async function POST(request: Request) {
       isSuper = false;
     }
 
+    let role = isSuper ? "PLATFORM_SUPERADMIN" : "AUDITOR";
+    let tenantId: string | undefined = undefined;
+
+    // Se não for superadmin, busca perfil de tenant e papel atribuído no Supabase
+    if (!isSuper) {
+      try {
+        const { data: tenantUser } = await supabase
+          .from("tenant_users")
+          .select("role, tenant_id")
+          .eq("user_id", authData.user.id)
+          .eq("is_active", true)
+          .maybeSingle();
+
+        if (tenantUser) {
+          tenantId = tenantUser.tenant_id;
+          if (tenantUser.role === "TENANT_ADMIN") role = "TENANT_ADMIN";
+          else if (tenantUser.role === "VIEWER") role = "VIEWER";
+          else role = "AUDITOR";
+        }
+      } catch {
+        // Fallback para AUDITOR
+      }
+    }
+
+    const accessScope = isSuper ? "CONFIDENTIAL" : "TENANT";
     const redirectTo = isSuper ? "/superadmin" : "/auditorias/nova";
 
-    return NextResponse.json({
+    // 3. Emissão de JWT corporativo assinado com expiração estrita de 1 dia (24h)
+    const { token, expiresAt } = await signSessionToken({
+      sub: authData.user.id,
+      email: authData.user.email || cleanEmail,
+      role,
+      tenantId,
+      scope: accessScope,
+    });
+
+    const response = NextResponse.json({
       success: true,
+      token,
+      expiresAt,
       user: {
         id: authData.user.id,
         email: authData.user.email,
-        role: isSuper ? "superadmin" : "auditor",
+        role: isSuper ? "superadmin" : role.toLowerCase(),
+        tenantId,
+        scope: accessScope,
       },
       redirectTo,
     });
+
+    // 4. Configurar Cookie HTTP-only com garantia de segurança e expiração de 1 dia (86400s)
+    response.cookies.set("bioaudit_token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 24 * 60 * 60, // 1 dia
+      path: "/",
+    });
+
+    // 5. Garantir propagação de cookies de autenticação do Supabase (sb-*-auth-token)
+    try {
+      const cookieStore = await cookies();
+      cookieStore.getAll().forEach((c) => {
+        if (c.name.startsWith("sb-") || c.name.includes("auth-token")) {
+          response.cookies.set(c.name, c.value, c);
+        }
+      });
+    } catch {
+      // Ignorar caso cookies já tenham sido injetados
+    }
+
+    return response;
   } catch (err: any) {
     return NextResponse.json(
       { success: false, error: err.message || "Error interno al autenticar." },

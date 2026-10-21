@@ -3,6 +3,7 @@ import { Auditor } from "./auditor";
 import { ControlPointEvaluation } from "./control-point";
 import { Score, AuditVerdict, EvaluationPointScore } from "../value-objects/score";
 import { Signature } from "../value-objects/signature";
+import { AuditAccessScope } from "../security/roles-and-permissions";
 import {
   AuditAlreadyFinalizedError,
   IncompleteAuditError,
@@ -23,6 +24,7 @@ export class Audit {
   private _verdict?: AuditVerdict;
   private _auditorSignature?: Signature;
   private _auditedSignature?: Signature;
+  private _accessScope: AuditAccessScope;
   private readonly _createdAt: Date;
   private _updatedAt: Date;
 
@@ -38,6 +40,7 @@ export class Audit {
     verdict?: AuditVerdict;
     auditorSignature?: Signature;
     auditedSignature?: Signature;
+    accessScope?: AuditAccessScope;
     createdAt?: Date;
     updatedAt?: Date;
   }) {
@@ -57,12 +60,21 @@ export class Audit {
     this._verdict = params.verdict;
     this._auditorSignature = params.auditorSignature;
     this._auditedSignature = params.auditedSignature;
+    this._accessScope = params.accessScope ?? "TENANT";
     this._createdAt = params.createdAt || new Date();
     this._updatedAt = params.updatedAt || new Date();
   }
 
   public get id(): string {
     return this._id;
+  }
+
+  public get accessScope(): AuditAccessScope {
+    return this._accessScope;
+  }
+
+  public isConfidential(): boolean {
+    return this._accessScope === "CONFIDENTIAL";
   }
 
   public get company(): Company {

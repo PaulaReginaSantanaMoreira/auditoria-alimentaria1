@@ -31,6 +31,24 @@ describe("CreateAuditUseCase", () => {
     expect(savedAudit).not.toBeNull();
     expect(savedAudit?.company.name).toBe("Bodegas Rioja S.L.");
     expect(savedAudit?.evaluations).toHaveLength(30);
+    expect(savedAudit?.accessScope).toBe("TENANT");
+    expect(savedAudit?.isConfidential()).toBe(false);
+  });
+
+  it("deve criar auditoria com escopo CONFIDENTIAL quando solicitado pelo perfil de administrador", async () => {
+    const output = await useCase.execute({
+      auditorId: "admin-master",
+      companyName: "Bodegas Rioja S.L.",
+      companyCif: "B-26019283",
+      companyAddress: "Ctra. Logroño s/n",
+      sanitaryRegistryNumber: "RGSEAA 30.01234/LO",
+      accessScope: "CONFIDENTIAL",
+    });
+
+    const savedAudit = await auditRepo.findById(output.auditId);
+    expect(savedAudit).not.toBeNull();
+    expect(savedAudit?.accessScope).toBe("CONFIDENTIAL");
+    expect(savedAudit?.isConfidential()).toBe(true);
   });
 
   it("deve falhar se o CIF da empresa for inválido", async () => {

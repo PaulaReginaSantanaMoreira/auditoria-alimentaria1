@@ -8,6 +8,7 @@ export const CreateAuditInputSchema = z.object({
   sanitaryRegistryNumber: z.string().optional(),
   inspectionDate: z.string().or(z.date()).optional(),
   normativeFramework: z.string().optional(),
+  accessScope: z.enum(["TENANT", "CONFIDENTIAL", "PRIVATE"]).optional(),
 });
 
 export type CreateAuditInput = z.infer<typeof CreateAuditInputSchema>;

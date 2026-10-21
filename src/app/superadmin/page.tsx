@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { Header } from "@/presentation/components/Header";
+import { offlineDb } from "@/infrastructure/offline/offline-audit.db";
 
 interface TenantItem {
   id: string;
@@ -21,9 +22,25 @@ interface TenantItem {
   createdAt: string;
 }
 
+interface AdminAuditItem {
+  id: string;
+  companyName: string;
+  companyCif: string;
+  companyAddress?: string;
+  inspectionDate: string;
+  status: string;
+  complianceScore?: number | null;
+  verdict?: string | null;
+  normativeFramework?: string;
+  updatedAt?: string;
+}
+
 export default function SuperAdminPage() {
   const [tenants, setTenants] = useState<TenantItem[]>([]);
+  const [adminAudits, setAdminAudits] = useState<AdminAuditItem[]>([]);
+  const [activeTab, setActiveTab] = useState<"tenants" | "inspections">("tenants");
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingAudits, setIsLoadingAudits] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedTenantForSeats, setSelectedTenantForSeats] = useState<TenantItem | null>(null);
@@ -59,8 +76,58 @@ export default function SuperAdminPage() {
     }
   };
 
+  const fetchAdminAudits = async () => {
+    setIsLoadingAudits(true);
+    try {
+      // 1. Tentar carregar da API oficial filtrando pelo escopo CONFIDENTIAL
+      const res = await fetch("/api/audits?scope=CONFIDENTIAL");
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          const mapped: AdminAuditItem[] = data.map((item: any) => ({
+            id: item.id,
+            companyName: item.company?.name || "Empresa Inspeccionada",
+            companyCif: item.company?.cif || "CIF-S/N",
+            inspectionDate: item.inspection_date || item.created_at,
+            status: item.status || "IN_PROGRESS",
+            complianceScore: item.compliance_score,
+            verdict: item.verdict,
+            normativeFramework: item.normative_framework,
+            updatedAt: item.created_at,
+          }));
+          setAdminAudits(mapped);
+          return;
+        }
+      }
+
+      // 2. Fallback do IndexedDB local (inspeções feitas no dispositivo pelo perfil PLATFORM_SUPERADMIN)
+      const allOff = await offlineDb.audits.toArray();
+      const filtered = allOff.filter(
+        (a) =>
+          a.accessScope === "CONFIDENTIAL" ||
+          a.createdByRole === "PLATFORM_SUPERADMIN" ||
+          a.createdByRole === "superadmin"
+      );
+      const mappedOff: AdminAuditItem[] = filtered.map((a) => ({
+        id: a.id,
+        companyName: a.companyName,
+        companyCif: a.companyCif,
+        companyAddress: a.companyAddress,
+        inspectionDate: a.inspectionDate,
+        status: a.status,
+        updatedAt: a.updatedAt,
+      }));
+      setAdminAudits(mappedOff);
+    } catch {
+      // fallback
+    } finally {
+      setIsLoadingAudits(false);
+    }
+  };
+
   useEffect(() => {
     fetchTenants();
+    fetchAdminAudits();
   }, []);
 
   const handleCreateTenant = async (e: React.FormEvent) => {
@@ -145,7 +212,7 @@ export default function SuperAdminPage() {
 
   return (
     <>
-      <Header title="BioAudit Pro" subtitle="Gobernanza Master • SuperAdmin" />
+      <Header title="BioAudit Pro" subtitle="Gobernanza Master • SuperAdmin" planActive={false} />
 
       <main className="flex-1 flex flex-col relative w-full pt-20 pb-24 bg-surface min-h-screen">
         <div className="w-full max-w-5xl mx-auto px-margin-mobile space-y-space-md">
@@ -157,21 +224,31 @@ export default function SuperAdminPage() {
                 <span>Panel Master Multi-Tenant</span>
               </div>
               <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight">
-                Gestión de Empresas &amp; Licenciamiento
+                Gobernanza &amp; Inspecciones Sanitarias
               </h1>
               <p className="mt-1 text-body-sm text-slate-subtext max-w-2xl">
-                Administra las empresas clientes (Tenants), define el cupo máximo de inspectores por empresa y gestiona las subscripciones oficiales.
+                Administre empresas clientes (Tenants), asigne cupos de inspectores y realice inspecciones sanitarias oficiales con visibilidad privada exclusiva.
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setShowCreateModal(true)}
-              className="inline-flex items-center gap-2 px-space-md py-3 rounded-xl bg-primary hover:bg-primary-container text-white font-bold text-xs uppercase tracking-wider shadow-sm transition-all shrink-0 cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[18px]">add_business</span>
-              <span>Nueva Empresa</span>
-            </button>
+            <div className="flex items-center gap-2.5 flex-wrap shrink-0">
+              <Link
+                href="/auditorias/nova"
+                className="inline-flex items-center gap-2 px-space-md py-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs uppercase tracking-wider shadow-sm transition-all cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[18px]">add_circle</span>
+                <span>Nueva Inspección</span>
+              </Link>
+
+              <button
+                type="button"
+                onClick={() => setShowCreateModal(true)}
+                className="inline-flex items-center gap-2 px-space-md py-3 rounded-xl bg-primary hover:bg-primary-container text-white font-bold text-xs uppercase tracking-wider shadow-sm transition-all cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[18px]">add_business</span>
+                <span>Nueva Empresa</span>
+              </button>
+            </div>
           </div>
 
           {/* Notificaciones */}
@@ -225,11 +302,12 @@ export default function SuperAdminPage() {
 
             <div className="p-space-md rounded-2xl bg-surface-container-lowest border border-slate-border shadow-sm">
               <div className="flex items-center justify-between text-slate-subtext text-label-sm font-bold uppercase tracking-wider">
-                <span>Ocupación</span>
-                <span className="material-symbols-outlined text-primary text-[20px]">donut_large</span>
+                <span>Mis Inspecciones</span>
+                <span className="material-symbols-outlined text-emerald-600 text-[20px]">verified_user</span>
               </div>
-              <div className="mt-2 text-2xl font-black text-on-surface">
-                {totalSeats > 0 ? Math.round((totalActiveUsers / totalSeats) * 100) : 0}%
+              <div className="mt-2 text-2xl font-black text-on-surface flex items-baseline gap-1">
+                {adminAudits.length}
+                <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 ml-1">Privadas</span>
               </div>
             </div>
 
@@ -245,130 +323,306 @@ export default function SuperAdminPage() {
             </div>
           </div>
 
-          {/* Tabela de Empresas */}
-          <div className="bg-surface-container-lowest rounded-2xl border border-slate-border shadow-sm overflow-hidden">
-            <div className="p-space-md border-b border-slate-border flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-space-sm">
-              <div className="relative flex-1 max-w-md">
-                <span className="material-symbols-outlined text-slate-subtext text-[20px] absolute left-3 top-1/2 -translate-y-1/2">
-                  search
-                </span>
-                <input
-                  type="text"
-                  placeholder="Buscar por nombre o CIF de empresa..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-space-sm py-2 rounded-xl text-body-sm bg-surface border border-slate-border focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-on-surface"
-                />
+          {/* Abas de Navegação SuperAdmin */}
+          <div className="flex items-center gap-2 border-b border-slate-border/80 pb-1">
+            <button
+              type="button"
+              onClick={() => setActiveTab("tenants")}
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${
+                activeTab === "tenants"
+                  ? "bg-primary text-white shadow-sm"
+                  : "bg-surface-container-lowest text-slate-subtext hover:text-slate-dark border border-slate-border"
+              }`}
+            >
+              <span className="material-symbols-outlined text-[18px]">domain</span>
+              <span>Empresas &amp; Licenciamiento ({tenants.length})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("inspections");
+                fetchAdminAudits();
+              }}
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${
+                activeTab === "inspections"
+                  ? "bg-emerald-700 text-white shadow-sm"
+                  : "bg-surface-container-lowest text-slate-subtext hover:text-slate-dark border border-slate-border"
+              }`}
+            >
+              <span className="material-symbols-outlined text-[18px]">lock</span>
+              <span>Mis Inspecciones Privadas ({adminAudits.length})</span>
+            </button>
+          </div>
+
+          {/* ABA 1: TABELA DE TENANTS */}
+          {activeTab === "tenants" && (
+            <div className="bg-surface-container-lowest rounded-2xl border border-slate-border shadow-sm overflow-hidden animate-in fade-in duration-150">
+              <div className="p-space-md border-b border-slate-border flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-space-sm">
+                <div className="relative flex-1 max-w-md">
+                  <span className="material-symbols-outlined text-slate-subtext text-[20px] absolute left-3 top-1/2 -translate-y-1/2">
+                    search
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="Buscar por nombre o CIF de empresa..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-space-sm py-2 rounded-xl text-body-sm bg-surface border border-slate-border focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-on-surface"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={fetchTenants}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-dark hover:bg-surface-container transition-colors cursor-pointer"
+                >
+                  <span className={`material-symbols-outlined text-[18px] ${isLoading ? "animate-spin" : ""}`}>
+                    sync
+                  </span>
+                  <span>Actualizar</span>
+                </button>
               </div>
 
-              <button
-                type="button"
-                onClick={fetchTenants}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-dark hover:bg-surface-container transition-colors cursor-pointer"
-              >
-                <span className={`material-symbols-outlined text-[18px] ${isLoading ? "animate-spin" : ""}`}>
-                  sync
-                </span>
-                <span>Actualizar</span>
-              </button>
-            </div>
-
-            <div className="overflow-x-auto">
-              {filteredTenants.length === 0 ? (
-                <div className="text-center py-16 px-4">
-                  <div className="w-16 h-16 rounded-2xl bg-surface-container flex items-center justify-center mx-auto mb-3 text-slate-subtext">
-                    <span className="material-symbols-outlined text-[36px]">domain_disabled</span>
+              <div className="overflow-x-auto">
+                {filteredTenants.length === 0 ? (
+                  <div className="text-center py-16 px-4">
+                    <div className="w-16 h-16 rounded-2xl bg-surface-container flex items-center justify-center mx-auto mb-3 text-slate-subtext">
+                      <span className="material-symbols-outlined text-[36px]">domain_disabled</span>
+                    </div>
+                    <h3 className="font-title-md text-title-md text-on-surface font-bold">
+                      No hay empresas registradas
+                    </h3>
+                    <p className="text-body-sm text-slate-subtext mt-1 max-w-sm mx-auto">
+                      Haz clic en "Nueva Empresa" para dar de alta el primer cliente con su cuota de inspectores.
+                    </p>
                   </div>
-                  <h3 className="font-title-md text-title-md text-on-surface font-bold">
-                    No hay empresas registradas
-                  </h3>
-                  <p className="text-body-sm text-slate-subtext mt-1 max-w-sm mx-auto">
-                    Haz clic en "Nueva Empresa" para dar de alta el primer cliente con su cuota de inspectores.
-                  </p>
-                </div>
-              ) : (
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-surface-container text-xs font-bold text-slate-subtext uppercase tracking-wider border-b border-slate-border">
-                    <tr>
-                      <th className="py-3 px-space-md">Empresa / CIF</th>
-                      <th className="py-3 px-space-md">Plan &amp; Estado</th>
-                      <th className="py-3 px-space-md">Inspectores Habilitados</th>
-                      <th className="py-3 px-space-md">Vigencia Subscripción</th>
-                      <th className="py-3 px-space-md text-right">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-border/60 text-on-surface font-body-sm">
-                    {filteredTenants.map((t) => (
-                      <tr key={t.id} className="hover:bg-surface-container-low transition-colors">
-                        <td className="py-space-md px-space-md">
-                          <div className="font-bold text-on-surface">{t.name}</div>
-                          <div className="text-label-sm text-slate-subtext font-mono mt-0.5">CIF: {t.cif}</div>
-                        </td>
+                ) : (
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-surface-container text-xs font-bold text-slate-subtext uppercase tracking-wider border-b border-slate-border">
+                      <tr>
+                        <th className="py-3 px-space-md">Empresa / CIF</th>
+                        <th className="py-3 px-space-md">Plan &amp; Estado</th>
+                        <th className="py-3 px-space-md">Inspectores Habilitados</th>
+                        <th className="py-3 px-space-md">Vigencia Subscripción</th>
+                        <th className="py-3 px-space-md text-right">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-border/60 text-on-surface font-body-sm">
+                      {filteredTenants.map((t) => (
+                        <tr key={t.id} className="hover:bg-surface-container-low transition-colors">
+                          <td className="py-space-md px-space-md">
+                            <div className="font-bold text-on-surface">{t.name}</div>
+                            <div className="text-label-sm text-slate-subtext font-mono mt-0.5">CIF: {t.cif}</div>
+                          </td>
 
-                        <td className="py-space-md px-space-md">
-                          <div className="flex items-center gap-2">
-                            <span className="text-label-sm font-bold px-2 py-0.5 rounded-md bg-surface-container text-on-surface-variant">
-                              {t.planTier}
-                            </span>
-                            <span
-                              className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                                t.status === "ACTIVE"
-                                  ? "bg-status-pass-bg text-status-pass"
-                                  : "bg-alert-red-bg/25 text-alert-red"
-                              }`}
-                            >
-                              {t.status === "ACTIVE" ? "Activa" : "Suspendida"}
-                            </span>
-                          </div>
-                        </td>
+                          <td className="py-space-md px-space-md">
+                            <div className="flex items-center gap-2">
+                              <span className="text-label-sm font-bold px-2 py-0.5 rounded-md bg-surface-container text-on-surface-variant">
+                                {t.planTier}
+                              </span>
+                              <span
+                                className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                                  t.status === "ACTIVE"
+                                    ? "bg-status-pass-bg text-status-pass"
+                                    : "bg-alert-red-bg/25 text-alert-red"
+                                }`}
+                              >
+                                {t.status === "ACTIVE" ? "Activa" : "Suspendida"}
+                              </span>
+                            </div>
+                          </td>
 
-                        <td className="py-space-md px-space-md">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-on-surface">
-                              {t.activeUsersCount} / {t.maxUserSeats}
-                            </span>
+                          <td className="py-space-md px-space-md">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-on-surface">
+                                {t.activeUsersCount} / {t.maxUserSeats}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedTenantForSeats(t);
+                                  setNewSeatsValue(t.maxUserSeats);
+                                }}
+                                className="text-xs text-primary font-bold hover:underline inline-flex items-center gap-0.5 cursor-pointer"
+                              >
+                                <span className="material-symbols-outlined text-[14px]">tune</span>
+                                <span>Cupo</span>
+                              </button>
+                            </div>
+                          </td>
+
+                          <td className="py-space-md px-space-md">
+                            <div className="flex items-center gap-1.5 text-body-sm">
+                              <span className="material-symbols-outlined text-[16px] text-slate-subtext">calendar_today</span>
+                              <span>{new Date(t.expiresAt).toLocaleDateString("es-ES")}</span>
+                              <span className="text-label-sm text-slate-subtext">({t.daysRemaining} días)</span>
+                            </div>
+                          </td>
+
+                          <td className="py-space-md px-space-md text-right">
                             <button
                               type="button"
-                              onClick={() => {
-                                setSelectedTenantForSeats(t);
-                                setNewSeatsValue(t.maxUserSeats);
-                              }}
-                              className="text-xs text-primary font-bold hover:underline inline-flex items-center gap-0.5 cursor-pointer"
+                              onClick={() => handleToggleStatus(t)}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+                                t.status === "ACTIVE"
+                                  ? "bg-surface-container hover:bg-slate-border text-on-surface"
+                                  : "bg-status-pass-bg hover:bg-status-pass/20 text-status-pass"
+                              }`}
                             >
-                              <span className="material-symbols-outlined text-[14px]">tune</span>
-                              <span>Cupo</span>
+                              {t.status === "ACTIVE" ? "Suspender" : "Reactivar"}
                             </button>
-                          </div>
-                        </td>
-
-                        <td className="py-space-md px-space-md">
-                          <div className="flex items-center gap-1.5 text-body-sm">
-                            <span className="material-symbols-outlined text-[16px] text-slate-subtext">calendar_today</span>
-                            <span>{new Date(t.expiresAt).toLocaleDateString("es-ES")}</span>
-                            <span className="text-label-sm text-slate-subtext">({t.daysRemaining} días)</span>
-                          </div>
-                        </td>
-
-                        <td className="py-space-md px-space-md text-right">
-                          <button
-                            type="button"
-                            onClick={() => handleToggleStatus(t)}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
-                              t.status === "ACTIVE"
-                                ? "bg-surface-container hover:bg-slate-border text-on-surface"
-                                : "bg-status-pass-bg hover:bg-status-pass/20 text-status-pass"
-                            }`}
-                          >
-                            {t.status === "ACTIVE" ? "Suspender" : "Reactivar"}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* ABA 2: MIS INSPECCIONES PRIVADAS (EXCLUSIVAS DEL ADMINISTRADOR) */}
+          {activeTab === "inspections" && (
+            <div className="space-y-space-sm animate-in fade-in duration-150">
+              <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-500/30 text-emerald-900 dark:text-emerald-200 flex items-start gap-3 text-xs leading-relaxed">
+                <span className="material-symbols-outlined text-emerald-600 text-[22px] shrink-0 mt-0.5">lock</span>
+                <div>
+                  <h4 className="font-bold text-sm">Visibilidad Confidencial de Administrador Master</h4>
+                  <p className="mt-0.5 text-xs text-emerald-800 dark:text-emerald-300">
+                    Las inspecciones y auditorías sanitarias listadas en este panel fueron realizadas directamente por usted. 
+                    Por política estricta de seguridad y gobernanza, ningún usuario, inspector ni cliente de ninguna empresa tiene acceso ni visibilidad a estos registros.
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-surface-container-lowest rounded-2xl border border-slate-border shadow-sm overflow-hidden">
+                <div className="p-space-md border-b border-slate-border flex items-center justify-between">
+                  <h3 className="font-title-md text-title-md font-bold text-on-surface flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary text-[20px]">assignment</span>
+                    <span>Inspecciones Sanitarias Realizadas por el Administrador</span>
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={fetchAdminAudits}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-dark hover:bg-surface-container transition-colors cursor-pointer"
+                  >
+                    <span className={`material-symbols-outlined text-[18px] ${isLoadingAudits ? "animate-spin" : ""}`}>
+                      sync
+                    </span>
+                    <span>Actualizar</span>
+                  </button>
+                </div>
+
+                <div className="overflow-x-auto">
+                  {adminAudits.length === 0 ? (
+                    <div className="text-center py-16 px-4">
+                      <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-3">
+                        <span className="material-symbols-outlined text-[36px]">verified_user</span>
+                      </div>
+                      <h4 className="font-title-md text-title-md text-on-surface font-bold">
+                        Aún no ha realizado ninguna inspección como Administrador
+                      </h4>
+                      <p className="text-body-sm text-slate-subtext mt-1 max-w-sm mx-auto mb-4">
+                        Puede iniciar una auditoría en cualquier momento. Los resultados se guardarán de forma estrictamente privada.
+                      </p>
+                      <Link
+                        href="/auditorias/nova"
+                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-xs font-bold shadow hover:bg-primary-container transition-all"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">add_circle</span>
+                        <span>Iniciar Nueva Inspección Privada</span>
+                      </Link>
+                    </div>
+                  ) : (
+                    <table className="w-full text-left text-sm">
+                      <thead className="bg-surface-container text-xs font-bold text-slate-subtext uppercase tracking-wider border-b border-slate-border">
+                        <tr>
+                          <th className="py-3 px-space-md">Empresa Auditada / CIF</th>
+                          <th className="py-3 px-space-md">Fecha Inspección</th>
+                          <th className="py-3 px-space-md">Estado</th>
+                          <th className="py-3 px-space-md">Resultado APPCC</th>
+                          <th className="py-3 px-space-md text-right">Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-border/60 text-on-surface font-body-sm">
+                        {adminAudits.map((a) => (
+                          <tr key={a.id} className="hover:bg-surface-container-low transition-colors">
+                            <td className="py-space-md px-space-md">
+                              <div className="font-bold text-on-surface flex items-center gap-1.5">
+                                <span>{a.companyName}</span>
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                  Privada
+                                </span>
+                              </div>
+                              <div className="text-label-sm text-slate-subtext font-mono mt-0.5">CIF: {a.companyCif}</div>
+                            </td>
+
+                            <td className="py-space-md px-space-md font-mono text-xs text-slate-subtext">
+                              {a.inspectionDate ? new Date(a.inspectionDate).toLocaleDateString("es-ES") : "—"}
+                            </td>
+
+                            <td className="py-space-md px-space-md">
+                              <span
+                                className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                                  a.status === "FINALIZED" || a.status === "SIGNED"
+                                    ? "bg-status-pass-bg text-status-pass"
+                                    : "bg-amber-100 text-amber-800"
+                                }`}
+                              >
+                                {a.status === "FINALIZED"
+                                  ? "Finalizada"
+                                  : a.status === "SIGNED"
+                                  ? "Firmada"
+                                  : "En Curso"}
+                              </span>
+                            </td>
+
+                            <td className="py-space-md px-space-md">
+                              {a.complianceScore !== undefined && a.complianceScore !== null ? (
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-primary font-mono">{a.complianceScore}%</span>
+                                  {a.verdict && (
+                                    <span className="text-[11px] text-slate-subtext">({a.verdict})</span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-xs text-slate-subtext italic">Evaluando rúbrica...</span>
+                              )}
+                            </td>
+
+                            <td className="py-space-md px-space-md text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <Link
+                                  href={`/auditorias/${a.id}/rubrica?company=${encodeURIComponent(
+                                    a.companyName
+                                  )}&cif=${encodeURIComponent(a.companyCif)}`}
+                                  className="px-3 py-1.5 rounded-xl border border-slate-border text-xs font-semibold text-slate-dark hover:bg-surface-container transition-colors inline-flex items-center gap-1"
+                                >
+                                  <span className="material-symbols-outlined text-[16px]">edit_note</span>
+                                  <span>Rúbrica</span>
+                                </Link>
+
+                                <Link
+                                  href={`/auditorias/${a.id}/relatorio?company=${encodeURIComponent(
+                                    a.companyName
+                                  )}&cif=${encodeURIComponent(a.companyCif)}`}
+                                  className="px-3 py-1.5 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary-container transition-colors inline-flex items-center gap-1 shadow-sm"
+                                >
+                                  <span className="material-symbols-outlined text-[16px]">picture_as_pdf</span>
+                                  <span>Informe</span>
+                                </Link>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Modal de Cadastro de Nova Empresa */}

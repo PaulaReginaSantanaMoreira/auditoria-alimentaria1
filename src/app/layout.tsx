@@ -29,12 +29,29 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="es">
+    <html lang="es" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var stored = localStorage.getItem('bioaudit_theme');
+                  // O tema normal (claro) é o padrão oficial. O modo escuro é opcional por escolha ativa.
+                  if (stored === 'dark') {
+                    document.documentElement.classList.add('dark');
+                  } else {
+                    document.documentElement.classList.remove('dark');
+                  }
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
       </head>
-      <body className="bg-surface text-on-surface antialiased flex flex-col min-h-screen">
+      <body className="bg-surface dark:bg-slate-950 text-on-surface dark:text-slate-100 antialiased flex flex-col min-h-screen transition-colors duration-150">
         <main className="flex-1 flex flex-col">
           {children}
         </main>

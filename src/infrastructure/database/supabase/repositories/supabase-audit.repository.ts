@@ -8,6 +8,7 @@ import { Cif } from "../../../../domain/value-objects/cif";
 import { Score, AuditVerdict, EvaluationPointScore } from "../../../../domain/value-objects/score";
 import { Signature } from "../../../../domain/value-objects/signature";
 import { EvidencePhoto } from "../../../../domain/value-objects/evidence-photo";
+import { AuditAccessScope } from "../../../../domain/security/roles-and-permissions";
 
 export class SupabaseAuditRepository implements IAuditRepository {
   constructor(private readonly supabase: SupabaseClient) {}
@@ -100,6 +101,7 @@ export class SupabaseAuditRepository implements IAuditRepository {
       verdict: auditData.verdict as AuditVerdict | undefined,
       auditorSignature,
       auditedSignature,
+      accessScope: (auditData.access_scope as AuditAccessScope) || "TENANT",
       createdAt: new Date(auditData.created_at),
       updatedAt: new Date(auditData.updated_at),
     });
@@ -123,7 +125,7 @@ export class SupabaseAuditRepository implements IAuditRepository {
   }
 
   public async save(audit: Audit): Promise<void> {
-    const { error: auditError } = await this.supabase.from("audits").insert({
+    const payload: Record<string, any> = {
       id: audit.id,
       auditor_id: audit.auditor.id,
       company_id: audit.company.id,
@@ -132,9 +134,19 @@ export class SupabaseAuditRepository implements IAuditRepository {
       normative_framework: audit.normativeFramework,
       compliance_score: audit.score?.percentage ?? null,
       verdict: audit.verdict ?? null,
+      access_scope: audit.accessScope,
       created_at: audit.createdAt.toISOString(),
       updated_at: audit.updatedAt.toISOString(),
-    });
+    };
+
+    let { error: auditError } = await this.supabase.from("audits").insert(payload);
+
+    // Fallback gracioso caso a coluna access_scope ainda não tenha sido criada no schema remoto
+    if (auditError && auditError.message.includes("access_scope")) {
+      delete payload.access_scope;
+      const retry = await this.supabase.from("audits").insert(payload);
+      auditError = retry.error;
+    }
 
     if (auditError) {
       throw new Error(`Erro ao salvar auditoria no Supabase: ${auditError.message}`);
@@ -164,19 +176,32 @@ export class SupabaseAuditRepository implements IAuditRepository {
   }
 
   public async update(audit: Audit): Promise<void> {
-    const { error: auditError } = await this.supabase
+    const updatePayload: Record<string, any> = {
+      status: audit.status,
+      compliance_score: audit.score?.percentage ?? null,
+      verdict: audit.verdict ?? null,
+      auditor_signature_name: audit.auditorSignature?.signeeName ?? null,
+      auditor_signature_url: audit.auditorSignature?.signatureDataUrl ?? null,
+      audited_signature_name: audit.auditedSignature?.signeeName ?? null,
+      audited_signature_url: audit.auditedSignature?.signatureDataUrl ?? null,
+      access_scope: audit.accessScope,
+      updated_at: new Date().toISOString(),
+    };
+
+    let { error: auditError } = await this.supabase
       .from("audits")
-      .update({
-        status: audit.status,
-        compliance_score: audit.score?.percentage ?? null,
-        verdict: audit.verdict ?? null,
-        auditor_signature_name: audit.auditorSignature?.signeeName ?? null,
-        auditor_signature_url: audit.auditorSignature?.signatureDataUrl ?? null,
-        audited_signature_name: audit.auditedSignature?.signeeName ?? null,
-        audited_signature_url: audit.auditedSignature?.signatureDataUrl ?? null,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq("id", audit.id);
+
+    // Fallback gracioso caso a coluna access_scope ainda não tenha sido criada no schema remoto
+    if (auditError && auditError.message.includes("access_scope")) {
+      delete updatePayload.access_scope;
+      const retry = await this.supabase
+        .from("audits")
+        .update(updatePayload)
+        .eq("id", audit.id);
+      auditError = retry.error;
+    }
 
     if (auditError) {
       throw new Error(`Erro ao atualizar auditoria no Supabase: ${auditError.message}`);

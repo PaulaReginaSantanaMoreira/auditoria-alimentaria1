@@ -15,6 +15,12 @@
     background-color: #f7f9fb;
     color: #191c1e;
     -webkit-font-smoothing: antialiased;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  html.dark, html.dark body {
+    background-color: #0b1120 !important;
+    color: #f8fafc !important;
   }
 
   .pb-safe {
@@ -24,6 +30,68 @@
   .pt-safe {
     padding-top: env(safe-area-inset-top, 0px);
   }
+}
+
+/* ==========================================================================
+   BIOAUDIT PRO — REGRAS GLOBAIS DE DARK MODE (WCAG 2.2 / CLINICAL ASSURANCE)
+   ========================================================================== */
+.dark .bg-surface {
+  background-color: #0b1120 !important;
+}
+
+.dark .bg-surface-container-lowest,
+.dark .bg-white {
+  background-color: #131c2e !important;
+  color: #f8fafc;
+}
+
+.dark .bg-surface-container,
+.dark .bg-slate-surface {
+  background-color: #1e293b !important;
+}
+
+.dark .bg-surface-container-high,
+.dark .bg-surface-container-highest {
+  background-color: #273549 !important;
+}
+
+.dark .border-slate-border {
+  border-color: #273549 !important;
+}
+
+.dark .border-slate-border\/50,
+.dark .border-slate-border\/70 {
+  border-color: rgba(39, 53, 73, 0.7) !important;
+}
+
+.dark .text-on-surface,
+.dark .text-slate-dark {
+  color: #f8fafc !important;
+}
+
+.dark .text-slate-subtext,
+.dark .text-on-surface-variant {
+  color: #94a3b8 !important;
+}
+
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: #0d1525 !important;
+  color: #f8fafc !important;
+  border-color: #273549 !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #64748b !important;
+}
+
+.dark .shadow-sm,
+.dark .shadow-md,
+.dark .shadow-lg,
+.dark .shadow-xl {
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.6) !important;
 }
 
 /* Ocultar barra de desplazamiento por defecto */

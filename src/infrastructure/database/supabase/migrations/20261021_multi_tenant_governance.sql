@@ -126,7 +126,8 @@ ALTER TABLE public.companies
 ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES public.tenants(id) ON DELETE CASCADE;
 
 ALTER TABLE public.audits 
-ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES public.tenants(id) ON DELETE CASCADE;
+ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES public.tenants(id) ON DELETE CASCADE,
+ADD COLUMN IF NOT EXISTS access_scope TEXT NOT NULL DEFAULT 'TENANT' CHECK (access_scope IN ('TENANT', 'CONFIDENTIAL', 'PRIVATE'));
 
 -- -----------------------------------------------------------------------------
 -- 8. TABELA DE AUDITORIA DE CONSENTIMENTO (GDPR / RGPD ART. 7 & LGPD ART. 8)
@@ -237,9 +238,19 @@ FOR SELECT USING (
     (
         tenant_id = public.get_auth_tenant_id() AND
         (
-            (SELECT can_view_all_tenant_audits FROM public.tenant_users WHERE user_id = auth.uid() AND is_active = TRUE) = TRUE
+            (
+                COALESCE(access_scope, 'TENANT') = 'TENANT' AND
+                (
+                    (SELECT can_view_all_tenant_audits FROM public.tenant_users WHERE user_id = auth.uid() AND is_active = TRUE) = TRUE
+                    OR
+                    auditor_id IN (SELECT id FROM public.auditors WHERE auth_user_id = auth.uid())
+                )
+            )
             OR
-            auditor_id IN (SELECT id FROM public.auditors WHERE auth_user_id = auth.uid())
+            (
+                access_scope = 'PRIVATE' AND
+                auditor_id IN (SELECT id FROM public.auditors WHERE auth_user_id = auth.uid())
+            )
         )
     )
 );
