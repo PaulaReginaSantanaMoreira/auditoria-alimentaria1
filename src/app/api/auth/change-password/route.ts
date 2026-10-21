@@ -6,7 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));
-    const { currentPassword, newPassword } = body;
+    const { currentPassword, newPassword, email } = body;
 
     if (!currentPassword || typeof currentPassword !== "string") {
       return NextResponse.json(
@@ -37,21 +37,22 @@ export async function POST(request: Request) {
       });
     }
 
-    // 1. Verificar sessão ativa do usuário através dos cookies HTTP
+    // 1. Identificar usuário pela sessão HTTP (cookies) ou via email informado
     const supabase = await createServerSupabaseClient();
     const {
-      data: { user },
-      error: authError,
+      data: { user: sessionUser },
     } = await supabase.auth.getUser();
 
-    if (authError || !user || !user.email) {
+    const targetEmail = sessionUser?.email || (typeof email === "string" ? email.trim() : null);
+
+    if (!targetEmail) {
       return NextResponse.json(
         { success: false, error: "Sesión no válida o expirada. Por favor inicie sesión nuevamente." },
         { status: 401 }
       );
     }
 
-    // 2. Validar se a senha atual está correta tentando autenticar contra o Supabase Auth
+    // 2. Validar autenticidade da senha atual no Supabase Auth
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -62,31 +63,62 @@ export async function POST(request: Request) {
       );
     }
 
-    const verifyClient = createClient(supabaseUrl, supabaseAnonKey, {
+    const authClient = createClient(supabaseUrl, supabaseAnonKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    const { error: verifyError } = await verifyClient.auth.signInWithPassword({
-      email: user.email,
+    const { data: signInData, error: verifyError } = await authClient.auth.signInWithPassword({
+      email: targetEmail,
       password: currentPassword,
     });
 
-    if (verifyError) {
+    if (verifyError || !signInData?.user) {
       return NextResponse.json(
         { success: false, error: "La contraseña actual introducida es incorrecta. Verifíquela e intente nuevamente." },
         { status: 400 }
       );
     }
 
-    // 3. Senha antiga validada com sucesso! Atualizar hash no Supabase Auth via Admin Client
-    const adminClient = createAdminClient();
-    const { error: updateError } = await adminClient.auth.admin.updateUserById(user.id, {
-      password: newPassword,
-    });
+    const verifiedUserId = signInData.user.id;
 
-    if (updateError) {
+    // 3. Atualizar a nova senha do usuário
+    let updateSuccess = false;
+    let updateErrorMessage = "";
+
+    // Tentativa 1: Admin Client via Service Role Key (privilégio total)
+    if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      try {
+        const adminClient = createAdminClient();
+        const { error: adminUpdateError } = await adminClient.auth.admin.updateUserById(verifiedUserId, {
+          password: newPassword,
+        });
+
+        if (!adminUpdateError) {
+          updateSuccess = true;
+        } else {
+          updateErrorMessage = adminUpdateError.message;
+        }
+      } catch (adminErr: any) {
+        updateErrorMessage = adminErr.message;
+      }
+    }
+
+    // Tentativa 2: Fallback via sessão autenticada do usuário
+    if (!updateSuccess) {
+      const { error: sessionUpdateError } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (!sessionUpdateError) {
+        updateSuccess = true;
+      } else {
+        updateErrorMessage = updateErrorMessage || sessionUpdateError.message;
+      }
+    }
+
+    if (!updateSuccess) {
       return NextResponse.json(
-        { success: false, error: `Error al actualizar la contraseña: ${updateError.message}` },
+        { success: false, error: `Error al actualizar la contraseña: ${updateErrorMessage || "No autorizado"}` },
         { status: 500 }
       );
     }

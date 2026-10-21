@@ -1,11 +1,28 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Header } from "@/presentation/components/Header";
 
 export default function SuscripcionPage() {
+  const router = useRouter();
   const [selectedPlan, setSelectedPlan] = useState<"starter" | "pro" | "enterprise">("pro");
+
+  // SuperAdmin não possui restrições de licença e deve ser redirecionado para o painel master
+  useEffect(() => {
+    try {
+      const session = localStorage.getItem("bioaudit_session");
+      if (session) {
+        const parsed = JSON.parse(session);
+        if (parsed.role && String(parsed.role).toLowerCase().includes("superadmin")) {
+          router.replace("/superadmin");
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, [router]);
 
   return (
     <>

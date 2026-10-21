@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { createClient } from "@/infrastructure/database/supabase/supabase-client";
 import { ChangePasswordModal } from "./ChangePasswordModal";
 
@@ -18,10 +18,12 @@ export function Header({
   planActive = true,
 }: HeaderProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [userEmail, setUserEmail] = useState("auditor@sanidad.es");
   const [userRole, setUserRole] = useState("Inspector Sanitario Oficial");
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -30,7 +32,18 @@ export function Header({
       if (session) {
         const parsed = JSON.parse(session);
         if (parsed.identifier) setUserEmail(parsed.identifier);
-        if (parsed.role) setUserRole(parsed.role === "auditor" ? "Inspector Sanitario Oficial" : parsed.role);
+        if (parsed.role) {
+          const roleLower = String(parsed.role).toLowerCase();
+          const isSuper = roleLower === "superadmin" || roleLower.includes("superadmin");
+          setIsSuperAdmin(isSuper);
+          setUserRole(
+            isSuper
+              ? "SuperAdmin Master"
+              : parsed.role === "auditor"
+              ? "Inspector Sanitario Oficial"
+              : parsed.role
+          );
+        }
       }
     } catch {
       // fallback
@@ -66,10 +79,14 @@ export function Header({
 
   const userInitials = (userEmail.split("@")[0] || "AU").slice(0, 2).toUpperCase();
 
+  // SuperAdmin não possui restrições, não tem plano/assinatura e se mantém no painel master
+  const isSuper = isSuperAdmin || (pathname ? pathname.startsWith("/superadmin") : false);
+  const logoHref = isSuper ? "/superadmin" : "/auditorias/nova";
+
   return (
     <header className="fixed top-0 inset-x-0 z-50 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] pt-safe">
       <div className="h-16 px-margin-mobile flex items-center justify-between gap-space-xs max-w-5xl mx-auto">
-        <Link href="/auditorias/nova" className="flex items-center gap-space-sm min-w-0 flex-1">
+        <Link href={logoHref} className="flex items-center gap-space-sm min-w-0 flex-1">
           <div className="w-9 h-9 rounded-xl bg-status-pass-bg flex items-center justify-center text-primary shrink-0 shadow-sm">
             <span className="material-symbols-outlined text-[24px]">verified_user</span>
           </div>
@@ -78,7 +95,8 @@ export function Header({
               <span className="font-title-md text-title-md text-on-surface font-bold truncate">
                 {title}
               </span>
-              {planActive && (
+              {/* SuperAdmin não precisa de plano ativo */}
+              {planActive && !isSuper && (
                 <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-lg bg-status-pass-bg text-status-pass font-label-sm text-label-sm">
                   <span className="material-symbols-outlined text-[13px]">check_circle</span>
                   Plan Activo
@@ -92,13 +110,17 @@ export function Header({
         </Link>
 
         <div className="flex items-center gap-space-xs shrink-0">
-          <Link
-            href="/suscripcion"
-            aria-label="Gestión de suscripción"
-            className="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-primary rounded-full hover:bg-surface-container-high transition-colors"
-          >
-            <span className="material-symbols-outlined text-[20px]">credit_card</span>
-          </Link>
+          {/* SuperAdmin não tem página de assinatura */}
+          {!isSuper && (
+            <Link
+              href="/suscripcion"
+              aria-label="Gestión de suscripción"
+              className="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-primary rounded-full hover:bg-surface-container-high transition-colors"
+            >
+              <span className="material-symbols-outlined text-[20px]">credit_card</span>
+            </Link>
+          )}
+
           <button
             aria-label="Alertas y Notificaciones Sanitarias"
             className="w-10 h-10 flex items-center justify-center text-on-surface-variant rounded-full active:bg-surface-container-high transition-colors"
@@ -138,32 +160,39 @@ export function Header({
 
                 {/* Ações */}
                 <div className="py-1">
-                  <Link
-                    href="/auditorias/nova"
-                    onClick={() => setIsMenuOpen(false)}
-                    className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-dark hover:bg-slate-surface transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-[18px] text-primary">add_circle</span>
-                    <span>Nueva Inspección</span>
-                  </Link>
+                  {!isSuper && (
+                    <Link
+                      href="/auditorias/nova"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-dark hover:bg-slate-surface transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[18px] text-primary">add_circle</span>
+                      <span>Nueva Inspección</span>
+                    </Link>
+                  )}
 
-                  <Link
-                    href="/suscripcion"
-                    onClick={() => setIsMenuOpen(false)}
-                    className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-dark hover:bg-slate-surface transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-[18px] text-slate-subtext">credit_card</span>
-                    <span>Mi Suscripción</span>
-                  </Link>
+                  {/* SuperAdmin não tem "Mi Suscripción" */}
+                  {!isSuper && (
+                    <Link
+                      href="/suscripcion"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-dark hover:bg-slate-surface transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[18px] text-slate-subtext">credit_card</span>
+                      <span>Mi Suscripción</span>
+                    </Link>
+                  )}
 
-                  <Link
-                    href="/gestao/equipe"
-                    onClick={() => setIsMenuOpen(false)}
-                    className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-dark hover:bg-slate-surface transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-[18px] text-primary">group</span>
-                    <span>Equipo e Inspectores</span>
-                  </Link>
+                  {!isSuper && (
+                    <Link
+                      href="/gestao/equipe"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-dark hover:bg-slate-surface transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[18px] text-primary">group</span>
+                      <span>Equipo e Inspectores</span>
+                    </Link>
+                  )}
 
                   <Link
                     href="/superadmin"
@@ -207,6 +236,7 @@ export function Header({
       <ChangePasswordModal
         isOpen={isChangePasswordOpen}
         onClose={() => setIsChangePasswordOpen(false)}
+        userEmail={userEmail}
       />
     </header>
   );
