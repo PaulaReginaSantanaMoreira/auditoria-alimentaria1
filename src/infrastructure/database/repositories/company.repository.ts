@@ -47,6 +47,23 @@ export class CompanyRepository implements ICompanyRepository {
     }
   }
 
+  public async update(company: Company): Promise<void> {
+    const { error } = await this.dbClient
+      .from("companies")
+      .update({
+        name: company.name,
+        cif: company.cif.value,
+        address: company.address,
+        sanitary_registry_number: company.sanitaryRegistryNumber,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", company.id);
+
+    if (error) {
+      throw new Error(`Erro ao atualizar empresa no banco: ${error.message}`);
+    }
+  }
+
   private mapToEntity(row: any): Company {
     return new Company({
       id: row.id,

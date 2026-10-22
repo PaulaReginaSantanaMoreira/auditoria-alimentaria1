@@ -332,7 +332,7 @@ export function SignatureModal({
             <button
               type="button"
               disabled={isSubmitting}
-              onClick={() => clearCanvas(canvasAuditadoRef.current, setIsAuditadoSigned)}
+              onClick={() => clearCanvas(canvasAuditadoRef.current, setIsAuditedSigned)}
               className="text-slate-subtext hover:text-alert-red text-xs underline disabled:opacity-40"
             >
               Borrar

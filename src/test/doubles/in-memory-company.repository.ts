@@ -20,4 +20,8 @@ export class InMemoryCompanyRepository implements ICompanyRepository {
   async save(company: Company): Promise<void> {
     this.items.set(company.id, company);
   }
+
+  async update(company: Company): Promise<void> {
+    this.items.set(company.id, company);
+  }
 }
