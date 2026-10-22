@@ -17,15 +17,24 @@ export class RubricRepository implements IRubricTemplateRepository {
     return createAdminClient();
   }
 
-  public async getRubricForTenant(tenantId?: string | null): Promise<TenantRubricInfo> {
+  public async getRubricForTenant(
+    tenantId?: string | null,
+    includeInactive: boolean = true
+  ): Promise<TenantRubricInfo> {
     if (tenantId) {
       // 1. Verificar se o tenant possui rubrica customizada
-      const { data: customPoints, error: customError } = await this.client
+      let query = this.client
         .from("control_point_templates")
         .select("*")
-        .eq("tenant_id", tenantId)
-        .eq("is_active", true)
-        .order("order_index", { ascending: true });
+        .eq("tenant_id", tenantId);
+
+      if (!includeInactive) {
+        query = query.eq("is_active", true);
+      }
+
+      const { data: customPoints, error: customError } = await query.order("order_index", {
+        ascending: true,
+      });
 
       if (!customError && customPoints && customPoints.length > 0) {
         const templates: ControlPointTemplate[] = customPoints.map((p: any) => ({
@@ -36,6 +45,7 @@ export class RubricRepository implements IRubricTemplateRepository {
           title: p.title,
           isCriticalCcp: Boolean(p.is_critical_ccp),
           legalReference: p.legal_reference,
+          isActive: p.is_active !== false,
         }));
 
         return {
@@ -49,12 +59,16 @@ export class RubricRepository implements IRubricTemplateRepository {
     }
 
     // 2. Fallback: Buscar rubrica global padrão (tenant_id IS NULL)
-    const { data: defaultPoints } = await this.client
+    let defaultQuery = this.client
       .from("control_point_templates")
       .select("*")
-      .is("tenant_id", null)
-      .eq("is_active", true)
-      .order("order_index", { ascending: true });
+      .is("tenant_id", null);
+
+    if (!includeInactive) {
+      defaultQuery = defaultQuery.eq("is_active", true);
+    }
+
+    const { data: defaultPoints } = await defaultQuery.order("order_index", { ascending: true });
 
     if (defaultPoints && defaultPoints.length > 0) {
       const templates: ControlPointTemplate[] = defaultPoints.map((p: any) => ({
@@ -65,6 +79,7 @@ export class RubricRepository implements IRubricTemplateRepository {
         title: p.title,
         isCriticalCcp: Boolean(p.is_critical_ccp),
         legalReference: p.legal_reference,
+        isActive: p.is_active !== false,
       }));
 
       return {
@@ -82,7 +97,7 @@ export class RubricRepository implements IRubricTemplateRepository {
       isCustomized: false,
       totalPoints: DEFAULT_CONTROL_POINTS.length,
       criticalCcpCount: DEFAULT_CONTROL_POINTS.filter((p) => p.isCriticalCcp).length,
-      templates: DEFAULT_CONTROL_POINTS,
+      templates: DEFAULT_CONTROL_POINTS.map((p) => ({ ...p, isActive: true })),
     };
   }
 
@@ -104,15 +119,15 @@ export class RubricRepository implements IRubricTemplateRepository {
     // Inserir os novos pontos personalizados
     const rows = templates.map((p, idx) => ({
       tenant_id: tenantId,
-      code: p.code,
-      number: p.number,
+      code: p.code || `cp_${idx + 1}`,
+      number: p.number || `${idx + 1}`,
       category: p.category,
       category_label: p.categoryLabel,
       title: p.title,
-      is_critical_ccp: p.isCriticalCcp,
+      is_critical_ccp: Boolean(p.isCriticalCcp),
       legal_reference: p.legalReference,
       order_index: idx + 1,
-      is_active: true,
+      is_active: p.isActive !== false,
     }));
 
     const { error } = await this.client.from("control_point_templates").insert(rows);
@@ -132,6 +147,62 @@ export class RubricRepository implements IRubricTemplateRepository {
 
     if (error) {
       throw new Error(`Falha ao restaurar rubrica padrão: ${error.message}`);
+    }
+  }
+
+  public async updateGlobalBaseRubric(templates: ControlPointTemplate[]): Promise<void> {
+    if (!templates || templates.length === 0) {
+      throw new Error("A rubrica base deve conter ao menos um ponto de controle.");
+    }
+
+    await this.client
+      .from("control_point_templates")
+      .delete()
+      .is("tenant_id", null);
+
+    const rows = templates.map((p, idx) => ({
+      tenant_id: null,
+      code: p.code || `base_${idx + 1}`,
+      number: p.number || `${idx + 1}`,
+      category: p.category,
+      category_label: p.categoryLabel,
+      title: p.title,
+      is_critical_ccp: Boolean(p.isCriticalCcp),
+      legal_reference: p.legalReference,
+      order_index: idx + 1,
+      is_active: p.isActive !== false,
+    }));
+
+    const { error } = await this.client.from("control_point_templates").insert(rows);
+
+    if (error) {
+      throw new Error(`Falha ao salvar rubrica base global: ${error.message}`);
+    }
+  }
+
+  public async resetGlobalBaseRubric(): Promise<void> {
+    await this.client
+      .from("control_point_templates")
+      .delete()
+      .is("tenant_id", null);
+
+    const rows = DEFAULT_CONTROL_POINTS.map((p, idx) => ({
+      tenant_id: null,
+      code: p.code,
+      number: p.number,
+      category: p.category,
+      category_label: p.categoryLabel,
+      title: p.title,
+      is_critical_ccp: p.isCriticalCcp,
+      legal_reference: p.legalReference,
+      order_index: idx + 1,
+      is_active: true,
+    }));
+
+    const { error } = await this.client.from("control_point_templates").insert(rows);
+
+    if (error) {
+      throw new Error(`Falha ao restaurar rubrica base global: ${error.message}`);
     }
   }
 }

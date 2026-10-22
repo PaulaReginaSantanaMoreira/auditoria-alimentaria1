@@ -25,4 +25,14 @@ export interface IRubricTemplateRepository {
    * Restaura o formulário para os 30 pontos sanitários padrão da plataforma.
    */
   resetRubricToDefault(tenantId: string): Promise<void>;
+
+  /**
+   * Atualiza a rúbrica base global da plataforma.
+   */
+  updateGlobalBaseRubric(templates: ControlPointTemplate[]): Promise<void>;
+
+  /**
+   * Restaura a rúbrica base global para os 30 pontos normativos originais (RD 852/2004, ISO 22000).
+   */
+  resetGlobalBaseRubric(): Promise<void>;
 }

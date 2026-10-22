@@ -6,6 +6,15 @@ import { Header } from "@/presentation/components/Header";
 import { offlineDb } from "@/infrastructure/offline/offline-audit.db";
 import { useAuthGuard } from "@/presentation/hooks/useAuthGuard";
 import { AuthLoadingScreen } from "@/presentation/components/AuthGuard";
+import { ControlPointTemplate } from "@/domain/constants/default-control-points";
+
+const CATEGORY_OPTIONS = [
+  { category: "INFRAESTRUCTURA", label: "Infraestructura y Equipos" },
+  { category: "HIGIENE_PERSONAL", label: "Higiene y Prácticas del Personal" },
+  { category: "OPERACIONES_TEMPERATURAS", label: "Operaciones y Cadena de Frío" },
+  { category: "TRAZABILIDAD_DOCUMENTACION", label: "Trazabilidad y APPCC" },
+  { category: "LIMPIEZA_GESTION_RESIDUOS", label: "Limpieza, Desinfección y Plagas" },
+];
 
 interface TenantItem {
   id: string;
@@ -187,6 +196,46 @@ export default function SuperAdminPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notification, setNotification] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
+  // Gestão de Rúbrica Base Global
+  const [globalRubricPointsCount, setGlobalRubricPointsCount] = useState<number>(30);
+  const [showGlobalRubricModal, setShowGlobalRubricModal] = useState(false);
+  const [globalRubricPoints, setGlobalRubricPoints] = useState<ControlPointTemplate[]>([]);
+  const [isLoadingGlobalRubric, setIsLoadingGlobalRubric] = useState(false);
+  const [isSavingGlobalRubric, setIsSavingGlobalRubric] = useState(false);
+  const [editingGlobalPointIndex, setEditingGlobalPointIndex] = useState<number | null>(null);
+  const [showAddGlobalPointForm, setShowAddGlobalPointForm] = useState(false);
+  const [globalRubricFilter, setGlobalRubricFilter] = useState("");
+  const [newGlobalPoint, setNewGlobalPoint] = useState<ControlPointTemplate>({
+    code: "",
+    category: "INFRAESTRUCTURA" as any,
+    categoryLabel: "Infraestructura y Equipos",
+    number: "",
+    title: "",
+    isCriticalCcp: false,
+    legalReference: "RD 852/2004",
+    isActive: true,
+  });
+
+  // Gestão de Rúbrica Personalizada por Tenant
+  const [selectedTenantForRubric, setSelectedTenantForRubric] = useState<TenantItem | null>(null);
+  const [tenantRubricPoints, setTenantRubricPoints] = useState<ControlPointTemplate[]>([]);
+  const [isTenantRubricCustomized, setIsTenantRubricCustomized] = useState(false);
+  const [isLoadingTenantRubric, setIsLoadingTenantRubric] = useState(false);
+  const [isSavingTenantRubric, setIsSavingTenantRubric] = useState(false);
+  const [editingTenantPointIndex, setEditingTenantPointIndex] = useState<number | null>(null);
+  const [showAddTenantPointForm, setShowAddTenantPointForm] = useState(false);
+  const [tenantRubricFilter, setTenantRubricFilter] = useState("");
+  const [newTenantPoint, setNewTenantPoint] = useState<ControlPointTemplate>({
+    code: "",
+    category: "INFRAESTRUCTURA" as any,
+    categoryLabel: "Infraestructura y Equipos",
+    number: "",
+    title: "",
+    isCriticalCcp: false,
+    legalReference: "RD 852/2004",
+    isActive: true,
+  });
+
   const fetchTenants = async () => {
     setIsLoading(true);
     try {
@@ -355,7 +404,291 @@ export default function SuperAdminPage() {
   useEffect(() => {
     fetchTenants();
     fetchAdminAudits();
+    fetchGlobalRubricCount();
   }, []);
+
+  const fetchGlobalRubricCount = async () => {
+    try {
+      const res = await fetch("/api/superadmin/rubrica");
+      const json = await res.json();
+      if (json.success && json.rubric?.templates) {
+        setGlobalRubricPointsCount(json.rubric.templates.length);
+      }
+    } catch {
+      // fallback
+    }
+  };
+
+  const handleOpenGlobalRubric = async () => {
+    setShowGlobalRubricModal(true);
+    setIsLoadingGlobalRubric(true);
+    setEditingGlobalPointIndex(null);
+    setShowAddGlobalPointForm(false);
+    setGlobalRubricFilter("");
+    try {
+      const res = await fetch("/api/superadmin/rubrica");
+      const json = await res.json();
+      if (json.success && json.rubric?.templates) {
+        setGlobalRubricPoints(json.rubric.templates);
+        setGlobalRubricPointsCount(json.rubric.templates.length);
+      }
+    } catch {
+      // fallback
+    } finally {
+      setIsLoadingGlobalRubric(false);
+    }
+  };
+
+  const handleSaveGlobalRubric = async (pointsToSave?: ControlPointTemplate[]) => {
+    const list = pointsToSave || globalRubricPoints;
+    if (list.length === 0) {
+      alert("La rúbrica debe contener al menos 1 punto de control.");
+      return;
+    }
+    setIsSavingGlobalRubric(true);
+    try {
+      const res = await fetch("/api/superadmin/rubrica", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ templates: list }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setNotification({
+          type: "success",
+          message: "Rúbrica Base Oficial actualizada con éxito.",
+        });
+        setGlobalRubricPoints(json.rubric?.templates || list);
+        setGlobalRubricPointsCount(json.rubric?.templates?.length || list.length);
+        setEditingGlobalPointIndex(null);
+        setShowAddGlobalPointForm(false);
+      } else {
+        alert(json.error || "Error al actualizar rúbrica base.");
+      }
+    } catch (err: any) {
+      alert(err.message || "Error al guardar la rúbrica base.");
+    } finally {
+      setIsSavingGlobalRubric(false);
+    }
+  };
+
+  const handleResetGlobalRubric = async () => {
+    const confirmed = window.confirm(
+      "¿Desea restaurar la Rúbrica Base Oficial a los 30 puntos normativos originales de la plataforma? Todos los cambios manuales en la base se reajustarán."
+    );
+    if (!confirmed) return;
+    setIsSavingGlobalRubric(true);
+    try {
+      const res = await fetch("/api/superadmin/rubrica", { method: "DELETE" });
+      const json = await res.json();
+      if (json.success) {
+        setNotification({
+          type: "success",
+          message: "Rúbrica Base restablecida a los 30 puntos oficiales por defecto.",
+        });
+        setGlobalRubricPoints(json.rubric?.templates || []);
+        setGlobalRubricPointsCount(json.rubric?.templates?.length || 30);
+        setEditingGlobalPointIndex(null);
+        setShowAddGlobalPointForm(false);
+      } else {
+        alert(json.error || "Error al restaurar.");
+      }
+    } catch (err: any) {
+      alert(err.message || "Error al restaurar.");
+    } finally {
+      setIsSavingGlobalRubric(false);
+    }
+  };
+
+  const handleToggleGlobalPointActive = (idx: number) => {
+    const updated = [...globalRubricPoints];
+    updated[idx] = {
+      ...updated[idx],
+      isActive: updated[idx].isActive === false ? true : false,
+    };
+    setGlobalRubricPoints(updated);
+  };
+
+  const handleDeleteGlobalPoint = (idx: number) => {
+    const point = globalRubricPoints[idx];
+    const confirmed = window.confirm(`¿Desea eliminar el punto "${point.number} - ${point.title}" de la base?`);
+    if (!confirmed) return;
+    const updated = globalRubricPoints.filter((_, i) => i !== idx);
+    setGlobalRubricPoints(updated);
+  };
+
+  const handleAddGlobalPoint = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newGlobalPoint.number || !newGlobalPoint.title) {
+      alert("Por favor complete el número y título del punto.");
+      return;
+    }
+    const catObj = CATEGORY_OPTIONS.find((c) => c.category === newGlobalPoint.category) || CATEGORY_OPTIONS[0];
+    const pointToAdd: ControlPointTemplate = {
+      ...newGlobalPoint,
+      code: newGlobalPoint.code || `cp_custom_${Date.now()}`,
+      categoryLabel: catObj.label,
+      isActive: true,
+    };
+    const updated = [...globalRubricPoints, pointToAdd];
+    setGlobalRubricPoints(updated);
+    setShowAddGlobalPointForm(false);
+    setNewGlobalPoint({
+      code: "",
+      category: "INFRAESTRUCTURA" as any,
+      categoryLabel: "Infraestructura y Equipos",
+      number: "",
+      title: "",
+      isCriticalCcp: false,
+      legalReference: "RD 852/2004",
+      isActive: true,
+    });
+  };
+
+  // Funções do Tenant Rubric
+  const handleOpenTenantRubric = async (tenant: TenantItem) => {
+    setSelectedTenantForRubric(tenant);
+    setIsLoadingTenantRubric(true);
+    setEditingTenantPointIndex(null);
+    setShowAddTenantPointForm(false);
+    setTenantRubricFilter("");
+    try {
+      const res = await fetch(`/api/superadmin/tenants/${tenant.id}/rubrica`);
+      const json = await res.json();
+      if (json.success && json.rubric) {
+        setTenantRubricPoints(json.rubric.templates || []);
+        setIsTenantRubricCustomized(Boolean(json.rubric.isCustomized));
+      }
+    } catch {
+      // fallback
+    } finally {
+      setIsLoadingTenantRubric(false);
+    }
+  };
+
+  const handleCloneBaseRubricForTenant = async () => {
+    try {
+      const res = await fetch("/api/superadmin/rubrica");
+      const json = await res.json();
+      if (json.success && json.rubric?.templates) {
+        const cloned = json.rubric.templates.map((p: ControlPointTemplate) => ({ ...p }));
+        setTenantRubricPoints(cloned);
+        setIsTenantRubricCustomized(true);
+      }
+    } catch {
+      alert("Error al cargar la rúbrica base para clonación.");
+    }
+  };
+
+  const handleCreateBlankRubricForTenant = () => {
+    setTenantRubricPoints([]);
+    setIsTenantRubricCustomized(true);
+  };
+
+  const handleToggleTenantPointActive = (idx: number) => {
+    const updated = [...tenantRubricPoints];
+    updated[idx] = {
+      ...updated[idx],
+      isActive: updated[idx].isActive === false ? true : false,
+    };
+    setTenantRubricPoints(updated);
+  };
+
+  const handleDeleteTenantPoint = (idx: number) => {
+    const point = tenantRubricPoints[idx];
+    const confirmed = window.confirm(`¿Desea eliminar el punto "${point.number}" de la rúbrica de esta empresa?`);
+    if (!confirmed) return;
+    const updated = tenantRubricPoints.filter((_, i) => i !== idx);
+    setTenantRubricPoints(updated);
+  };
+
+  const handleAddTenantPoint = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTenantPoint.number || !newTenantPoint.title) {
+      alert("Por favor complete el número y título del punto.");
+      return;
+    }
+    const catObj = CATEGORY_OPTIONS.find((c) => c.category === newTenantPoint.category) || CATEGORY_OPTIONS[0];
+    const pointToAdd: ControlPointTemplate = {
+      ...newTenantPoint,
+      code: newTenantPoint.code || `cp_tenant_${Date.now()}`,
+      categoryLabel: catObj.label,
+      isActive: true,
+    };
+    const updated = [...tenantRubricPoints, pointToAdd];
+    setTenantRubricPoints(updated);
+    setShowAddTenantPointForm(false);
+    setNewTenantPoint({
+      code: "",
+      category: "INFRAESTRUCTURA" as any,
+      categoryLabel: "Infraestructura y Equipos",
+      number: "",
+      title: "",
+      isCriticalCcp: false,
+      legalReference: "RD 852/2004",
+      isActive: true,
+    });
+  };
+
+  const handleSaveTenantRubric = async () => {
+    if (!selectedTenantForRubric) return;
+    if (tenantRubricPoints.length === 0) {
+      alert("La rúbrica debe contener al menos 1 punto de control.");
+      return;
+    }
+    setIsSavingTenantRubric(true);
+    try {
+      const res = await fetch(`/api/superadmin/tenants/${selectedTenantForRubric.id}/rubrica`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ templates: tenantRubricPoints }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setNotification({
+          type: "success",
+          message: `Rúbrica personalizada para "${selectedTenantForRubric.name}" guardada con éxito (${tenantRubricPoints.length} puntos).`,
+        });
+        setIsTenantRubricCustomized(true);
+        setSelectedTenantForRubric(null);
+      } else {
+        alert(json.error || "Error al guardar la rúbrica de la empresa.");
+      }
+    } catch (err: any) {
+      alert(err.message || "Error al guardar.");
+    } finally {
+      setIsSavingTenantRubric(false);
+    }
+  };
+
+  const handleResetTenantRubric = async () => {
+    if (!selectedTenantForRubric) return;
+    const confirmed = window.confirm(
+      `¿Desea restaurar la empresa "${selectedTenantForRubric.name}" a la Rúbrica Base Oficial? Se eliminarán todas las personalizaciones exclusivas de este cliente.`
+    );
+    if (!confirmed) return;
+    setIsSavingTenantRubric(true);
+    try {
+      const res = await fetch(`/api/superadmin/tenants/${selectedTenantForRubric.id}/rubrica`, {
+        method: "DELETE",
+      });
+      const json = await res.json();
+      if (json.success) {
+        setNotification({
+          type: "success",
+          message: `Rúbrica de "${selectedTenantForRubric.name}" restaurada a la Rúbrica Base Oficial.`,
+        });
+        setIsTenantRubricCustomized(false);
+        setTenantRubricPoints(json.rubric?.templates || []);
+      } else {
+        alert(json.error || "Error al restaurar rúbrica.");
+      }
+    } catch (err: any) {
+      alert(err.message || "Error al restaurar.");
+    } finally {
+      setIsSavingTenantRubric(false);
+    }
+  };
 
   const handleOpenEditModal = (tenant: TenantItem) => {
     setSelectedTenantForEdit(tenant);
@@ -711,8 +1044,7 @@ export default function SuperAdminPage() {
                 <span className="material-symbols-outlined text-primary text-[20px]">corporate_fare</span>
               </div>
               <div className="mt-2 text-2xl font-black text-on-surface">
-                {tenants.filter((t) => t.status === "ACTIVE").length}
-                <span className="text-xs font-normal text-slate-subtext ml-1.5">/ {tenants.length} total</span>
+                {tenants.length}
               </div>
             </div>
 
@@ -723,7 +1055,6 @@ export default function SuperAdminPage() {
               </div>
               <div className="mt-2 text-2xl font-black text-on-surface">
                 {totalActiveUsers}
-                <span className="text-xs font-normal text-slate-subtext ml-1.5">/ {totalSeats} cupos</span>
               </div>
             </div>
 
@@ -738,14 +1069,23 @@ export default function SuperAdminPage() {
               </div>
             </div>
 
-            <div className="p-space-md rounded-2xl bg-surface-container-lowest border border-slate-border shadow-sm">
+            <div
+              onClick={handleOpenGlobalRubric}
+              className="p-space-md rounded-2xl bg-surface-container-lowest border border-slate-border shadow-sm cursor-pointer hover:border-primary/50 hover:shadow-md transition-all group"
+              title="Haga clic para ver, editar, añadir o gestionar puntos de la Rúbrica Base Oficial"
+            >
               <div className="flex items-center justify-between text-slate-subtext text-label-sm font-bold uppercase tracking-wider">
-                <span>Rúbrica Base</span>
-                <span className="material-symbols-outlined text-primary text-[20px]">fact_check</span>
+                <span className="group-hover:text-primary transition-colors">Rúbrica Base</span>
+                <span className="material-symbols-outlined text-primary text-[20px] group-hover:scale-110 transition-transform">
+                  fact_check
+                </span>
               </div>
-              <div className="mt-2 text-2xl font-black text-on-surface">
-                30 Puntos
-                <span className="text-xs font-normal text-slate-subtext ml-1.5">APPCC</span>
+              <div className="mt-2 text-2xl font-black text-on-surface flex items-baseline justify-between">
+                <span>{globalRubricPointsCount} Puntos</span>
+                <span className="text-[11px] font-bold text-primary flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
+                  <span>Gestionar</span>
+                  <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                </span>
               </div>
             </div>
           </div>
@@ -909,17 +1249,12 @@ export default function SuperAdminPage() {
                             )}
                           </td>
 
-                          {/* Coluna 4: Inspectores Habilitados (com contagem 1/5 embutida no botão) */}
+                          {/* Coluna 4: Inspectores Habilitados */}
                           <td className="py-space-md px-space-md">
-                            <button
-                              type="button"
-                              onClick={() => fetchTenantUsers(t)}
-                              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-surface-container hover:bg-primary/10 hover:text-primary text-on-surface inline-flex items-center gap-1.5 cursor-pointer transition-colors shadow-sm"
-                              title="Ver y gestionar inspectores del tenant"
-                            >
-                              <span className="material-symbols-outlined text-[16px]">group</span>
-                              <span>Ver Inspectores ({t.activeUsersCount}/{t.maxUserSeats})</span>
-                            </button>
+                            <div className="font-bold text-on-surface text-sm">
+                              {t.activeUsersCount} <span className="text-slate-subtext font-normal text-xs">/ {t.maxUserSeats}</span>
+                            </div>
+                            <div className="text-[11px] text-slate-subtext">inspectores activos</div>
                           </td>
 
                           {/* Coluna 5: Vigencia Subscripción */}
@@ -931,39 +1266,63 @@ export default function SuperAdminPage() {
                             </div>
                           </td>
 
-                          {/* Coluna 6: Acciones (Editar, Contrato, Suspender/Reactivar) */}
+                          {/* Coluna 6: Acciones (Editar, Contrato, Rúbrica, Inspectores, Suspender/Reactivar) */}
                           <td className="py-space-md px-space-md text-right">
-                            <div className="flex items-center justify-end gap-1.5">
+                            <div className="flex items-center justify-end gap-1.5 flex-wrap">
                               <button
                                 type="button"
                                 onClick={() => handleOpenEditModal(t)}
-                                className="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-surface-container hover:bg-primary/10 hover:text-primary text-on-surface inline-flex items-center gap-1 cursor-pointer transition-colors"
-                                title="Editar datos de la empresa (el documento oficial CIF es inmutable)"
+                                className="h-8 px-2.5 rounded-xl text-xs font-semibold bg-surface-container hover:bg-primary/10 hover:text-primary text-on-surface inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors shrink-0 shadow-sm"
+                                title="Editar datos de la empresa (documento fiscal inmutable)"
                               >
-                                <span className="material-symbols-outlined text-[15px]">edit</span>
+                                <span className="material-symbols-outlined text-[16px]">edit</span>
                                 <span>Editar</span>
                               </button>
 
                               <button
                                 type="button"
                                 onClick={() => fetchContractHistory(t)}
-                                className="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-surface-container hover:bg-primary/10 hover:text-primary text-on-surface inline-flex items-center gap-1 cursor-pointer transition-colors"
+                                className="h-8 px-2.5 rounded-xl text-xs font-semibold bg-surface-container hover:bg-primary/10 hover:text-primary text-on-surface inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors shrink-0 shadow-sm"
                                 title="Ver contratos, renovar y salud del cliente"
                               >
-                                <span className="material-symbols-outlined text-[15px]">receipt_long</span>
+                                <span className="material-symbols-outlined text-[16px]">receipt_long</span>
                                 <span>Contrato</span>
                               </button>
 
                               <button
                                 type="button"
+                                onClick={() => handleOpenTenantRubric(t)}
+                                className="h-8 px-2.5 rounded-xl text-xs font-semibold bg-surface-container hover:bg-primary/10 hover:text-primary text-on-surface inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors shrink-0 shadow-sm"
+                                title="Personalizar rúbrica para esta empresa"
+                              >
+                                <span className="material-symbols-outlined text-[16px]">fact_check</span>
+                                <span>Rúbrica</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => fetchTenantUsers(t)}
+                                className="h-8 px-2.5 rounded-xl text-xs font-semibold bg-surface-container hover:bg-primary/10 hover:text-primary text-on-surface inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors shrink-0 shadow-sm"
+                                title="Ver y gestionar inspectores del tenant"
+                              >
+                                <span className="material-symbols-outlined text-[16px]">group</span>
+                                <span>Inspectores</span>
+                              </button>
+
+                              <button
+                                type="button"
                                 onClick={() => handleToggleStatus(t)}
-                                className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+                                className={`h-8 px-2.5 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors shrink-0 shadow-sm ${
                                   t.status === "ACTIVE"
                                     ? "bg-surface-container hover:bg-alert-red-bg/25 hover:text-alert-red text-on-surface"
                                     : "bg-status-pass-bg hover:bg-status-pass/20 text-status-pass"
                                 }`}
+                                title={t.status === "ACTIVE" ? "Suspender acceso a la empresa" : "Reactivar acceso a la empresa"}
                               >
-                                {t.status === "ACTIVE" ? "Suspender" : "Reactivar"}
+                                <span className="material-symbols-outlined text-[16px]">
+                                  {t.status === "ACTIVE" ? "block" : "check_circle"}
+                                </span>
+                                <span>{t.status === "ACTIVE" ? "Suspender" : "Reactivar"}</span>
                               </button>
                             </div>
                           </td>
@@ -2216,6 +2575,845 @@ export default function SuperAdminPage() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL 7: Gestión de Rúbrica Base Oficial (Global) */}
+        {showGlobalRubricModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-sm animate-in fade-in duration-150">
+            <div className="w-full max-w-4xl bg-surface-container-lowest rounded-2xl p-4 sm:p-6 shadow-2xl border border-slate-border animate-in zoom-in-95 duration-150 max-h-[92vh] flex flex-col">
+              {/* Header */}
+              <div className="flex items-start justify-between border-b border-slate-border/70 pb-3 gap-3">
+                <div>
+                  <div className="inline-flex items-center gap-1.5 text-xs text-primary font-bold uppercase tracking-wider mb-1">
+                    <span className="material-symbols-outlined text-[16px]">fact_check</span>
+                    <span>Rúbrica Base Oficial • Plataforma Global</span>
+                  </div>
+                  <h2 className="font-title-md text-title-md text-on-surface font-bold">
+                    Catálogo Normativo Base ({globalRubricPoints.length} Puntos)
+                  </h2>
+                  <p className="text-xs text-slate-subtext mt-0.5">
+                    Configure los puntos de control higiénico-sanitarios predeterminados para toda la plataforma (RD 852/2004, Codex, ISO 22000).
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowGlobalRubricModal(false)}
+                  className="w-8 h-8 rounded-full text-slate-subtext hover:bg-surface-container flex items-center justify-center cursor-pointer shrink-0"
+                >
+                  <span className="material-symbols-outlined text-[20px]">close</span>
+                </button>
+              </div>
+
+              {/* Toolbar / Filtro / Adicionar Ponto */}
+              <div className="py-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 border-b border-slate-border/50">
+                <div className="relative flex-1 max-w-sm">
+                  <span className="material-symbols-outlined text-slate-subtext text-[18px] absolute left-3 top-1/2 -translate-y-1/2">
+                    search
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="Buscar por número, título o categoría..."
+                    value={globalRubricFilter}
+                    onChange={(e) => setGlobalRubricFilter(e.target.value)}
+                    className="w-full pl-9 pr-3 py-1.5 rounded-xl text-xs bg-surface border border-slate-border text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddGlobalPointForm((prev) => !prev)}
+                    className="px-3 py-1.5 rounded-xl text-xs font-bold bg-primary text-white hover:bg-primary-container inline-flex items-center gap-1.5 cursor-pointer transition-colors shadow-sm"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">
+                      {showAddGlobalPointForm ? "remove" : "add_circle"}
+                    </span>
+                    <span>{showAddGlobalPointForm ? "Ocultar Formulario" : "Añadir Punto"}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleResetGlobalRubric}
+                    disabled={isSavingGlobalRubric}
+                    className="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-subtext hover:text-alert-red hover:bg-alert-red-bg/25 border border-slate-border inline-flex items-center gap-1 cursor-pointer transition-colors"
+                    title="Restaurar a los 30 puntos normativos por defecto"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">restart_alt</span>
+                    <span>Restaurar 30 Originales</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Formulário de Adicionar Ponto Global */}
+              {showAddGlobalPointForm && (
+                <form
+                  onSubmit={handleAddGlobalPoint}
+                  className="p-3.5 my-2 rounded-xl bg-surface border border-primary/30 space-y-3 animate-in fade-in"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-on-surface uppercase flex items-center gap-1">
+                      <span className="material-symbols-outlined text-primary text-[16px]">add_task</span>
+                      <span>Añadir Nuevo Punto de Control a la Rúbrica Base</span>
+                    </span>
+                    <span className="text-[11px] text-slate-subtext">Se añadirá a la lista de puntos de inspección</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-bold text-slate-subtext uppercase">Número *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Ej. 1.8 o 6.1"
+                        value={newGlobalPoint.number}
+                        onChange={(e) => setNewGlobalPoint({ ...newGlobalPoint, number: e.target.value })}
+                        className="h-9 px-2.5 rounded-xl bg-surface-container-lowest border border-slate-border text-xs text-on-surface font-bold focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1 sm:col-span-2">
+                      <label className="text-[10px] font-bold text-slate-subtext uppercase">Categoría Normativa *</label>
+                      <select
+                        value={newGlobalPoint.category}
+                        onChange={(e) => setNewGlobalPoint({ ...newGlobalPoint, category: e.target.value as any })}
+                        className="h-9 px-2.5 rounded-xl bg-surface-container-lowest border border-slate-border text-xs text-on-surface font-semibold focus:outline-none focus:ring-1 focus:ring-primary"
+                      >
+                        {CATEGORY_OPTIONS.map((c) => (
+                          <option key={c.category} value={c.category}>
+                            {c.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-bold text-slate-subtext uppercase">Referencia Legal</label>
+                      <input
+                        type="text"
+                        placeholder="Ej. RD 852/2004 Cap. V"
+                        value={newGlobalPoint.legalReference}
+                        onChange={(e) => setNewGlobalPoint({ ...newGlobalPoint, legalReference: e.target.value })}
+                        className="h-9 px-2.5 rounded-xl bg-surface-container-lowest border border-slate-border text-xs text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-bold text-slate-subtext uppercase">Título / Pregunta de Inspección *</label>
+                    <textarea
+                      required
+                      rows={2}
+                      placeholder="Descripción detallada del requisito sanitario a auditar en la rúbrica..."
+                      value={newGlobalPoint.title}
+                      onChange={(e) => setNewGlobalPoint({ ...newGlobalPoint, title: e.target.value })}
+                      className="p-2.5 rounded-xl bg-surface-container-lowest border border-slate-border text-xs text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={newGlobalPoint.isCriticalCcp}
+                        onChange={(e) => setNewGlobalPoint({ ...newGlobalPoint, isCriticalCcp: e.target.checked })}
+                        className="w-4 h-4 rounded text-primary focus:ring-primary"
+                      />
+                      <span className="text-xs font-bold text-alert-red">
+                        Es Punto de Control Crítico (Veto Sanitario Inmediato si no cumple)
+                      </span>
+                    </label>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowAddGlobalPointForm(false)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-subtext hover:bg-surface-container"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-4 py-1.5 rounded-lg text-xs font-bold bg-primary text-white hover:bg-primary-container"
+                      >
+                        Insertar a la Rúbrica
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              )}
+
+              {/* Lista de Pontos da Rúbrica */}
+              <div className="flex-1 overflow-y-auto space-y-2 mt-2 pr-1">
+                {isLoadingGlobalRubric ? (
+                  <div className="py-16 flex flex-col items-center justify-center gap-2">
+                    <span className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                    <span className="text-xs text-slate-subtext">Cargando puntos de la rúbrica base...</span>
+                  </div>
+                ) : (
+                  globalRubricPoints
+                    .map((point, originalIdx) => ({ point, originalIdx }))
+                    .filter(({ point }) => {
+                      if (!globalRubricFilter) return true;
+                      const q = globalRubricFilter.toLowerCase();
+                      return (
+                        point.number.toLowerCase().includes(q) ||
+                        point.title.toLowerCase().includes(q) ||
+                        point.categoryLabel.toLowerCase().includes(q) ||
+                        point.legalReference.toLowerCase().includes(q)
+                      );
+                    })
+                    .map(({ point, originalIdx }) => (
+                      <div
+                        key={point.code || originalIdx}
+                        className={`p-3 rounded-xl border transition-all ${
+                          point.isActive === false
+                            ? "bg-surface-container/40 border-slate-border/50 opacity-60"
+                            : "bg-surface border-slate-border hover:border-slate-border/80 shadow-sm"
+                        }`}
+                      >
+                        {editingGlobalPointIndex === originalIdx ? (
+                          /* Modo de Edição Inline */
+                          <div className="space-y-2.5">
+                            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                              <div className="flex flex-col gap-0.5">
+                                <label className="text-[10px] font-bold text-slate-subtext uppercase">Número</label>
+                                <input
+                                  type="text"
+                                  value={point.number}
+                                  onChange={(e) => {
+                                    const updated = [...globalRubricPoints];
+                                    updated[originalIdx] = { ...updated[originalIdx], number: e.target.value };
+                                    setGlobalRubricPoints(updated);
+                                  }}
+                                  className="h-8 px-2 rounded-lg bg-surface-container-lowest border border-slate-border text-xs font-bold"
+                                />
+                              </div>
+                              <div className="flex flex-col gap-0.5 sm:col-span-2">
+                                <label className="text-[10px] font-bold text-slate-subtext uppercase">Categoría</label>
+                                <select
+                                  value={point.category}
+                                  onChange={(e) => {
+                                    const catObj = CATEGORY_OPTIONS.find((c) => c.category === e.target.value) || CATEGORY_OPTIONS[0];
+                                    const updated = [...globalRubricPoints];
+                                    updated[originalIdx] = {
+                                      ...updated[originalIdx],
+                                      category: e.target.value as any,
+                                      categoryLabel: catObj.label,
+                                    };
+                                    setGlobalRubricPoints(updated);
+                                  }}
+                                  className="h-8 px-2 rounded-lg bg-surface-container-lowest border border-slate-border text-xs font-semibold"
+                                >
+                                  {CATEGORY_OPTIONS.map((c) => (
+                                    <option key={c.category} value={c.category}>
+                                      {c.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="flex flex-col gap-0.5">
+                                <label className="text-[10px] font-bold text-slate-subtext uppercase">Ref. Legal</label>
+                                <input
+                                  type="text"
+                                  value={point.legalReference}
+                                  onChange={(e) => {
+                                    const updated = [...globalRubricPoints];
+                                    updated[originalIdx] = { ...updated[originalIdx], legalReference: e.target.value };
+                                    setGlobalRubricPoints(updated);
+                                  }}
+                                  className="h-8 px-2 rounded-lg bg-surface-container-lowest border border-slate-border text-xs"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="flex flex-col gap-0.5">
+                              <label className="text-[10px] font-bold text-slate-subtext uppercase">Título / Requisito</label>
+                              <textarea
+                                rows={2}
+                                value={point.title}
+                                onChange={(e) => {
+                                  const updated = [...globalRubricPoints];
+                                  updated[originalIdx] = { ...updated[originalIdx], title: e.target.value };
+                                  setGlobalRubricPoints(updated);
+                                }}
+                                className="p-2 rounded-lg bg-surface-container-lowest border border-slate-border text-xs"
+                              />
+                            </div>
+
+                            <div className="flex items-center justify-between pt-1">
+                              <label className="flex items-center gap-1.5 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={point.isCriticalCcp}
+                                  onChange={(e) => {
+                                    const updated = [...globalRubricPoints];
+                                    updated[originalIdx] = { ...updated[originalIdx], isCriticalCcp: e.target.checked };
+                                    setGlobalRubricPoints(updated);
+                                  }}
+                                  className="w-4 h-4 rounded text-primary"
+                                />
+                                <span className="text-[11px] font-bold text-alert-red">
+                                  Veto Crítico APPCC
+                                </span>
+                              </label>
+
+                              <button
+                                type="button"
+                                onClick={() => setEditingGlobalPointIndex(null)}
+                                className="px-3 py-1 rounded-lg text-xs font-bold bg-primary text-white hover:bg-primary-container"
+                              >
+                                Listo
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          /* Modo de Visualização */
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                            <div className="flex items-start gap-2.5 flex-1">
+                              <span className="font-mono font-black text-xs px-2 py-1 rounded-md bg-surface-container text-on-surface shrink-0 mt-0.5">
+                                {point.number}
+                              </span>
+                              <div className="space-y-1">
+                                <p className="text-xs font-semibold text-on-surface leading-snug">{point.title}</p>
+                                <div className="flex items-center gap-2 flex-wrap text-[11px]">
+                                  <span className="text-slate-subtext font-medium">{point.categoryLabel}</span>
+                                  <span className="text-slate-300 dark:text-slate-700">•</span>
+                                  <span className="text-slate-subtext font-mono">{point.legalReference}</span>
+                                  {point.isCriticalCcp && (
+                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-alert-red-bg/25 text-alert-red">
+                                      Veto APPCC
+                                    </span>
+                                  )}
+                                  {point.isActive === false ? (
+                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                                      Oculto
+                                    </span>
+                                  ) : (
+                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-status-pass-bg text-status-pass">
+                                      Activo
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 self-end sm:self-center shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleGlobalPointActive(originalIdx)}
+                                className={`h-7 px-2 rounded-lg text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors ${
+                                  point.isActive === false
+                                    ? "bg-status-pass-bg text-status-pass hover:bg-status-pass/20"
+                                    : "bg-surface-container text-slate-subtext hover:text-on-surface"
+                                }`}
+                                title={point.isActive === false ? "Activar punto en las rúbricas" : "Ocultar punto sin borrar"}
+                              >
+                                <span className="material-symbols-outlined text-[14px]">
+                                  {point.isActive === false ? "visibility" : "visibility_off"}
+                                </span>
+                                <span>{point.isActive === false ? "Activar" : "Ocultar"}</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => setEditingGlobalPointIndex(originalIdx)}
+                                className="h-7 px-2 rounded-lg text-[11px] font-semibold bg-surface-container hover:bg-primary/10 hover:text-primary text-on-surface inline-flex items-center gap-1 cursor-pointer transition-colors"
+                                title="Modificar texto o clasificación del punto"
+                              >
+                                <span className="material-symbols-outlined text-[14px]">edit</span>
+                                <span>Editar</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteGlobalPoint(originalIdx)}
+                                className="h-7 w-7 rounded-lg text-slate-subtext hover:bg-alert-red-bg/25 hover:text-alert-red flex items-center justify-center cursor-pointer transition-colors"
+                                title="Eliminar este punto de la rúbrica"
+                              >
+                                <span className="material-symbols-outlined text-[15px]">delete</span>
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-border/60 mt-2">
+                <span className="text-[11px] text-slate-subtext">
+                  * Guardar actualizará la Rúbrica Base para todas las empresas que no tengan una rúbrica personalizada.
+                </span>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowGlobalRubricModal(false)}
+                    className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-subtext hover:bg-surface-container cursor-pointer"
+                  >
+                    Cerrar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSavingGlobalRubric}
+                    onClick={() => handleSaveGlobalRubric()}
+                    className="px-5 py-2 rounded-xl text-xs font-bold bg-primary text-white hover:bg-primary-container shadow-sm cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">save</span>
+                    <span>{isSavingGlobalRubric ? "Guardando..." : "Guardar Cambios Rúbrica Base"}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL 8: Gestión de Rúbrica Personalizada por Empresa (Tenant) */}
+        {selectedTenantForRubric && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-sm animate-in fade-in duration-150">
+            <div className="w-full max-w-4xl bg-surface-container-lowest rounded-2xl p-4 sm:p-6 shadow-2xl border border-slate-border animate-in zoom-in-95 duration-150 max-h-[92vh] flex flex-col">
+              {/* Header */}
+              <div className="flex items-start justify-between border-b border-slate-border/70 pb-3 gap-3">
+                <div>
+                  <div className="inline-flex items-center gap-1.5 text-xs text-primary font-bold uppercase tracking-wider mb-1">
+                    <span className="material-symbols-outlined text-[16px]">tune</span>
+                    <span>Personalización de Rúbrica • Empresa Específica</span>
+                  </div>
+                  <h2 className="font-title-md text-title-md text-on-surface font-bold flex items-center gap-2 flex-wrap">
+                    <span>{selectedTenantForRubric.name}</span>
+                    {isTenantRubricCustomized ? (
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-950/70 dark:text-purple-300">
+                        Rúbrica Exclusiva Customizada ({tenantRubricPoints.length} Puntos)
+                      </span>
+                    ) : (
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                        Usa Rúbrica Base Oficial ({tenantRubricPoints.length} Puntos)
+                      </span>
+                    )}
+                  </h2>
+                  <p className="text-xs text-slate-subtext mt-0.5">
+                    CIF: <span className="font-mono font-semibold text-on-surface">{selectedTenantForRubric.cif}</span> •
+                    Personalice los puntos de control de este cliente sin alterar la rúbrica base global ni a otras empresas.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedTenantForRubric(null)}
+                  className="w-8 h-8 rounded-full text-slate-subtext hover:bg-surface-container flex items-center justify-center cursor-pointer shrink-0"
+                >
+                  <span className="material-symbols-outlined text-[20px]">close</span>
+                </button>
+              </div>
+
+              {/* Banner se o tenant ainda NÃO possui rúbrica customizada */}
+              {!isTenantRubricCustomized ? (
+                <div className="p-4 my-3 rounded-xl bg-surface border border-primary/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in">
+                  <div>
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-on-surface">
+                      <span className="material-symbols-outlined text-primary text-[18px]">info</span>
+                      <span>Esta empresa está sincronizada con la Rúbrica Base Oficial</span>
+                    </div>
+                    <p className="text-xs text-slate-subtext mt-1 max-w-xl">
+                      Para agregar puntos específicos de la operativa de este cliente, editar textos o quitar puntos que no apliquen, clone la base oficial o inicie una desde cero.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleCloneBaseRubricForTenant}
+                      className="px-3.5 py-2 rounded-xl text-xs font-bold bg-primary text-white hover:bg-primary-container inline-flex items-center gap-1.5 cursor-pointer shadow-sm transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">content_copy</span>
+                      <span>Clonar Base para Personalizar</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleCreateBlankRubricForTenant}
+                      className="px-3 py-2 rounded-xl text-xs font-semibold bg-surface-container hover:bg-surface-container-high text-on-surface inline-flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">note_add</span>
+                      <span>Desde Cero</span>
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Toolbar / Filtro / Adicionar Ponto para o Tenant */}
+              <div className="py-2.5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 border-b border-slate-border/50">
+                <div className="relative flex-1 max-w-sm">
+                  <span className="material-symbols-outlined text-slate-subtext text-[18px] absolute left-3 top-1/2 -translate-y-1/2">
+                    search
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="Buscar puntos en la rúbrica de la empresa..."
+                    value={tenantRubricFilter}
+                    onChange={(e) => setTenantRubricFilter(e.target.value)}
+                    className="w-full pl-9 pr-3 py-1.5 rounded-xl text-xs bg-surface border border-slate-border text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddTenantPointForm((prev) => !prev)}
+                    className="px-3 py-1.5 rounded-xl text-xs font-bold bg-primary text-white hover:bg-primary-container inline-flex items-center gap-1.5 cursor-pointer transition-colors shadow-sm"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">
+                      {showAddTenantPointForm ? "remove" : "add_circle"}
+                    </span>
+                    <span>{showAddTenantPointForm ? "Ocultar Formulario" : "Añadir Punto Empresa"}</span>
+                  </button>
+
+                  {isTenantRubricCustomized && (
+                    <button
+                      type="button"
+                      onClick={handleResetTenantRubric}
+                      disabled={isSavingTenantRubric}
+                      className="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-subtext hover:text-alert-red hover:bg-alert-red-bg/25 border border-slate-border inline-flex items-center gap-1 cursor-pointer transition-colors"
+                      title="Eliminar personalizaciones y volver a la Rúbrica Base Oficial"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">restore</span>
+                      <span>Volver a Base Oficial</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Formulário de Adicionar Ponto Tenant */}
+              {showAddTenantPointForm && (
+                <form
+                  onSubmit={handleAddTenantPoint}
+                  className="p-3.5 my-2 rounded-xl bg-surface border border-primary/30 space-y-3 animate-in fade-in"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-on-surface uppercase flex items-center gap-1">
+                      <span className="material-symbols-outlined text-primary text-[16px]">add_task</span>
+                      <span>Añadir Punto Específico para {selectedTenantForRubric.name}</span>
+                    </span>
+                    <span className="text-[11px] text-purple-600 dark:text-purple-400 font-semibold">
+                      Exclusivo de este cliente
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-bold text-slate-subtext uppercase">Número *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Ej. 1.8 o P-01"
+                        value={newTenantPoint.number}
+                        onChange={(e) => setNewTenantPoint({ ...newTenantPoint, number: e.target.value })}
+                        className="h-9 px-2.5 rounded-xl bg-surface-container-lowest border border-slate-border text-xs text-on-surface font-bold focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1 sm:col-span-2">
+                      <label className="text-[10px] font-bold text-slate-subtext uppercase">Categoría Normativa *</label>
+                      <select
+                        value={newTenantPoint.category}
+                        onChange={(e) => setNewTenantPoint({ ...newTenantPoint, category: e.target.value as any })}
+                        className="h-9 px-2.5 rounded-xl bg-surface-container-lowest border border-slate-border text-xs text-on-surface font-semibold focus:outline-none focus:ring-1 focus:ring-primary"
+                      >
+                        {CATEGORY_OPTIONS.map((c) => (
+                          <option key={c.category} value={c.category}>
+                            {c.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-bold text-slate-subtext uppercase">Referencia Legal / Interna</label>
+                      <input
+                        type="text"
+                        placeholder="Ej. Procedimiento Interno POE-03"
+                        value={newTenantPoint.legalReference}
+                        onChange={(e) => setNewTenantPoint({ ...newTenantPoint, legalReference: e.target.value })}
+                        className="h-9 px-2.5 rounded-xl bg-surface-container-lowest border border-slate-border text-xs text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-bold text-slate-subtext uppercase">Título / Requisito *</label>
+                    <textarea
+                      required
+                      rows={2}
+                      placeholder="Descripción del punto de control específico de la operativa del cliente..."
+                      value={newTenantPoint.title}
+                      onChange={(e) => setNewTenantPoint({ ...newTenantPoint, title: e.target.value })}
+                      className="p-2.5 rounded-xl bg-surface-container-lowest border border-slate-border text-xs text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={newTenantPoint.isCriticalCcp}
+                        onChange={(e) => setNewTenantPoint({ ...newTenantPoint, isCriticalCcp: e.target.checked })}
+                        className="w-4 h-4 rounded text-primary focus:ring-primary"
+                      />
+                      <span className="text-xs font-bold text-alert-red">
+                        Es Punto de Control Crítico (Veto Inmediato)
+                      </span>
+                    </label>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowAddTenantPointForm(false)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-subtext hover:bg-surface-container"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-4 py-1.5 rounded-lg text-xs font-bold bg-primary text-white hover:bg-primary-container"
+                      >
+                        Añadir a la Empresa
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              )}
+
+              {/* Lista de Pontos do Tenant */}
+              <div className="flex-1 overflow-y-auto space-y-2 mt-2 pr-1">
+                {isLoadingTenantRubric ? (
+                  <div className="py-16 flex flex-col items-center justify-center gap-2">
+                    <span className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                    <span className="text-xs text-slate-subtext">Cargando rúbrica de la empresa...</span>
+                  </div>
+                ) : tenantRubricPoints.length === 0 ? (
+                  <div className="text-center py-12 text-slate-subtext text-xs">
+                    Esta empresa no tiene puntos en su rúbrica. Haga clic en "Clonar Base" o "Añadir Punto Empresa".
+                  </div>
+                ) : (
+                  tenantRubricPoints
+                    .map((point, originalIdx) => ({ point, originalIdx }))
+                    .filter(({ point }) => {
+                      if (!tenantRubricFilter) return true;
+                      const q = tenantRubricFilter.toLowerCase();
+                      return (
+                        point.number.toLowerCase().includes(q) ||
+                        point.title.toLowerCase().includes(q) ||
+                        point.categoryLabel.toLowerCase().includes(q) ||
+                        point.legalReference.toLowerCase().includes(q)
+                      );
+                    })
+                    .map(({ point, originalIdx }) => (
+                      <div
+                        key={point.code || originalIdx}
+                        className={`p-3 rounded-xl border transition-all ${
+                          point.isActive === false
+                            ? "bg-surface-container/40 border-slate-border/50 opacity-60"
+                            : "bg-surface border-slate-border hover:border-slate-border/80 shadow-sm"
+                        }`}
+                      >
+                        {editingTenantPointIndex === originalIdx ? (
+                          /* Modo Edição Inline Tenant */
+                          <div className="space-y-2.5">
+                            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                              <div className="flex flex-col gap-0.5">
+                                <label className="text-[10px] font-bold text-slate-subtext uppercase">Número</label>
+                                <input
+                                  type="text"
+                                  value={point.number}
+                                  onChange={(e) => {
+                                    const updated = [...tenantRubricPoints];
+                                    updated[originalIdx] = { ...updated[originalIdx], number: e.target.value };
+                                    setTenantRubricPoints(updated);
+                                  }}
+                                  className="h-8 px-2 rounded-lg bg-surface-container-lowest border border-slate-border text-xs font-bold"
+                                />
+                              </div>
+                              <div className="flex flex-col gap-0.5 sm:col-span-2">
+                                <label className="text-[10px] font-bold text-slate-subtext uppercase">Categoría</label>
+                                <select
+                                  value={point.category}
+                                  onChange={(e) => {
+                                    const catObj = CATEGORY_OPTIONS.find((c) => c.category === e.target.value) || CATEGORY_OPTIONS[0];
+                                    const updated = [...tenantRubricPoints];
+                                    updated[originalIdx] = {
+                                      ...updated[originalIdx],
+                                      category: e.target.value as any,
+                                      categoryLabel: catObj.label,
+                                    };
+                                    setTenantRubricPoints(updated);
+                                  }}
+                                  className="h-8 px-2 rounded-lg bg-surface-container-lowest border border-slate-border text-xs font-semibold"
+                                >
+                                  {CATEGORY_OPTIONS.map((c) => (
+                                    <option key={c.category} value={c.category}>
+                                      {c.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="flex flex-col gap-0.5">
+                                <label className="text-[10px] font-bold text-slate-subtext uppercase">Ref. Legal</label>
+                                <input
+                                  type="text"
+                                  value={point.legalReference}
+                                  onChange={(e) => {
+                                    const updated = [...tenantRubricPoints];
+                                    updated[originalIdx] = { ...updated[originalIdx], legalReference: e.target.value };
+                                    setTenantRubricPoints(updated);
+                                  }}
+                                  className="h-8 px-2 rounded-lg bg-surface-container-lowest border border-slate-border text-xs"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="flex flex-col gap-0.5">
+                              <label className="text-[10px] font-bold text-slate-subtext uppercase">Título / Requisito</label>
+                              <textarea
+                                rows={2}
+                                value={point.title}
+                                onChange={(e) => {
+                                  const updated = [...tenantRubricPoints];
+                                  updated[originalIdx] = { ...updated[originalIdx], title: e.target.value };
+                                  setTenantRubricPoints(updated);
+                                }}
+                                className="p-2 rounded-lg bg-surface-container-lowest border border-slate-border text-xs"
+                              />
+                            </div>
+
+                            <div className="flex items-center justify-between pt-1">
+                              <label className="flex items-center gap-1.5 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={point.isCriticalCcp}
+                                  onChange={(e) => {
+                                    const updated = [...tenantRubricPoints];
+                                    updated[originalIdx] = { ...updated[originalIdx], isCriticalCcp: e.target.checked };
+                                    setTenantRubricPoints(updated);
+                                  }}
+                                  className="w-4 h-4 rounded text-primary"
+                                />
+                                <span className="text-[11px] font-bold text-alert-red">
+                                  Veto Crítico APPCC
+                                </span>
+                              </label>
+
+                              <button
+                                type="button"
+                                onClick={() => setEditingTenantPointIndex(null)}
+                                className="px-3 py-1 rounded-lg text-xs font-bold bg-primary text-white hover:bg-primary-container"
+                              >
+                                Listo
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          /* Modo Visualização Tenant */
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                            <div className="flex items-start gap-2.5 flex-1">
+                              <span className="font-mono font-black text-xs px-2 py-1 rounded-md bg-surface-container text-on-surface shrink-0 mt-0.5">
+                                {point.number}
+                              </span>
+                              <div className="space-y-1">
+                                <p className="text-xs font-semibold text-on-surface leading-snug">{point.title}</p>
+                                <div className="flex items-center gap-2 flex-wrap text-[11px]">
+                                  <span className="text-slate-subtext font-medium">{point.categoryLabel}</span>
+                                  <span className="text-slate-300 dark:text-slate-700">•</span>
+                                  <span className="text-slate-subtext font-mono">{point.legalReference}</span>
+                                  {point.isCriticalCcp && (
+                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-alert-red-bg/25 text-alert-red">
+                                      Veto APPCC
+                                    </span>
+                                  )}
+                                  {point.isActive === false ? (
+                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                                      Oculto
+                                    </span>
+                                  ) : (
+                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-status-pass-bg text-status-pass">
+                                      Activo
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 self-end sm:self-center shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleTenantPointActive(originalIdx)}
+                                className={`h-7 px-2 rounded-lg text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors ${
+                                  point.isActive === false
+                                    ? "bg-status-pass-bg text-status-pass hover:bg-status-pass/20"
+                                    : "bg-surface-container text-slate-subtext hover:text-on-surface"
+                                }`}
+                                title={point.isActive === false ? "Activar punto para esta empresa" : "Ocultar punto"}
+                              >
+                                <span className="material-symbols-outlined text-[14px]">
+                                  {point.isActive === false ? "visibility" : "visibility_off"}
+                                </span>
+                                <span>{point.isActive === false ? "Activar" : "Ocultar"}</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => setEditingTenantPointIndex(originalIdx)}
+                                className="h-7 px-2 rounded-lg text-[11px] font-semibold bg-surface-container hover:bg-primary/10 hover:text-primary text-on-surface inline-flex items-center gap-1 cursor-pointer transition-colors"
+                                title="Modificar texto o clasificación del punto"
+                              >
+                                <span className="material-symbols-outlined text-[14px]">edit</span>
+                                <span>Editar</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteTenantPoint(originalIdx)}
+                                className="h-7 w-7 rounded-lg text-slate-subtext hover:bg-alert-red-bg/25 hover:text-alert-red flex items-center justify-center cursor-pointer transition-colors"
+                                title="Eliminar este punto de la rúbrica de esta empresa"
+                              >
+                                <span className="material-symbols-outlined text-[15px]">delete</span>
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-border/60 mt-2">
+                <span className="text-[11px] text-slate-subtext">
+                  * Guardar registrará la rúbrica personalizada exclusivamente para <strong>{selectedTenantForRubric.name}</strong>.
+                </span>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTenantForRubric(null)}
+                    className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-subtext hover:bg-surface-container cursor-pointer"
+                  >
+                    Cerrar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSavingTenantRubric}
+                    onClick={handleSaveTenantRubric}
+                    className="px-5 py-2 rounded-xl text-xs font-bold bg-primary text-white hover:bg-primary-container shadow-sm cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">save</span>
+                    <span>{isSavingTenantRubric ? "Guardando..." : "Guardar Rúbrica de la Empresa"}</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}

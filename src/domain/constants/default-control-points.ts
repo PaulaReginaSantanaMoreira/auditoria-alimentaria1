@@ -8,6 +8,7 @@ export interface ControlPointTemplate {
   title: string;
   isCriticalCcp: boolean;
   legalReference: string;
+  isActive?: boolean;
 }
 
 export const DEFAULT_CONTROL_POINTS: ControlPointTemplate[] = [
