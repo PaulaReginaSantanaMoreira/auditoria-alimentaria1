@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FinalizeAndSignAuditUseCase } from "@/application/use-cases/finalize-and-sign-audit.use-case";
 import { createServerSupabaseClient } from "@/infrastructure/database/supabase/supabase-server";
-import { SupabaseAuditRepository } from "@/infrastructure/database/supabase/repositories/supabase-audit.repository";
+import { AuditRepository } from "@/infrastructure/database/repositories/audit.repository";
 
 
 export async function POST(
@@ -12,7 +12,7 @@ export async function POST(
     const { id } = await params;
     const body = await req.json();
     const supabase = await createServerSupabaseClient();
-    const auditRepo = new SupabaseAuditRepository(supabase);
+    const auditRepo = new AuditRepository(supabase);
     const useCase = new FinalizeAndSignAuditUseCase(auditRepo);
 
     const result = await useCase.execute({

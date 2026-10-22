@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CreateAuditUseCase } from "@/application/use-cases/create-audit.use-case";
 import { createServerSupabaseClient } from "@/infrastructure/database/supabase/supabase-server";
-import { SupabaseAuditRepository } from "@/infrastructure/database/supabase/repositories/supabase-audit.repository";
-import { SupabaseCompanyRepository } from "@/infrastructure/database/supabase/repositories/supabase-company.repository";
+import { AuditRepository } from "@/infrastructure/database/repositories/audit.repository";
+import { CompanyRepository } from "@/infrastructure/database/repositories/company.repository";
 import {
   AuditAccessScope,
   hasPermission,
@@ -24,8 +24,8 @@ export async function POST(req: NextRequest) {
       accessScope = "PRIVATE";
     }
 
-    const auditRepo = new SupabaseAuditRepository(supabase);
-    const companyRepo = new SupabaseCompanyRepository(supabase);
+    const auditRepo = new AuditRepository(supabase);
+    const companyRepo = new CompanyRepository(supabase);
     const useCase = new CreateAuditUseCase(auditRepo, companyRepo);
 
     const result = await useCase.execute({
@@ -98,7 +98,7 @@ export async function GET(req: NextRequest) {
     }
 
     const targetAuditorId = auditorId || "default-auditor";
-    const auditRepo = new SupabaseAuditRepository(supabase);
+    const auditRepo = new AuditRepository(supabase);
     const audits = await auditRepo.findByAuditorId(targetAuditorId);
 
     // Filtra pelo modelo de governança de escopos autorizados

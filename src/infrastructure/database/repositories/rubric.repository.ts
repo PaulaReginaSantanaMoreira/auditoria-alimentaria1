@@ -1,4 +1,4 @@
-import { createAdminClient } from "../supabase-admin";
+import { createAdminClient } from "@/infrastructure/database/supabase/supabase-admin";
 import {
   ControlPointTemplate,
   DEFAULT_CONTROL_POINTS,
@@ -8,7 +8,11 @@ import {
   TenantRubricInfo,
 } from "@/domain/repositories/rubric-template-repository.interface";
 
-export class SupabaseRubricRepository implements IRubricTemplateRepository {
+/**
+ * Repositório relacional de catálogo e modelos de rúbricas sanitárias.
+ * Implementa IRubricTemplateRepository desacoplado de dependências nominais.
+ */
+export class RubricRepository implements IRubricTemplateRepository {
   private get client() {
     return createAdminClient();
   }
@@ -131,3 +135,6 @@ export class SupabaseRubricRepository implements IRubricTemplateRepository {
     }
   }
 }
+
+// Alias de compatibilidade retroativa
+export const SupabaseRubricRepository = RubricRepository;

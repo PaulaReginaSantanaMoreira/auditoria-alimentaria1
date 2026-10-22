@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { SupabaseRubricRepository } from "@/infrastructure/database/supabase/repositories/supabase-rubric.repository";
+import { RubricRepository } from "@/infrastructure/database/repositories/rubric.repository";
 import { ensureSuperAdmin } from "@/infrastructure/database/supabase/supabase-server";
 
-const rubricRepo = new SupabaseRubricRepository();
+const rubricRepo = new RubricRepository();
 
 export async function GET(
   request: Request,

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { SupabaseTenantRepository } from "@/infrastructure/database/supabase/repositories/supabase-tenant.repository";
+import { TenantRepository } from "@/infrastructure/database/repositories/tenant.repository";
 import { ensureSuperAdmin } from "@/infrastructure/database/supabase/supabase-server";
 
-const tenantRepo = new SupabaseTenantRepository();
+const tenantRepo = new TenantRepository();
 
 export async function GET(
   request: Request,
@@ -28,6 +28,10 @@ export async function GET(
         cif: item.tenant.cif,
         slug: item.tenant.slug,
         status: item.tenant.status,
+        address: item.tenant.address || "",
+        phone: item.tenant.phone || "",
+        adminEmail: item.tenant.adminEmail || "",
+        adminName: item.tenant.adminName || "",
         planTier: item.subscription.planTier,
         maxUserSeats: item.subscription.maxUserSeats,
         activeUsersCount: item.activeUsersCount,
@@ -51,8 +55,32 @@ export async function PATCH(
     const { id } = await params;
     const body = await request.json();
 
+    // Regra de Governança: O documento oficial (CIF) é estritamente inalterável
+    const existing = await tenantRepo.findById(id);
+    if (!existing) {
+      return NextResponse.json(
+        { success: false, error: "Empresa no encontrada" },
+        { status: 404 }
+      );
+    }
+
+    if (body.cif && body.cif.trim().toUpperCase() !== existing.tenant.cif) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "El documento oficial (CIF/NIF) es inmutable por razones de conformidad regulatoria y trazabilidad jurídica. Todos los demás campos de la empresa son editables.",
+        },
+        { status: 400 }
+      );
+    }
+
     if (body.status) {
       await tenantRepo.updateStatus(id, body.status);
+    }
+
+    if (body.planTier) {
+      await tenantRepo.updatePlanTier(id, body.planTier);
     }
 
     if (body.maxUserSeats !== undefined) {
@@ -63,14 +91,44 @@ export async function PATCH(
       await tenantRepo.updateSubscriptionExpiration(id, new Date(body.expiresAt));
     }
 
+    if (
+      body.name !== undefined ||
+      body.address !== undefined ||
+      body.phone !== undefined ||
+      body.adminEmail !== undefined ||
+      body.adminName !== undefined
+    ) {
+      await tenantRepo.updateTenantDetails(id, {
+        name: body.name,
+        address: body.address,
+        phone: body.phone,
+        adminEmail: body.adminEmail,
+        adminName: body.adminName,
+      });
+    }
+
     const updated = await tenantRepo.findById(id);
 
     return NextResponse.json({
       success: true,
       message: "Configurações da empresa atualizadas com sucesso.",
-      tenant: updated,
+      tenant: updated ? {
+        id: updated.tenant.id,
+        name: updated.tenant.name,
+        cif: updated.tenant.cif,
+        slug: updated.tenant.slug,
+        status: updated.tenant.status,
+        address: updated.tenant.address || "",
+        phone: updated.tenant.phone || "",
+        adminEmail: updated.tenant.adminEmail || "",
+        adminName: updated.tenant.adminName || "",
+        maxUserSeats: updated.subscription.maxUserSeats,
+        subscriptionStatus: updated.subscription.status,
+        expiresAt: updated.subscription.expiresAt.toISOString(),
+      } : null,
     });
   } catch (error: any) {
+    console.error("Erro no PATCH de tenant:", error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

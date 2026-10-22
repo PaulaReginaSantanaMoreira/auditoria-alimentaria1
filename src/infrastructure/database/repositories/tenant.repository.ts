@@ -1,0 +1,815 @@
+import { createAdminClient } from "@/infrastructure/database/supabase/supabase-admin";
+import { Tenant, TenantStatus } from "@/domain/entities/tenant";
+import { TenantSubscription, SubscriptionPaymentStatus, PlanTier } from "@/domain/entities/subscription";
+import { SubscriptionContract } from "@/domain/entities/subscription-contract";
+import {
+  ITenantRepository,
+  TenantWithSubscription,
+  CreateTenantDTO,
+  RenewContractDTO,
+} from "@/domain/repositories/tenant-repository.interface";
+
+export interface TenantUserDetail {
+  id: string;
+  userId: string;
+  email: string;
+  fullName: string;
+  role: "TENANT_ADMIN" | "AUDITOR" | "INSPECTOR" | "VIEWER";
+  canViewAllTenantAudits: boolean;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export function generateSecureTempPassword(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%&*";
+  let pass = "BioAudit#";
+  for (let i = 0; i < 6; i++) {
+    pass += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return pass;
+}
+
+/**
+ * Repositório relacional de empresas (Tenants) e contratos de subscrição.
+ * Implementa ITenantRepository seguindo ADR-003.
+ */
+export class TenantRepository implements ITenantRepository {
+  private get client() {
+    return createAdminClient();
+  }
+
+  public async findAll(): Promise<TenantWithSubscription[]> {
+    const { data: tenants, error: tenantsError } = await this.client
+      .from("tenants")
+      .select(`
+        *,
+        tenant_subscriptions (*),
+        tenant_users (
+          id,
+          is_active
+        )
+      `)
+      .order("created_at", { ascending: false });
+
+    if (tenantsError) {
+      throw new Error(`Erro ao buscar tenants: ${tenantsError.message}`);
+    }
+
+    return (tenants || []).map((t: any) => {
+      const sub = t.tenant_subscriptions?.[0] || {
+        id: "default-sub",
+        plan_tier: "PRO",
+        max_user_seats: 5,
+        status: "ACTIVE",
+        payment_status: "PAID",
+        valid_from: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+        feature_flags: { customRubric: true, offlineSync: true, exportPdf: true, analytics: true },
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      const activeUsersCount = (t.tenant_users || []).filter((u: any) => u.is_active).length;
+
+      return {
+        tenant: new Tenant({
+          id: t.id,
+          name: t.name,
+          cif: t.cif,
+          slug: t.slug,
+          status: t.status as TenantStatus,
+          address: t.address,
+          phone: t.phone,
+          adminEmail: t.admin_email,
+          adminName: t.admin_name,
+          createdAt: new Date(t.created_at),
+          updatedAt: new Date(t.updated_at),
+        }),
+        subscription: new TenantSubscription({
+          id: sub.id,
+          tenantId: t.id,
+          planTier: sub.plan_tier,
+          maxUserSeats: sub.max_user_seats,
+          status: sub.status,
+          paymentStatus: (sub.payment_status as SubscriptionPaymentStatus) || "PAID",
+          invoiceRef: sub.invoice_ref,
+          notes: sub.notes,
+          validFrom: new Date(sub.valid_from),
+          expiresAt: new Date(sub.expires_at),
+          featureFlags: sub.feature_flags,
+          createdAt: new Date(sub.created_at),
+          updatedAt: new Date(sub.updated_at),
+        }),
+        activeUsersCount,
+      };
+    });
+  }
+
+  public async findById(id: string): Promise<TenantWithSubscription | null> {
+    const { data: t, error } = await this.client
+      .from("tenants")
+      .select(`
+        *,
+        tenant_subscriptions (*),
+        tenant_users (
+          id,
+          is_active
+        )
+      `)
+      .eq("id", id)
+      .maybeSingle();
+
+    if (error || !t) return null;
+
+    const sub = (t as any).tenant_subscriptions?.[0] || {
+      id: "default-sub",
+      plan_tier: "PRO",
+      max_user_seats: 5,
+      status: "ACTIVE",
+      payment_status: "PAID",
+      valid_from: new Date().toISOString(),
+      expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+      feature_flags: { customRubric: true, offlineSync: true, exportPdf: true, analytics: true },
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    const activeUsersCount = ((t as any).tenant_users || []).filter((u: any) => u.is_active).length;
+
+    return {
+      tenant: new Tenant({
+        id: (t as any).id,
+        name: (t as any).name,
+        cif: (t as any).cif,
+        slug: (t as any).slug,
+        status: (t as any).status as TenantStatus,
+        address: (t as any).address,
+        phone: (t as any).phone,
+        adminEmail: (t as any).admin_email,
+        adminName: (t as any).admin_name,
+        createdAt: new Date((t as any).created_at),
+        updatedAt: new Date((t as any).updated_at),
+      }),
+      subscription: new TenantSubscription({
+        id: sub.id,
+        tenantId: (t as any).id,
+        planTier: sub.plan_tier,
+        maxUserSeats: sub.max_user_seats,
+        status: sub.status,
+        paymentStatus: (sub.payment_status as SubscriptionPaymentStatus) || "PAID",
+        invoiceRef: sub.invoice_ref,
+        notes: sub.notes,
+        validFrom: new Date(sub.valid_from),
+        expiresAt: new Date(sub.expires_at),
+        featureFlags: sub.feature_flags,
+        createdAt: new Date(sub.created_at),
+        updatedAt: new Date(sub.updated_at),
+      }),
+      activeUsersCount,
+    };
+  }
+
+  public async findByCif(cif: string): Promise<TenantWithSubscription | null> {
+    const { data: t, error } = await this.client
+      .from("tenants")
+      .select("id")
+      .eq("cif", cif.trim().toUpperCase())
+      .maybeSingle();
+
+    if (error || !t) return null;
+    return this.findById(t.id);
+  }
+
+  public async create(dto: CreateTenantDTO): Promise<TenantWithSubscription & { adminTempPassword?: string }> {
+    const insertPayload: any = {
+      name: dto.name.trim(),
+      cif: dto.cif.trim().toUpperCase(),
+      slug: dto.slug.trim().toLowerCase(),
+      status: "ACTIVE",
+    };
+
+    if (dto.address) insertPayload.address = dto.address.trim();
+    if (dto.phone) insertPayload.phone = dto.phone.trim();
+    if (dto.adminEmail) insertPayload.admin_email = dto.adminEmail.trim().toLowerCase();
+    if (dto.adminName) insertPayload.admin_name = dto.adminName.trim();
+
+    let tenant: any;
+    try {
+      const { data, error } = await this.client
+        .from("tenants")
+        .insert(insertPayload)
+        .select()
+        .single();
+
+      if (error) throw error;
+      tenant = data;
+    } catch (err: any) {
+      if (err.message?.includes("column") || err.message?.includes("schema")) {
+        const { data: fallbackData, error: fallbackError } = await this.client
+          .from("tenants")
+          .insert({
+            name: dto.name.trim(),
+            cif: dto.cif.trim().toUpperCase(),
+            slug: dto.slug.trim().toLowerCase(),
+            status: "ACTIVE",
+          })
+          .select()
+          .single();
+
+        if (fallbackError) {
+          throw new Error(`Falha ao cadastrar empresa/tenant: ${fallbackError.message}`);
+        }
+        tenant = fallbackData;
+      } else {
+        throw new Error(`Falha ao cadastrar empresa/tenant: ${err.message}`);
+      }
+    }
+
+    const maxSeats = dto.maxUserSeats ?? 5;
+    const days = dto.subscriptionDays ?? 365;
+    const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+    const initialPaymentStatus: SubscriptionPaymentStatus = dto.paymentStatus || "PAID";
+
+    let sub: any;
+    try {
+      const { data: subData, error: subError } = await this.client
+        .from("tenant_subscriptions")
+        .insert({
+          tenant_id: tenant.id,
+          plan_tier: dto.planTier ?? "PRO",
+          max_user_seats: maxSeats,
+          status: "ACTIVE",
+          payment_status: initialPaymentStatus,
+          invoice_ref: dto.invoiceRef || null,
+          notes: dto.notes || "Contrato inicial de alta",
+          expires_at: expiresAt.toISOString(),
+        })
+        .select()
+        .single();
+
+      if (subError) throw subError;
+      sub = subData;
+    } catch (subErr: any) {
+      // Fallback sem colunas financeiras caso ainda não migradas
+      const { data: fbSub } = await this.client
+        .from("tenant_subscriptions")
+        .insert({
+          tenant_id: tenant.id,
+          plan_tier: dto.planTier ?? "PRO",
+          max_user_seats: maxSeats,
+          status: "ACTIVE",
+          expires_at: expiresAt.toISOString(),
+        })
+        .select()
+        .single();
+      sub = fbSub;
+    }
+
+    // Registra entrada de criação no histórico de contratos
+    try {
+      await this.client.from("tenant_subscription_contracts").insert({
+        tenant_id: tenant.id,
+        subscription_id: sub?.id,
+        action_type: "CREATION",
+        valid_from: new Date().toISOString(),
+        expires_at: expiresAt.toISOString(),
+        days_added: days,
+        seats: maxSeats,
+        payment_status: initialPaymentStatus,
+        invoice_ref: dto.invoiceRef || null,
+        notes: dto.notes || "Alta oficial de tenant e contrato inicial",
+        created_by: "SuperAdmin Master",
+      });
+    } catch {
+      // Tabela de contratos pode não estar criada em mock
+    }
+
+    let adminTempPassword: string | undefined = undefined;
+
+    if (dto.adminEmail) {
+      try {
+        const result = await this.createTenantUser({
+          tenantId: tenant.id,
+          email: dto.adminEmail,
+          fullName: dto.adminName || dto.name,
+          role: "TENANT_ADMIN",
+          temporaryPassword: dto.temporaryPassword,
+        });
+        adminTempPassword = result.temporaryPassword;
+      } catch (authErr: any) {
+        console.warn("Aviso ao criar usuário administrador do tenant:", authErr.message);
+      }
+    }
+
+    const subEntity = new TenantSubscription({
+      id: sub?.id || "sub-" + tenant.id,
+      tenantId: tenant.id,
+      planTier: sub?.plan_tier || dto.planTier || "PRO",
+      maxUserSeats: sub?.max_user_seats || maxSeats,
+      status: sub?.status || "ACTIVE",
+      paymentStatus: initialPaymentStatus,
+      invoiceRef: dto.invoiceRef,
+      notes: dto.notes,
+      validFrom: sub?.valid_from ? new Date(sub.valid_from) : new Date(),
+      expiresAt: sub?.expires_at ? new Date(sub.expires_at) : expiresAt,
+      featureFlags: sub?.feature_flags || { customRubric: true, offlineSync: true, exportPdf: true, analytics: true },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    return {
+      tenant: new Tenant({
+        id: tenant.id,
+        name: tenant.name,
+        cif: tenant.cif,
+        slug: tenant.slug,
+        status: tenant.status,
+        address: tenant.address || dto.address,
+        phone: tenant.phone || dto.phone,
+        adminEmail: tenant.admin_email || dto.adminEmail,
+        adminName: tenant.admin_name || dto.adminName,
+        createdAt: new Date(tenant.created_at || Date.now()),
+        updatedAt: new Date(tenant.updated_at || Date.now()),
+      }),
+      subscription: subEntity,
+      activeUsersCount: dto.adminEmail ? 1 : 0,
+      adminTempPassword,
+    };
+  }
+
+  public async updateStatus(id: string, status: TenantStatus): Promise<void> {
+    const { error } = await this.client
+      .from("tenants")
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq("id", id);
+
+    if (error) throw new Error(`Falha ao atualizar status do tenant: ${error.message}`);
+  }
+
+  public async updateSubscriptionSeats(tenantId: string, maxSeats: number): Promise<void> {
+    if (maxSeats < 1) throw new Error("A cota de assentos deve ser no mínimo 1.");
+
+    const { error } = await this.client
+      .from("tenant_subscriptions")
+      .update({
+        max_user_seats: maxSeats,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("tenant_id", tenantId);
+
+    if (error) throw new Error(`Falha ao alterar assentos da subscrição: ${error.message}`);
+  }
+
+  public async updateSubscriptionExpiration(tenantId: string, expiresAt: Date): Promise<void> {
+    const { error } = await this.client
+      .from("tenant_subscriptions")
+      .update({
+        expires_at: expiresAt.toISOString(),
+        status: expiresAt > new Date() ? "ACTIVE" : "EXPIRED",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("tenant_id", tenantId);
+
+    if (error) throw new Error(`Falha ao alterar validade da subscrição: ${error.message}`);
+  }
+
+  public async updatePlanTier(tenantId: string, planTier: PlanTier): Promise<void> {
+    const { error } = await this.client
+      .from("tenant_subscriptions")
+      .update({ plan_tier: planTier, updated_at: new Date().toISOString() })
+      .eq("tenant_id", tenantId);
+
+    if (error) {
+      console.warn("Aviso ao atualizar planTier:", error.message);
+    }
+  }
+
+  public async updateTenantDetails(
+    tenantId: string,
+    details: { name?: string; address?: string; phone?: string; adminEmail?: string; adminName?: string }
+  ): Promise<void> {
+    const payload: any = { updated_at: new Date().toISOString() };
+    if (details.name !== undefined) {
+      if (!details.name.trim()) throw new Error("El nombre de la empresa no puede estar vacío");
+      payload.name = details.name.trim();
+    }
+    if (details.address !== undefined) payload.address = details.address.trim();
+    if (details.phone !== undefined) payload.phone = details.phone.trim();
+    if (details.adminEmail !== undefined) payload.admin_email = details.adminEmail.trim().toLowerCase();
+    if (details.adminName !== undefined) payload.admin_name = details.adminName.trim();
+
+    const { error } = await this.client
+      .from("tenants")
+      .update(payload)
+      .eq("id", tenantId);
+
+    if (error) {
+      throw new Error(`Falha ao atualizar dados da empresa: ${error.message}`);
+    }
+  }
+
+  public async updateContactInfo(
+    tenantId: string,
+    info: { address?: string; phone?: string; adminEmail?: string; adminName?: string }
+  ): Promise<void> {
+    return this.updateTenantDetails(tenantId, info);
+  }
+
+  public async getSubscriptionContracts(tenantId: string): Promise<SubscriptionContract[]> {
+    const { data: records, error } = await this.client
+      .from("tenant_subscription_contracts")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.warn("Aviso ao buscar histórico de contratos:", error.message);
+      return [];
+    }
+
+    return (records || []).map(
+      (r: any) =>
+        new SubscriptionContract({
+          id: r.id,
+          tenantId: r.tenant_id,
+          subscriptionId: r.subscription_id,
+          actionType: r.action_type,
+          validFrom: new Date(r.valid_from),
+          expiresAt: new Date(r.expires_at),
+          daysAdded: r.days_added,
+          seats: r.seats,
+          paymentStatus: r.payment_status as SubscriptionPaymentStatus,
+          amount: r.amount ? Number(r.amount) : undefined,
+          invoiceRef: r.invoice_ref,
+          notes: r.notes,
+          createdBy: r.created_by,
+          createdAt: new Date(r.created_at),
+        })
+    );
+  }
+
+  public async renewContract(dto: RenewContractDTO): Promise<{
+    subscription: TenantSubscription;
+    contract: SubscriptionContract;
+  }> {
+    const existing = await this.findById(dto.tenantId);
+    if (!existing) {
+      throw new Error("Tenant não encontrado para renovação.");
+    }
+
+    const currentSub = existing.subscription;
+    const baseDate = currentSub.isExpired() ? new Date() : currentSub.expiresAt;
+
+    let targetExpiration: Date;
+    let daysCalculated = 0;
+
+    if (dto.newExpiresAt) {
+      targetExpiration = dto.newExpiresAt;
+      const diffMs = targetExpiration.getTime() - baseDate.getTime();
+      daysCalculated = Math.max(1, Math.round(diffMs / (1000 * 60 * 60 * 24)));
+    } else {
+      daysCalculated = dto.daysToAdd || 365;
+      targetExpiration = new Date(baseDate.getTime() + daysCalculated * 24 * 60 * 60 * 1000);
+    }
+
+    const seatsToSet = dto.newSeats || currentSub.maxUserSeats;
+
+    // 1. Atualizar a tabela de subscrições ativas
+    const subUpdatePayload: any = {
+      expires_at: targetExpiration.toISOString(),
+      max_user_seats: seatsToSet,
+      status: targetExpiration > new Date() ? "ACTIVE" : "EXPIRED",
+      payment_status: dto.paymentStatus,
+      updated_at: new Date().toISOString(),
+    };
+    if (dto.invoiceRef !== undefined) subUpdatePayload.invoice_ref = dto.invoiceRef.trim();
+    if (dto.notes !== undefined) subUpdatePayload.notes = dto.notes.trim();
+
+    try {
+      const { error: subUpdateError } = await this.client
+        .from("tenant_subscriptions")
+        .update(subUpdatePayload)
+        .eq("tenant_id", dto.tenantId);
+
+      if (subUpdateError) throw subUpdateError;
+    } catch (updateErr: any) {
+      // Fallback se colunas financeiras não existirem
+      await this.client
+        .from("tenant_subscriptions")
+        .update({
+          expires_at: targetExpiration.toISOString(),
+          max_user_seats: seatsToSet,
+          status: targetExpiration > new Date() ? "ACTIVE" : "EXPIRED",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("tenant_id", dto.tenantId);
+    }
+
+    // 2. Inserir registro no histórico imutável de contratos
+    let contractId = crypto.randomUUID();
+    try {
+      const { data: contractRecord } = await this.client
+        .from("tenant_subscription_contracts")
+        .insert({
+          tenant_id: dto.tenantId,
+          subscription_id: currentSub.id,
+          action_type: dto.actionType || "RENEWAL",
+          valid_from: baseDate.toISOString(),
+          expires_at: targetExpiration.toISOString(),
+          days_added: daysCalculated,
+          seats: seatsToSet,
+          payment_status: dto.paymentStatus,
+          amount: dto.amount || null,
+          invoice_ref: dto.invoiceRef || null,
+          notes: dto.notes || null,
+          created_by: dto.createdBy || "SuperAdmin Master",
+        })
+        .select()
+        .single();
+
+      if (contractRecord?.id) {
+        contractId = contractRecord.id;
+      }
+    } catch (contractErr: any) {
+      console.warn("Aviso ao registrar histórico de contrato:", contractErr.message);
+    }
+
+    const contractEntity = new SubscriptionContract({
+      id: contractId,
+      tenantId: dto.tenantId,
+      subscriptionId: currentSub.id,
+      actionType: dto.actionType || "RENEWAL",
+      validFrom: baseDate,
+      expiresAt: targetExpiration,
+      daysAdded: daysCalculated,
+      seats: seatsToSet,
+      paymentStatus: dto.paymentStatus,
+      amount: dto.amount,
+      invoiceRef: dto.invoiceRef,
+      notes: dto.notes,
+      createdBy: dto.createdBy || "SuperAdmin Master",
+      createdAt: new Date(),
+    });
+
+    currentSub.extendValidity(targetExpiration, dto.paymentStatus);
+    currentSub.updateSeats(seatsToSet);
+    currentSub.updateBilling({
+      paymentStatus: dto.paymentStatus,
+      invoiceRef: dto.invoiceRef,
+      notes: dto.notes,
+    });
+
+    return {
+      subscription: currentSub,
+      contract: contractEntity,
+    };
+  }
+
+  public async getTenantUsers(tenantId: string): Promise<TenantUserDetail[]> {
+    const { data: records, error } = await this.client
+      .from("tenant_users")
+      .select(`
+        id,
+        user_id,
+        role,
+        can_view_all_tenant_audits,
+        is_active,
+        created_at
+      `)
+      .eq("tenant_id", tenantId)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      throw new Error(`Erro ao buscar usuários do tenant: ${error.message}`);
+    }
+
+    if (!records || records.length === 0) return [];
+
+    const userIds = records.map((r: any) => r.user_id);
+    const authUsersMap: Record<string, { email: string; fullName: string }> = {};
+
+    try {
+      const { data: authData } = await this.client.auth.admin.listUsers({ perPage: 1000 });
+      if (authData?.users) {
+        for (const u of authData.users) {
+          if (userIds.includes(u.id)) {
+            authUsersMap[u.id] = {
+              email: u.email || "",
+              fullName: u.user_metadata?.full_name || u.email?.split("@")[0] || "Inspector Oficial",
+            };
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    return records.map((r: any) => ({
+      id: r.id,
+      userId: r.user_id,
+      email: authUsersMap[r.user_id]?.email || `usuario-${r.id.substring(0, 6)}@tenant.com`,
+      fullName: authUsersMap[r.user_id]?.fullName || "Inspector Oficial",
+      role: r.role,
+      canViewAllTenantAudits: r.can_view_all_tenant_audits,
+      isActive: r.is_active,
+      createdAt: r.created_at,
+    }));
+  }
+
+  public async createTenantUser(params: {
+    tenantId: string;
+    email: string;
+    fullName: string;
+    role: "TENANT_ADMIN" | "AUDITOR" | "INSPECTOR" | "VIEWER";
+    temporaryPassword?: string;
+  }): Promise<{ user: TenantUserDetail; temporaryPassword: string }> {
+    if (String(params.role).toUpperCase().includes("SUPERADMIN")) {
+      throw new Error("VIOLAÇÃO DE SEGURANÇA: Nenhum usuário vinculado a tenant pode possuir perfil de SuperAdmin.");
+    }
+
+    const tempPassword = params.temporaryPassword || generateSecureTempPassword();
+
+    let authUserId: string;
+    try {
+      const { data: createdAuth, error: createError } = await this.client.auth.admin.createUser({
+        email: params.email.trim().toLowerCase(),
+        password: tempPassword,
+        email_confirm: true,
+        user_metadata: {
+          full_name: params.fullName.trim(),
+          role: params.role,
+          tenant_id: params.tenantId,
+        },
+      });
+
+      if (createError) {
+        if (createError.message.includes("already registered") || createError.message.includes("unique")) {
+          const { data: existingList } = await this.client.auth.admin.listUsers();
+          const found = existingList?.users.find(
+            (u) => u.email?.toLowerCase() === params.email.trim().toLowerCase()
+          );
+          if (found) {
+            authUserId = found.id;
+          } else {
+            throw createError;
+          }
+        } else {
+          throw createError;
+        }
+      } else {
+        authUserId = createdAuth.user.id;
+      }
+    } catch (err: any) {
+      throw new Error(`Falha ao registrar credencial de autenticação: ${err.message}`);
+    }
+
+    const { data: tenantUserRecord, error: linkError } = await this.client
+      .from("tenant_users")
+      .insert({
+        tenant_id: params.tenantId,
+        user_id: authUserId,
+        role: params.role,
+        can_view_all_tenant_audits: params.role === "TENANT_ADMIN",
+        is_active: true,
+      })
+      .select()
+      .single();
+
+    if (linkError) {
+      throw new Error(`Falha ao vincular usuário ao tenant: ${linkError.message}`);
+    }
+
+    return {
+      user: {
+        id: tenantUserRecord.id,
+        userId: authUserId,
+        email: params.email.trim().toLowerCase(),
+        fullName: params.fullName.trim(),
+        role: params.role,
+        canViewAllTenantAudits: tenantUserRecord.can_view_all_tenant_audits,
+        isActive: tenantUserRecord.is_active,
+        createdAt: tenantUserRecord.created_at,
+      },
+      temporaryPassword: tempPassword,
+    };
+  }
+
+  public async resetUserPassword(
+    tenantId: string,
+    userId: string,
+    newPassword?: string
+  ): Promise<{ temporaryPassword: string }> {
+    const { data: member, error: memberError } = await this.client
+      .from("tenant_users")
+      .select("id, role")
+      .eq("tenant_id", tenantId)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (memberError || !member) {
+      throw new Error("Usuário não encontrado ou não pertence a este tenant.");
+    }
+
+    const tempPassword = newPassword || generateSecureTempPassword();
+
+    const { error: updateError } = await this.client.auth.admin.updateUserById(userId, {
+      password: tempPassword,
+    });
+
+    if (updateError) {
+      throw new Error(`Falha ao resetar senha no servidor de autenticação: ${updateError.message}`);
+    }
+
+    return { temporaryPassword: tempPassword };
+  }
+
+  public async updateTenantUser(params: {
+    tenantId: string;
+    userId: string;
+    fullName?: string;
+    role?: "TENANT_ADMIN" | "AUDITOR" | "INSPECTOR" | "VIEWER";
+    isActive?: boolean;
+  }): Promise<TenantUserDetail> {
+    if (params.role && String(params.role).toUpperCase().includes("SUPERADMIN")) {
+      throw new Error("VIOLAÇÃO DE SEGURANÇA: Nenhum usuário vinculado a tenant pode possuir perfil de SuperAdmin.");
+    }
+
+    const { data: member, error: memberError } = await this.client
+      .from("tenant_users")
+      .select("id, role, is_active, can_view_all_tenant_audits, created_at")
+      .eq("tenant_id", params.tenantId)
+      .eq("user_id", params.userId)
+      .maybeSingle();
+
+    if (memberError || !member) {
+      throw new Error("Usuário não encontrado no tenant.");
+    }
+
+    const updatePayload: any = { updated_at: new Date().toISOString() };
+    if (params.role !== undefined) {
+      updatePayload.role = params.role;
+      updatePayload.can_view_all_tenant_audits = params.role === "TENANT_ADMIN";
+    }
+    if (params.isActive !== undefined) {
+      updatePayload.is_active = params.isActive;
+    }
+
+    const { data: updatedMember, error: updateMemberError } = await this.client
+      .from("tenant_users")
+      .update(updatePayload)
+      .eq("id", member.id)
+      .select()
+      .single();
+
+    if (updateMemberError) {
+      throw new Error(`Falha ao atualizar dados do membro: ${updateMemberError.message}`);
+    }
+
+    const authUpdatePayload: any = {};
+    if (params.fullName) {
+      authUpdatePayload.user_metadata = {
+        full_name: params.fullName.trim(),
+        role: params.role || member.role,
+        tenant_id: params.tenantId,
+      };
+    }
+
+    let email = "";
+    let fullName = params.fullName || "";
+
+    try {
+      if (params.fullName || params.role) {
+        const { data: authUser, error: authError } = await this.client.auth.admin.updateUserById(
+          params.userId,
+          authUpdatePayload
+        );
+        if (!authError && authUser?.user) {
+          email = authUser.user.email || "";
+          fullName = authUser.user.user_metadata?.full_name || fullName;
+        }
+      } else {
+        const { data: authUser } = await this.client.auth.admin.getUserById(params.userId);
+        if (authUser?.user) {
+          email = authUser.user.email || "";
+          fullName = authUser.user.user_metadata?.full_name || fullName;
+        }
+      }
+    } catch (authErr: any) {
+      console.warn("Aviso ao atualizar metadados de autenticação:", authErr.message);
+    }
+
+    return {
+      id: updatedMember.id,
+      userId: params.userId,
+      email,
+      fullName,
+      role: updatedMember.role,
+      canViewAllTenantAudits: updatedMember.can_view_all_tenant_audits,
+      isActive: updatedMember.is_active,
+      createdAt: updatedMember.created_at,
+    };
+  }
+}
+
+// Alias de compatibilidade retroativa
+export const SupabaseTenantRepository = TenantRepository;

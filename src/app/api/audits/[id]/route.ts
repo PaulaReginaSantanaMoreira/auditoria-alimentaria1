@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GetAuditReportUseCase } from "@/application/use-cases/get-audit-report.use-case";
 import { createServerSupabaseClient } from "@/infrastructure/database/supabase/supabase-server";
-import { SupabaseAuditRepository } from "@/infrastructure/database/supabase/repositories/supabase-audit.repository";
+import { AuditRepository } from "@/infrastructure/database/repositories/audit.repository";
 import { canAccessAuditScope } from "@/domain/security/roles-and-permissions";
 import { resolveSessionAndRole } from "@/infrastructure/security/session-resolver";
 
@@ -12,7 +12,7 @@ export async function GET(
   try {
     const { id } = await params;
     const supabase = await createServerSupabaseClient();
-    const auditRepo = new SupabaseAuditRepository(supabase);
+    const auditRepo = new AuditRepository(supabase);
     const useCase = new GetAuditReportUseCase(auditRepo);
 
     const result = await useCase.execute(id);

@@ -85,4 +85,34 @@ describe("TenantSubscription Entity", () => {
     expect(subscription.isActive()).toBe(false);
     expect(subscription.getDaysRemaining()).toBe(0);
   });
+
+  it("should extend subscription validity and update payment status to PENDING_PAYMENT or COURTESY", () => {
+    // Arrange
+    const initialExpiry = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000);
+    const subscription = new TenantSubscription({
+      id: "sub-extend-1",
+      tenantId: "tenant-extend",
+      planTier: "PRO",
+      maxUserSeats: 5,
+      status: "ACTIVE",
+      validFrom: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+      expiresAt: initialExpiry,
+      featureFlags: { customRubric: true, offlineSync: true, exportPdf: true, analytics: true },
+      paymentStatus: "PAID",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const newTargetExpiry = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+
+    // Act
+    subscription.extendValidity(newTargetExpiry, "PENDING_PAYMENT");
+    subscription.updateBilling({ invoiceRef: "BOL-2026-990", notes: "Boleto bancário emitido" });
+
+    // Assert
+    expect(subscription.expiresAt.getTime()).toBe(newTargetExpiry.getTime());
+    expect(subscription.paymentStatus).toBe("PENDING_PAYMENT");
+    expect(subscription.invoiceRef).toBe("BOL-2026-990");
+    expect(subscription.notes).toBe("Boleto bancário emitido");
+  });
 });
