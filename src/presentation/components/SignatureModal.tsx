@@ -19,8 +19,8 @@ export function SignatureModal({
   isOpen,
   onClose,
   onConfirm,
-  defaultAuditorName = "Carmen Rodríguez (Auditor Oficial)",
-  defaultAuditedName = "Representante Legal de la Empresa",
+  defaultAuditorName = "",
+  defaultAuditedName = "",
 }: SignatureModalProps) {
   const [auditorName, setAuditorName] = useState(defaultAuditorName);
   const [auditedName, setAuditedName] = useState(defaultAuditedName);
@@ -291,7 +291,7 @@ export function SignatureModal({
             value={auditorName}
             onChange={(e) => setAuditorName(e.target.value)}
             disabled={isSubmitting}
-            placeholder="Nombre y credencial oficial"
+            placeholder="Ej: Dra. Carmen Rodríguez (Auditor Oficial - Nº Col. 2849)"
             className="w-full text-xs p-2 rounded-lg border border-slate-border mb-2 focus:ring-1 focus:ring-primary focus:outline-none"
           />
           <div className="border border-slate-border rounded-xl bg-slate-surface/30 p-1 relative overflow-hidden">
@@ -344,7 +344,7 @@ export function SignatureModal({
             value={auditedName}
             onChange={(e) => setAuditedName(e.target.value)}
             disabled={isSubmitting}
-            placeholder="Nombre y cargo del responsable"
+            placeholder="Ej: D. Juan Pérez (Responsable de Calidad / Titular)"
             className="w-full text-xs p-2 rounded-lg border border-slate-border mb-2 focus:ring-1 focus:ring-primary focus:outline-none"
           />
           <div className="border border-slate-border rounded-xl bg-slate-surface/30 p-1 relative overflow-hidden">

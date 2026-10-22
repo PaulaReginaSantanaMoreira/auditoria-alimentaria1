@@ -3,8 +3,10 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Header } from "@/presentation/components/Header";
+import { AuthLoadingScreen } from "@/presentation/components/AuthGuard";
 import { offlineDb } from "@/infrastructure/offline/offline-audit.db";
 import { AuditAccessScope } from "@/domain/security/roles-and-permissions";
+import { useAuthGuard } from "@/presentation/hooks/useAuthGuard";
 
 interface ActiveDraft {
   id: string;
@@ -21,25 +23,37 @@ interface ActiveDraft {
 
 export default function NovaAuditoriaPage() {
   const router = useRouter();
+  const { isAuthenticated, session, isLoading: isAuthLoading } = useAuthGuard();
 
   // Active Draft on Device State
   const [activeDraft, setActiveDraft] = useState<ActiveDraft | null>(null);
   const [isCheckingDraft, setIsCheckingDraft] = useState(true);
   const [draftAlertMessage, setDraftAlertMessage] = useState<string | null>(null);
 
-  // Form State (Identificação Oficial)
-  const [companyName, setCompanyName] = useState("Alimentos del Valle S.L.");
-  const [cif, setCif] = useState("B-84920194");
-  const [address, setAddress] = useState("Pol. Ind. Las Nieves, Nave 4, Madrid");
-  const [rgseaa, setRgseaa] = useState("RGSEAA 26.04918/M");
-  const [scope, setScope] = useState("Planta Completa de Procesado y Envasado");
+  // Form State (Identificación Oficial) - Sin datos quemados / mockeados
+  const [companyName, setCompanyName] = useState("");
+  const [cif, setCif] = useState("");
+  const [address, setAddress] = useState("");
+  const [rgseaa, setRgseaa] = useState("");
+  const [scope, setScope] = useState("");
   const [inspectionDate, setInspectionDate] = useState(() => new Date().toISOString().split("T")[0]);
   const normative = "Reglamento (CE) 852/2004 · APPCC / ISO 22000";
-  const [auditorName, setAuditorName] = useState("auditor@sanidad.es");
+  const [auditorName, setAuditorName] = useState("");
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Sincroniza usuário autenticado da sessão
+  useEffect(() => {
+    if (session) {
+      if (session.identifier) setAuditorName(session.identifier);
+      if (session.role) {
+        const roleLower = String(session.role).toLowerCase();
+        setIsSuperAdmin(roleLower === "superadmin" || roleLower.includes("superadmin"));
+      }
+    }
+  }, [session]);
 
   // Check on mount if there is an in-progress draft on this device
   useEffect(() => {
@@ -78,21 +92,6 @@ export default function NovaAuditoriaPage() {
       } finally {
         setIsCheckingDraft(false);
       }
-    }
-
-    // Carregar usuário logado da sessão se existir
-    try {
-      const session = localStorage.getItem("bioaudit_session");
-      if (session) {
-        const parsed = JSON.parse(session);
-        if (parsed.identifier) setAuditorName(parsed.identifier);
-        if (parsed.role) {
-          const roleLower = String(parsed.role).toLowerCase();
-          setIsSuperAdmin(roleLower === "superadmin" || roleLower.includes("superadmin"));
-        }
-      }
-    } catch {
-      // Ignorar fallback
     }
 
     checkExistingDraft();
@@ -216,6 +215,10 @@ export default function NovaAuditoriaPage() {
       setIsSubmitting(false);
     }
   };
+
+  if (isAuthLoading || !isAuthenticated) {
+    return <AuthLoadingScreen />;
+  }
 
   return (
     <>

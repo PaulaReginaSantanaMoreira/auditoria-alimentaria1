@@ -120,6 +120,30 @@ export function Header({
   const isSuper = isSuperAdmin || (pathname ? pathname.startsWith("/superadmin") : false);
   const logoHref = !isLoggedIn ? "/login" : isSuper ? "/superadmin" : "/auditorias/nova";
 
+  const isRouteActive = (route: string) => {
+    if (!pathname) return false;
+    if (route === "/auditorias/nova") {
+      return pathname.startsWith("/auditorias");
+    }
+    return pathname.startsWith(route);
+  };
+
+  const getMenuItemClasses = (route: string) => {
+    const active = isRouteActive(route);
+    if (active) {
+      return "flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold bg-primary/10 dark:bg-emerald-950/50 text-primary dark:text-emerald-400 rounded-xl mx-1.5 transition-colors";
+    }
+    return "flex items-center gap-2.5 px-3.5 py-2 text-xs text-slate-dark dark:text-slate-200 hover:bg-slate-surface dark:hover:bg-slate-800 rounded-xl mx-1.5 transition-colors";
+  };
+
+  const getMenuIconClasses = (route: string) => {
+    const active = isRouteActive(route);
+    if (active) {
+      return "material-symbols-outlined text-[18px] text-primary dark:text-emerald-400";
+    }
+    return "material-symbols-outlined text-[18px] text-slate-subtext dark:text-slate-400";
+  };
+
   return (
     <header className="fixed top-0 inset-x-0 z-50 bg-surface/90 dark:bg-slate-900/90 backdrop-blur-xl border-b border-transparent dark:border-slate-800/80 shadow-[0_1px_8px_rgba(0,0,0,0.04)] pt-safe transition-colors duration-200">
       <div className="h-16 px-margin-mobile flex items-center justify-between gap-space-xs max-w-5xl mx-auto">
@@ -218,9 +242,9 @@ export function Header({
                     <Link
                       href="/auditorias/nova"
                       onClick={() => setIsMenuOpen(false)}
-                      className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-dark dark:text-slate-200 hover:bg-slate-surface dark:hover:bg-slate-800 transition-colors"
+                      className={getMenuItemClasses("/auditorias/nova")}
                     >
-                      <span className="material-symbols-outlined text-[18px] text-primary dark:text-emerald-400">add_circle</span>
+                      <span className={getMenuIconClasses("/auditorias/nova")}>add_circle</span>
                       <span>Nueva Inspección</span>
                     </Link>
 
@@ -228,9 +252,9 @@ export function Header({
                       <Link
                         href="/suscripcion"
                         onClick={() => setIsMenuOpen(false)}
-                        className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-dark dark:text-slate-200 hover:bg-slate-surface dark:hover:bg-slate-800 transition-colors"
+                        className={getMenuItemClasses("/suscripcion")}
                       >
-                        <span className="material-symbols-outlined text-[18px] text-slate-subtext dark:text-slate-400">credit_card</span>
+                        <span className={getMenuIconClasses("/suscripcion")}>credit_card</span>
                         <span>Mi Suscripción</span>
                       </Link>
                     )}
@@ -239,21 +263,23 @@ export function Header({
                       <Link
                         href="/gestao/equipe"
                         onClick={() => setIsMenuOpen(false)}
-                        className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-dark dark:text-slate-200 hover:bg-slate-surface dark:hover:bg-slate-800 transition-colors"
+                        className={getMenuItemClasses("/gestao/equipe")}
                       >
-                        <span className="material-symbols-outlined text-[18px] text-primary dark:text-emerald-400">group</span>
+                        <span className={getMenuIconClasses("/gestao/equipe")}>group</span>
                         <span>Equipo e Inspectores</span>
                       </Link>
                     )}
 
-                    <Link
-                      href="/superadmin"
-                      onClick={() => setIsMenuOpen(false)}
-                      className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-emerald-800 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors"
-                    >
-                      <span className="material-symbols-outlined text-[18px] text-emerald-600 dark:text-emerald-400">admin_panel_settings</span>
-                      <span>SuperAdmin Master</span>
-                    </Link>
+                    {isSuper && (
+                      <Link
+                        href="/superadmin"
+                        onClick={() => setIsMenuOpen(false)}
+                        className={getMenuItemClasses("/superadmin")}
+                      >
+                        <span className={getMenuIconClasses("/superadmin")}>admin_panel_settings</span>
+                        <span>SuperAdmin Master</span>
+                      </Link>
+                    )}
 
                     <button
                       type="button"
@@ -261,9 +287,9 @@ export function Header({
                         setIsMenuOpen(false);
                         setIsChangePasswordOpen(true);
                       }}
-                      className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-slate-dark dark:text-slate-200 hover:bg-slate-surface dark:hover:bg-slate-800 transition-colors text-left cursor-pointer"
+                      className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs text-slate-dark dark:text-slate-200 hover:bg-slate-surface dark:hover:bg-slate-800 rounded-xl mx-1.5 transition-colors text-left cursor-pointer"
                     >
-                      <span className="material-symbols-outlined text-[18px] text-primary dark:text-emerald-400">key</span>
+                      <span className="material-symbols-outlined text-[18px] text-slate-subtext dark:text-slate-400">key</span>
                       <span>Cambiar Contraseña</span>
                     </button>
 
@@ -272,7 +298,7 @@ export function Header({
                     <button
                       type="button"
                       onClick={handleLogout}
-                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-alert-red hover:bg-alert-red-bg/25 dark:hover:bg-red-950/40 transition-colors text-left cursor-pointer"
+                      className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-semibold text-alert-red hover:bg-alert-red-bg/25 dark:hover:bg-red-950/40 rounded-xl mx-1.5 transition-colors text-left cursor-pointer"
                     >
                       <span className="material-symbols-outlined text-[18px]">logout</span>
                       <span>Cerrar Sesión</span>

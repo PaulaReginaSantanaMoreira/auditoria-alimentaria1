@@ -24,20 +24,25 @@ export async function POST(request: Request) {
       );
     }
 
-    // Modo Demo
+    // Modo Demo: Emite JWT assinado oficial de 24h
     if (process.env.NEXT_PUBLIC_APP_MODE === "demo") {
+      const isSuper =
+        cleanEmail.toLowerCase().includes("superadmin") ||
+        cleanEmail.toLowerCase() === "admin@bioauditpro.com";
+      const role = isSuper ? "PLATFORM_SUPERADMIN" : "AUDITOR";
+
       const { token, expiresAt } = await signSessionToken({
-        sub: "demo-user-id",
+        sub: isSuper ? "demo-superadmin-id" : "demo-user-id",
         email: cleanEmail,
-        role: "auditor",
+        role,
       });
 
       const res = NextResponse.json({
         success: true,
         token,
         expiresAt,
-        user: { id: "demo-user-id", email: cleanEmail, role: "auditor" },
-        redirectTo: "/auditorias/nova",
+        user: { id: isSuper ? "demo-superadmin-id" : "demo-user-id", email: cleanEmail, role },
+        redirectTo: isSuper ? "/superadmin" : "/auditorias/nova",
       });
 
       res.cookies.set("bioaudit_token", token, {

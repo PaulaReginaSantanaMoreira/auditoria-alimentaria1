@@ -10,17 +10,20 @@ import { DEFAULT_CONTROL_POINTS } from "@/domain/constants/default-control-point
 import { EvaluationPointScore } from "@/domain/value-objects/score";
 import { ControlPointCategory } from "@/domain/entities/control-point";
 import { offlineDb } from "@/infrastructure/offline/offline-audit.db";
+import { useAuthGuard } from "@/presentation/hooks/useAuthGuard";
+import { AuthLoadingScreen } from "@/presentation/components/AuthGuard";
 
 export default function RubricaPage() {
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuthGuard();
   const params = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();
   const auditId = (params?.id as string) || "audit-default";
 
   // Metadados da empresa
-  const companyName = searchParams.get("company") || "Alimentos del Valle S.L.";
-  const companyCif = searchParams.get("cif") || "B-84920194";
-  const companyAddress = searchParams.get("address") || "Pol. Ind. Las Nieves, Nave 4, Madrid";
+  const [companyName, setCompanyName] = useState(() => searchParams.get("company") || "");
+  const [companyCif, setCompanyCif] = useState(() => searchParams.get("cif") || "");
+  const [companyAddress, setCompanyAddress] = useState(() => searchParams.get("address") || "");
 
   // Estado das avaliações dos 30 pontos
   const [evaluations, setEvaluations] = useState<
@@ -50,6 +53,11 @@ export default function RubricaPage() {
     async function initOffline() {
       try {
         const existing = await offlineDb.audits.get(auditId);
+        if (existing) {
+          if (existing.companyName) setCompanyName(existing.companyName);
+          if (existing.companyCif) setCompanyCif(existing.companyCif);
+          if (existing.companyAddress) setCompanyAddress(existing.companyAddress);
+        }
         if (existing && existing.evaluations) {
           const loaded: Record<string, { score: EvaluationPointScore; observations: string; photoUrl?: string }> = {};
           for (const [code, val] of Object.entries(existing.evaluations)) {
@@ -269,6 +277,10 @@ export default function RubricaPage() {
     }
   };
 
+  if (isAuthLoading || !isAuthenticated) {
+    return <AuthLoadingScreen />;
+  }
+
   return (
     <>
       <Header title="BioAudit Pro" subtitle="Rúbrica de Campo" />
@@ -303,11 +315,11 @@ export default function RubricaPage() {
               <div className="bg-slate-surface rounded-xl p-space-sm grid grid-cols-2 sm:grid-cols-4 gap-space-xs text-xs">
                 <div>
                   <span className="text-slate-subtext uppercase font-semibold block">Empresa Auditada</span>
-                  <span className="font-bold text-slate-dark text-sm truncate block">{companyName}</span>
+                  <span className="font-bold text-slate-dark text-sm truncate block">{companyName || "Empresa en Proceso de Auditoría"}</span>
                 </div>
                 <div>
                   <span className="text-slate-subtext uppercase font-semibold block">CIF / NIF</span>
-                  <span className="font-mono text-slate-dark text-sm truncate block">{companyCif}</span>
+                  <span className="font-mono text-slate-dark text-sm truncate block">{companyCif || "Pendiente de CIF"}</span>
                 </div>
                 <div>
                   <span className="text-slate-subtext uppercase font-semibold block">Fecha de Visita</span>
@@ -317,8 +329,8 @@ export default function RubricaPage() {
                 </div>
                 <div>
                   <span className="text-slate-subtext uppercase font-semibold block">Instalación</span>
-                  <span className="text-slate-dark truncate block font-medium" title={companyAddress}>
-                    {companyAddress}
+                  <span className="text-slate-dark truncate block font-medium" title={companyAddress || "Instalación en Verificación"}>
+                    {companyAddress || "Instalación en Verificación"}
                   </span>
                 </div>
               </div>

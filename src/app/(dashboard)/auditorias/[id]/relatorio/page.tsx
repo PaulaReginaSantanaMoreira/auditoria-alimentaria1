@@ -14,15 +14,18 @@ import { DEFAULT_CONTROL_POINTS } from "@/domain/constants/default-control-point
 import { offlineDb } from "@/infrastructure/offline/offline-audit.db";
 import { Signature } from "@/domain/value-objects/signature";
 import { EvidencePhoto } from "@/domain/value-objects/evidence-photo";
+import { useAuthGuard } from "@/presentation/hooks/useAuthGuard";
+import { AuthLoadingScreen } from "@/presentation/components/AuthGuard";
 
 export default function RelatorioPage() {
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuthGuard();
   const params = useParams();
   const searchParams = useSearchParams();
   const auditId = (params?.id as string) || "audit-default";
 
-  const companyName = searchParams.get("company") || "Alimentos del Valle S.L.";
-  const companyCif = searchParams.get("cif") || "B-84920194";
-  const companyAddress = searchParams.get("address") || "Pol. Ind. Las Nieves, Nave 4, Madrid";
+  const companyName = searchParams.get("company") || "";
+  const companyCif = searchParams.get("cif") || "";
+  const companyAddress = searchParams.get("address") || "";
 
   const [audit, setAudit] = useState<Audit | null>(null);
   const [report, setReport] = useState<AuditComplianceReport | null>(null);
@@ -131,15 +134,8 @@ export default function RelatorioPage() {
     loadData();
   }, [auditId, companyName, companyCif, companyAddress]);
 
-  if (!audit || !report) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="flex flex-col items-center gap-2">
-          <span className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-          <span className="text-xs text-slate-subtext">Generando Laudo Oficial...</span>
-        </div>
-      </div>
-    );
+  if (isAuthLoading || !isAuthenticated || !audit || !report) {
+    return <AuthLoadingScreen message="Generando Laudo Oficial..." />;
   }
 
   return (

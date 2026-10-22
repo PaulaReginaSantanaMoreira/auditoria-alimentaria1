@@ -157,29 +157,7 @@ export default function LoginPage() {
     setErrors({});
     setIsLoading(true);
 
-    // MODO DEMO: Simulação local com JWT de 1 dia
-    if (isDemoMode) {
-      try {
-        localStorage.setItem(
-          "bioaudit_session",
-          JSON.stringify({
-            identifier: emailVal,
-            role: "auditor",
-            fullName: "Inspector Oficial Demo",
-            expiresAt: Date.now() + 24 * 60 * 60 * 1000, // 1 dia
-            loginAt: new Date().toISOString(),
-          })
-        );
-      } catch {}
-
-      setTimeout(() => {
-        setIsLoading(false);
-        window.location.href = "/auditorias/nova";
-      }, 500);
-      return;
-    }
-
-    // Autenticação oficial via API Route
+    // Autenticação oficial via API Route (emite cookie httpOnly bioaudit_token assinado)
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
@@ -224,6 +202,23 @@ export default function LoginPage() {
       setIsLoading(false);
       window.location.href = targetUrl;
     } catch (err: any) {
+      if (isDemoMode) {
+        // Fallback de contingência offline em modo demo
+        localStorage.setItem(
+          "bioaudit_session",
+          JSON.stringify({
+            identifier: emailVal,
+            role: "AUDITOR",
+            fullName: "Inspector Oficial Demo",
+            expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+            loginAt: new Date().toISOString(),
+          })
+        );
+        document.cookie = "bioaudit_token=demo-token; path=/; max-age=86400; SameSite=Lax";
+        setIsLoading(false);
+        window.location.href = "/auditorias/nova";
+        return;
+      }
       setErrors({ general: err.message || "Error al conectar con el servidor de autenticación." });
       setIsLoading(false);
     }

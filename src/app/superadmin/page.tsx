@@ -4,6 +4,8 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { Header } from "@/presentation/components/Header";
 import { offlineDb } from "@/infrastructure/offline/offline-audit.db";
+import { useAuthGuard } from "@/presentation/hooks/useAuthGuard";
+import { AuthLoadingScreen } from "@/presentation/components/AuthGuard";
 
 interface TenantItem {
   id: string;
@@ -36,6 +38,7 @@ interface AdminAuditItem {
 }
 
 export default function SuperAdminPage() {
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuthGuard({ requiredRole: "PLATFORM_SUPERADMIN" });
   const [tenants, setTenants] = useState<TenantItem[]>([]);
   const [adminAudits, setAdminAudits] = useState<AdminAuditItem[]>([]);
   const [activeTab, setActiveTab] = useState<"tenants" | "inspections">("tenants");
@@ -209,6 +212,10 @@ export default function SuperAdminPage() {
 
   const totalSeats = tenants.reduce((acc, t) => acc + t.maxUserSeats, 0);
   const totalActiveUsers = tenants.reduce((acc, t) => acc + t.activeUsersCount, 0);
+
+  if (isAuthLoading || !isAuthenticated) {
+    return <AuthLoadingScreen />;
+  }
 
   return (
     <>

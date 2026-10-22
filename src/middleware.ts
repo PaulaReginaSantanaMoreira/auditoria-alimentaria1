@@ -19,11 +19,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Se estiver no modo demo (offline/mock), permitir navegação
-  if (process.env.NEXT_PUBLIC_APP_MODE === "demo") {
-    return NextResponse.next();
-  }
-
   // Rotas públicas que não requerem autenticação
   const isPublicRoute =
     pathname === "/login" ||

@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { Header } from "@/presentation/components/Header";
+import { useAuthGuard } from "@/presentation/hooks/useAuthGuard";
+import { AuthLoadingScreen } from "@/presentation/components/AuthGuard";
 
 interface TenantUserItem {
   id: string;
@@ -14,6 +16,7 @@ interface TenantUserItem {
 }
 
 export default function GestaoEquipePage() {
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuthGuard();
   const [tenantInfo, setTenantInfo] = useState<{
     name: string;
     cif: string;
@@ -24,7 +27,7 @@ export default function GestaoEquipePage() {
     expiresAt?: string;
   }>({
     name: "Empresa Auditora Registrada",
-    cif: "B-84920194",
+    cif: "",
     maxSeats: 5,
     activeCount: 1,
     availableSeats: 4,
@@ -90,6 +93,10 @@ export default function GestaoEquipePage() {
       setFeedback("Error al actualizar permisos de visualización.");
     }
   };
+
+  if (isAuthLoading || !isAuthenticated) {
+    return <AuthLoadingScreen />;
+  }
 
   return (
     <>

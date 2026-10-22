@@ -4,9 +4,12 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Header } from "@/presentation/components/Header";
+import { useAuthGuard } from "@/presentation/hooks/useAuthGuard";
+import { AuthLoadingScreen } from "@/presentation/components/AuthGuard";
 
 export default function SuscripcionPage() {
   const router = useRouter();
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuthGuard();
   const [selectedPlan, setSelectedPlan] = useState<"starter" | "pro" | "enterprise">("pro");
 
   // SuperAdmin não possui restrições de licença e deve ser redirecionado para o painel master
@@ -23,6 +26,10 @@ export default function SuscripcionPage() {
       // ignore
     }
   }, [router]);
+
+  if (isAuthLoading || !isAuthenticated) {
+    return <AuthLoadingScreen />;
+  }
 
   return (
     <>
