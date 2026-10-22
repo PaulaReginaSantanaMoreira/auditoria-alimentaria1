@@ -221,7 +221,7 @@ export default function NovaAuditoriaPage() {
     <>
       <Header title="BioAudit Pro" subtitle="Identificación Oficial" />
 
-      <main className="flex-1 flex flex-col relative w-full pt-16 pb-20 bg-surface min-h-screen">
+      <main className="flex-1 flex flex-col relative w-full pt-16 pb-20 bg-surface dark:bg-slate-950 min-h-screen">
         <div className="flex flex-col w-full max-w-3xl mx-auto px-margin-mobile">
           {/* Mensagem de Feedback ao Anular */}
           {draftAlertMessage && (
@@ -269,7 +269,7 @@ export default function NovaAuditoriaPage() {
                   <button
                     type="button"
                     onClick={handleDiscardDraft}
-                    className="px-3.5 py-2 rounded-lg border border-red-300 bg-white text-red-700 hover:bg-red-50 text-xs font-semibold flex items-center gap-1 transition-all shadow-sm cursor-pointer"
+                    className="px-3.5 py-2 rounded-lg border border-red-300 dark:border-red-900/60 bg-white dark:bg-slate-900 text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 text-xs font-semibold flex items-center gap-1 transition-all shadow-sm cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-[16px]">delete_forever</span>
                     <span>Anular Formulario</span>

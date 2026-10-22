@@ -51,7 +51,7 @@ export default function SuscripcionPage() {
           </div>
 
           {/* Compliance Banner */}
-          <div className="bg-alert-amber-bg/60 border border-alert-amber/40 rounded-xl p-space-md shadow-sm mb-space-md flex flex-col gap-space-xs">
+          <div className="bg-alert-amber-bg/60 dark:bg-amber-950/30 border border-alert-amber/40 dark:border-amber-800/40 rounded-xl p-space-md shadow-sm mb-space-md flex flex-col gap-space-xs">
             <div className="flex items-start gap-2.5">
               <span className="material-symbols-outlined text-alert-amber text-[22px] shrink-0 mt-0.5">
                 gpp_maybe
@@ -124,7 +124,7 @@ export default function SuscripcionPage() {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h2 className="font-title-md text-title-md font-bold text-slate-dark">
+                    <h2 className="font-title-md text-title-md font-bold text-slate-dark dark:text-white">
                       Plan Pro Calidad
                     </h2>
                     <span className="px-2 py-0.5 rounded-full bg-status-pass-bg text-status-pass text-[11px] font-bold border border-status-pass/20 flex items-center gap-1">

@@ -331,7 +331,7 @@ export default function SuperAdminPage() {
               className={`px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${
                 activeTab === "tenants"
                   ? "bg-primary text-white shadow-sm"
-                  : "bg-surface-container-lowest text-slate-subtext hover:text-slate-dark border border-slate-border"
+                  : "bg-surface-container-lowest text-slate-subtext hover:text-slate-dark dark:hover:text-white border border-slate-border"
               }`}
             >
               <span className="material-symbols-outlined text-[18px]">domain</span>
@@ -347,7 +347,7 @@ export default function SuperAdminPage() {
               className={`px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${
                 activeTab === "inspections"
                   ? "bg-emerald-700 text-white shadow-sm"
-                  : "bg-surface-container-lowest text-slate-subtext hover:text-slate-dark border border-slate-border"
+                  : "bg-surface-container-lowest text-slate-subtext hover:text-slate-dark dark:hover:text-white border border-slate-border"
               }`}
             >
               <span className="material-symbols-outlined text-[18px]">lock</span>
@@ -375,7 +375,7 @@ export default function SuperAdminPage() {
                 <button
                   type="button"
                   onClick={fetchTenants}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-dark hover:bg-surface-container transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-dark dark:text-slate-200 hover:bg-surface-container dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >
                   <span className={`material-symbols-outlined text-[18px] ${isLoading ? "animate-spin" : ""}`}>
                     sync
@@ -410,7 +410,7 @@ export default function SuperAdminPage() {
                     </thead>
                     <tbody className="divide-y divide-slate-border/60 text-on-surface font-body-sm">
                       {filteredTenants.map((t) => (
-                        <tr key={t.id} className="hover:bg-surface-container-low transition-colors">
+                        <tr key={t.id} className="hover:bg-surface-container-low dark:hover:bg-slate-800/60 transition-colors">
                           <td className="py-space-md px-space-md">
                             <div className="font-bold text-on-surface">{t.name}</div>
                             <div className="text-label-sm text-slate-subtext font-mono mt-0.5">CIF: {t.cif}</div>
@@ -444,7 +444,7 @@ export default function SuperAdminPage() {
                                   setSelectedTenantForSeats(t);
                                   setNewSeatsValue(t.maxUserSeats);
                                 }}
-                                className="text-xs text-primary font-bold hover:underline inline-flex items-center gap-0.5 cursor-pointer"
+                                className="text-xs text-primary dark:text-emerald-400 font-bold hover:underline inline-flex items-center gap-0.5 cursor-pointer"
                               >
                                 <span className="material-symbols-outlined text-[14px]">tune</span>
                                 <span>Cupo</span>
@@ -547,7 +547,7 @@ export default function SuperAdminPage() {
                       </thead>
                       <tbody className="divide-y divide-slate-border/60 text-on-surface font-body-sm">
                         {adminAudits.map((a) => (
-                          <tr key={a.id} className="hover:bg-surface-container-low transition-colors">
+                          <tr key={a.id} className="hover:bg-surface-container-low dark:hover:bg-slate-800/60 transition-colors">
                             <td className="py-space-md px-space-md">
                               <div className="font-bold text-on-surface flex items-center gap-1.5">
                                 <span>{a.companyName}</span>
@@ -627,7 +627,7 @@ export default function SuperAdminPage() {
 
         {/* Modal de Cadastro de Nova Empresa */}
         {showCreateModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-on-surface/40 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150">
             <div className="w-full max-w-md bg-surface-container-lowest rounded-2xl p-space-lg shadow-xl border border-slate-border animate-in zoom-in-95 duration-150">
               <div className="flex items-center justify-between mb-space-sm">
                 <h2 className="font-title-md text-title-md text-on-surface font-bold">
@@ -726,7 +726,7 @@ export default function SuperAdminPage() {
 
         {/* Modal de Ajuste de Assentos */}
         {selectedTenantForSeats && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-on-surface/40 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150">
             <div className="w-full max-w-sm bg-surface-container-lowest rounded-2xl p-space-lg shadow-xl border border-slate-border animate-in zoom-in-95 duration-150">
               <h2 className="font-title-md text-title-md text-on-surface font-bold mb-1">
                 Ajustar Cupo de Inspectores
