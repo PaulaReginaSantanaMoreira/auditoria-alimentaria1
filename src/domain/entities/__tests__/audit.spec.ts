@@ -29,7 +29,8 @@ describe("Audit Aggregate Root", () => {
     });
   });
 
-  it("deve criar uma auditoria com status inicial DRAFT", () => {
+  it("should initialize an audit with DRAFT status and zero evaluations", () => {
+    // Arrange & Act
     const audit = new Audit({
       id: "audit-001",
       company,
@@ -37,11 +38,13 @@ describe("Audit Aggregate Root", () => {
       inspectionDate: new Date(),
     });
 
+    // Assert
     expect(audit.status).toBe("DRAFT");
     expect(audit.evaluations).toHaveLength(0);
   });
 
-  it("deve registrar e atualizar a avaliação de um ponto de controle", () => {
+  it("should transition status to IN_PROGRESS when adding an evaluation", () => {
+    // Arrange
     const audit = new Audit({
       id: "audit-001",
       company,
@@ -56,14 +59,17 @@ describe("Audit Aggregate Root", () => {
       score: 2,
     });
 
+    // Act
     audit.addOrUpdateEvaluation(point);
 
+    // Assert
     expect(audit.status).toBe("IN_PROGRESS");
     expect(audit.evaluations).toHaveLength(1);
     expect(audit.score?.percentage).toBe(100);
   });
 
-  it("deve rejeitar finalização se houver menos que 30 pontos de controle respondidos", () => {
+  it("should throw IncompleteAuditError if finalized with fewer than 30 control points", () => {
+    // Arrange
     const audit = new Audit({
       id: "audit-001",
       company,
@@ -71,7 +77,6 @@ describe("Audit Aggregate Root", () => {
       inspectionDate: new Date(),
     });
 
-    // Anexa apenas 5 pontos
     for (let i = 0; i < 5; i++) {
       const template = DEFAULT_CONTROL_POINTS[i];
       audit.addOrUpdateEvaluation(
@@ -94,13 +99,14 @@ describe("Audit Aggregate Root", () => {
       signeeRole: "Auditado",
       signatureDataUrl: "data:image/png;base64,sampleSig2",
     });
-
     audit.sign(sigAuditor, sigAuditado);
 
+    // Act & Assert
     expect(() => audit.finalize(30)).toThrow(IncompleteAuditError);
   });
 
-  it("deve finalizar com sucesso quando todos os 30 pontos e assinaturas forem preenchidos", () => {
+  it("should finalize with FAVORABLE verdict when all 30 points and signatures are registered", () => {
+    // Arrange
     const audit = new Audit({
       id: "audit-001",
       company,
@@ -131,9 +137,11 @@ describe("Audit Aggregate Root", () => {
       signatureDataUrl: "data:image/png;base64,sampleSig2",
     });
 
+    // Act
     audit.sign(sigAuditor, sigAuditado);
     audit.finalize(30);
 
+    // Assert
     expect(audit.status).toBe("FINALIZED");
     expect(audit.score?.percentage).toBe(100);
     expect(audit.verdict).toBe("FAVORABLE");

@@ -2,10 +2,12 @@ import { describe, it, expect } from "vitest";
 import { TenantSubscription } from "../subscription";
 
 describe("TenantSubscription Entity", () => {
-  it("debe crear una subscripción de tenant con sus límites de asientos", () => {
+  it("should create a valid tenant subscription with seat allocations", () => {
+    // Arrange
     const validFrom = new Date();
-    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 días
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days ahead
 
+    // Act
     const subscription = new TenantSubscription({
       id: "sub-123",
       tenantId: "tenant-123",
@@ -24,37 +26,42 @@ describe("TenantSubscription Entity", () => {
       updatedAt: new Date(),
     });
 
+    // Assert
     expect(subscription.maxUserSeats).toBe(8);
     expect(subscription.isActive()).toBe(true);
     expect(subscription.isExpired()).toBe(false);
     expect(subscription.getDaysRemaining()).toBeGreaterThanOrEqual(29);
   });
 
-  it("debe rechazar asientos menores a 1", () => {
-    expect(() => {
-      new TenantSubscription({
-        id: "sub-123",
-        tenantId: "tenant-123",
-        planTier: "STARTER",
-        maxUserSeats: 0,
-        status: "ACTIVE",
-        validFrom: new Date(),
-        expiresAt: new Date(Date.now() + 10000),
-        featureFlags: {
-          customRubric: false,
-          offlineSync: true,
-          exportPdf: true,
-          analytics: false,
-        },
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-    }).toThrow("El límite de usuarios/asientos debe ser al menos 1");
+  it("should reject seat allocation when configured with fewer than 1 seat", () => {
+    // Arrange
+    const invalidProps = {
+      id: "sub-123",
+      tenantId: "tenant-123",
+      planTier: "STARTER" as const,
+      maxUserSeats: 0,
+      status: "ACTIVE" as const,
+      validFrom: new Date(),
+      expiresAt: new Date(Date.now() + 10000),
+      featureFlags: {
+        customRubric: false,
+        offlineSync: true,
+        exportPdf: true,
+        analytics: false,
+      },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    // Act & Assert
+    expect(() => new TenantSubscription(invalidProps)).toThrow("El límite de usuarios/asientos debe ser al menos 1");
   });
 
-  it("debe detectar expiración de suscripción pasada la fecha límite", () => {
-    const pastDate = new Date(Date.now() - 24 * 60 * 60 * 1000); // Ayer
+  it("should detect expired subscriptions when the expiration date is in the past", () => {
+    // Arrange
+    const pastDate = new Date(Date.now() - 24 * 60 * 60 * 1000); // Yesterday
 
+    // Act
     const subscription = new TenantSubscription({
       id: "sub-123",
       tenantId: "tenant-123",
@@ -73,6 +80,7 @@ describe("TenantSubscription Entity", () => {
       updatedAt: new Date(),
     });
 
+    // Assert
     expect(subscription.isExpired()).toBe(true);
     expect(subscription.isActive()).toBe(false);
     expect(subscription.getDaysRemaining()).toBe(0);

@@ -273,7 +273,7 @@ CREATE POLICY "audits_view_policy" ON public.audits FOR SELECT USING (
             (
                 COALESCE(access_scope, 'TENANT') = 'TENANT' AND
                 (
-                    (SELECT can_view_all_tenant_audits FROM public.tenant_users WHERE user_id = auth.uid() AND is_active = TRUE) = TRUE
+                    (SELECT can_view_all_tenant_audits FROM public.tenant_users WHERE user_id = auth.uid() AND tenant_id = public.audits.tenant_id AND is_active = TRUE) = TRUE
                     OR
                     auditor_id IN (SELECT id FROM public.auditors WHERE auth_user_id = auth.uid())
                 )
@@ -334,7 +334,7 @@ VALUES
 (NULL, 'q1_4', '1.4', 'INFRAESTRUCTURA', 'Infraestructura y Equipos', 'Los sistemas de drenaje, desagües y canalizaciones tienen la capacidad adecuada, disponen de rejillas y evitan reflujos u olores.', FALSE, 'RD 852/2004 Anexo II Cap. I', 4),
 (NULL, 'q1_5', '1.5', 'INFRAESTRUCTURA', 'Infraestructura y Equipos', 'Existe ventilación suficiente (natural o mecánica) que evita la acumulación de condensación, humos, vapores y calor excesivo.', FALSE, 'RD 852/2004 Anexo II Cap. I', 5),
 (NULL, 'q1_6', '1.6', 'INFRAESTRUCTURA', 'Infraestructura y Equipos', 'La iluminación es adecuada en intensidad y las luminarias en zonas de manipulación disponen de protectores antirotura estancos.', FALSE, 'RD 852/2004 Anexo II Cap. I', 6),
-(NULL, 'q1_7', '1.7', 'INFRAESTRUCTURA', 'Infraestructura y Equipos', 'Los lavamanos de accionamiento no manual están en número suficiente, con agua caliente/fría, jabón bactericida y secador o papel desechable.', FALSE, 'RD 852/2004 Anexo II Cap. I', 7),
+(NULL, 'q1_7', '1.7', 'INFRAESTRUCTURA', 'Infraestructura y Equipos', 'Los lavamanos de accionamiento no manual están en número suficiente, con agua caliente/fría, jabón bactericida y secador o papel desechable.', TRUE, 'RD 852/2004 Anexo II Cap. I', 7),
 (NULL, 'q1_8', '1.8', 'INFRAESTRUCTURA', 'Infraestructura y Equipos', 'Los equipos y utensilios en contacto con alimentos son de materiales lisos, resistentes a la corrosión, aptos para uso alimentario y de fácil limpieza.', FALSE, 'RD 852/2004 Anexo II Cap. V', 8),
 (NULL, 'q1_9', '1.9', 'INFRAESTRUCTURA', 'Infraestructura y Equipos', 'Existe un plan y contrato vigente de control integrado de plagas (D+D+D) con cebos de seguridad en lugares no accesibles a alimentos.', FALSE, 'RD 852/2004 Anexo II Cap. IX', 9),
 (NULL, 'q1_10', '1.10', 'INFRAESTRUCTURA', 'Infraestructura y Equipos', 'Los productos de limpieza, desinfección y químicos se almacenan en armarios cerrados e identificados, totalmente separados de alimentos.', FALSE, 'RD 852/2004 Anexo II Cap. I', 10),
@@ -343,7 +343,7 @@ VALUES
 (NULL, 'q2_2', '2.2', 'HIGIENE_PERSONAL', 'Higiene del Personal y Buenas Prácticas', 'Se evidencia lavado y desinfección de manos regular: al inicio de jornada, tras pausas, cambio de tarea o uso del inodoro.', FALSE, 'RD 852/2004 Anexo II Cap. VIII', 12),
 (NULL, 'q2_3', '2.3', 'HIGIENE_PERSONAL', 'Higiene del Personal y Buenas Prácticas', 'Los certificados de formación continuada en higiene alimentaria y manipulación están vigentes y adaptados a las tareas desarrolladas.', FALSE, 'RD 852/2004 Anexo II Cap. XII', 13),
 (NULL, 'q2_4', '2.4', 'HIGIENE_PERSONAL', 'Higiene del Personal y Buenas Prácticas', 'Existe procedimiento documentado para notificar e intervenir ante enfermedades transmisibles (gastroenteritis, cortes, heridas o forúnculos).', FALSE, 'RD 852/2004 Anexo II Cap. VIII', 14),
-(NULL, 'q2_5', '2.5', 'HIGIENE_PERSONAL', 'Higiene del Personal y Buenas Prácticas', 'Los apósitos y apósitos para heridas en extremidades son impermeables y de color llamativo (preferentemente azul con tira metálica detectable).', FALSE, 'ISO 22000 Cláusula 8.2', 15),
+(NULL, 'q2_5', '2.5', 'HIGIENE_PERSONAL', 'Higiene del Personal y Buenas Prácticas', 'Los apósitos y apósitos para heridas en extremidades son impermeables y de color llamativo (preferentemente azul con tira metálica detectable).', TRUE, 'ISO 22000 Cláusula 8.2', 15),
 (NULL, 'q2_6', '2.6', 'HIGIENE_PERSONAL', 'Higiene del Personal y Buenas Prácticas', 'No se fuma, come, bebe (excepto agua en dispensadores habilitados) ni mastica chicle en las zonas de manipulación y envasado.', FALSE, 'RD 852/2004 Anexo II Cap. VIII', 16),
 (NULL, 'q2_7', '2.7', 'HIGIENE_PERSONAL', 'Higiene del Personal y Buenas Prácticas', 'Los vestuarios del personal están limpios, con doble taquilla individual (ropa de calle / ropa de trabajo) y sin acceso directo a obradores.', FALSE, 'RD 852/2004 Anexo II Cap. I', 17),
 (NULL, 'q2_8', '2.8', 'HIGIENE_PERSONAL', 'Higiene del Personal y Buenas Prácticas', 'El uso de guantes se realiza bajo protocolo: uso correcto, desechado tras cada rotura o cambio de actividad, y lavado previo de manos.', FALSE, 'Guía de Buenas Prácticas AECOSAN', 18),
@@ -366,8 +366,8 @@ ON CONFLICT (COALESCE(tenant_id, '00000000-0000-0000-0000-000000000000'::uuid), 
 INSERT INTO storage.buckets (id, name, public)
 VALUES 
   ('audit-evidences', 'audit-evidences', true),
-  ('audit-signatures', 'audit-signatures', true)
-ON CONFLICT (id) DO NOTHING;
+  ('audit-signatures', 'audit-signatures', false)
+ON CONFLICT (id) DO UPDATE SET public = false;
 
 DROP POLICY IF EXISTS "Evidences upload" ON storage.objects;
 DROP POLICY IF EXISTS "Authenticated users can upload audit evidence" ON storage.objects;
@@ -375,4 +375,4 @@ CREATE POLICY "Evidences upload" ON storage.objects FOR INSERT TO authenticated 
 
 DROP POLICY IF EXISTS "Evidences public read" ON storage.objects;
 DROP POLICY IF EXISTS "Public read for audit evidence" ON storage.objects;
-CREATE POLICY "Evidences public read" ON storage.objects FOR SELECT USING (bucket_id IN ('audit-evidences', 'audit-signatures'));
+CREATE POLICY "Evidences public read" ON storage.objects FOR SELECT USING (bucket_id = 'audit-evidences' OR (bucket_id = 'audit-signatures' AND (auth.role() = 'authenticated' OR public.is_platform_superadmin())));

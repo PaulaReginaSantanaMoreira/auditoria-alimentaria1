@@ -41,9 +41,11 @@ export function SignatureModal({
     }
   }, [isOpen]);
 
-  // Inicializa canvas listeners
+  // Inicializa canvas listeners com cleanup rigoroso contra memory leaks e suporte a Retina/DPI
   useEffect(() => {
     if (!isOpen) return;
+
+    const cleanups: Array<() => void> = [];
 
     const setupCanvas = (
       canvas: HTMLCanvasElement | null,
@@ -53,6 +55,14 @@ export function SignatureModal({
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
 
+      // Calibração de DPI para telas Retina/High-DPI (iPad/Tablets)
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+
       ctx.strokeStyle = "#0F172A";
       ctx.lineWidth = 2.5;
       ctx.lineCap = "round";
@@ -61,17 +71,17 @@ export function SignatureModal({
       let drawing = false;
 
       const getPos = (e: MouseEvent | TouchEvent) => {
-        const rect = canvas.getBoundingClientRect();
+        const clientRect = canvas.getBoundingClientRect();
         if ("touches" in e) {
           const touch = e.touches[0];
           return {
-            x: touch.clientX - rect.left,
-            y: touch.clientY - rect.top,
+            x: touch.clientX - clientRect.left,
+            y: touch.clientY - clientRect.top,
           };
         }
         return {
-          x: e.clientX - rect.left,
-          y: e.clientY - rect.top,
+          x: (e as MouseEvent).clientX - clientRect.left,
+          y: (e as MouseEvent).clientY - clientRect.top,
         };
       };
 
@@ -81,7 +91,7 @@ export function SignatureModal({
         const pos = getPos(e);
         ctx.beginPath();
         ctx.moveTo(pos.x, pos.y);
-        e.preventDefault();
+        if (e.cancelable) e.preventDefault();
       };
 
       const draw = (e: MouseEvent | TouchEvent) => {
@@ -90,7 +100,7 @@ export function SignatureModal({
         ctx.lineTo(pos.x, pos.y);
         ctx.stroke();
         onSignedChange(true);
-        e.preventDefault();
+        if (e.cancelable) e.preventDefault();
       };
 
       const stopDrawing = () => {
@@ -104,11 +114,34 @@ export function SignatureModal({
       canvas.addEventListener("touchstart", startDrawing, { passive: false });
       canvas.addEventListener("touchmove", draw, { passive: false });
       window.addEventListener("touchend", stopDrawing);
+
+      cleanups.push(() => {
+        canvas.removeEventListener("mousedown", startDrawing);
+        canvas.removeEventListener("mousemove", draw);
+        window.removeEventListener("mouseup", stopDrawing);
+
+        canvas.removeEventListener("touchstart", startDrawing);
+        canvas.removeEventListener("touchmove", draw);
+        window.removeEventListener("touchend", stopDrawing);
+      });
     };
 
     setupCanvas(canvasAuditorRef.current, setIsAuditorSigned);
     setupCanvas(canvasAuditadoRef.current, setIsAuditedSigned);
-  }, [isOpen]);
+
+    // Fechar com tecla Escape (WCAG 2.2)
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !isSubmitting) {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    cleanups.push(() => window.removeEventListener("keydown", handleKeyDown));
+
+    return () => {
+      cleanups.forEach((cleanup) => cleanup());
+    };
+  }, [isOpen, isSubmitting, onClose]);
 
   const clearCanvas = (
     canvas: HTMLCanvasElement | null,
@@ -175,20 +208,26 @@ export function SignatureModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-dark/70 backdrop-blur-sm overflow-y-auto">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="signature-modal-title"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-dark/70 backdrop-blur-sm overflow-y-auto"
+    >
       <div className="bg-surface-container-lowest rounded-2xl max-w-lg w-full p-space-lg shadow-xl border border-slate-border my-8">
         <div className="flex items-center justify-between pb-space-sm border-b border-slate-border mb-space-md">
           <div className="flex items-center gap-space-xs">
             <span className="w-8 h-8 rounded-lg bg-status-pass-bg text-status-pass flex items-center justify-center">
               <span className="material-symbols-outlined text-[20px]">draw</span>
             </span>
-            <h2 className="font-headline-sm text-headline-sm text-on-surface font-bold">
+            <h2 id="signature-modal-title" className="font-headline-sm text-headline-sm text-on-surface font-bold">
               Firma Digital del Dictamen
             </h2>
           </div>
           <button
             onClick={onClose}
             disabled={isSubmitting}
+            aria-label="Cerrar modal de firma"
             className="w-8 h-8 rounded-full text-slate-subtext hover:bg-slate-surface flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed"
             type="button"
           >
@@ -200,13 +239,10 @@ export function SignatureModal({
           Para dotar de validez legal al acta de inspección, ambas partes deben ratificar y rubricar el documento en la pantalla táctil:
         </p>
 
-        {/* Alerta de Validación Interna Harmónica (reemplaza alert convencional) */}
         {errorMessage && (
           <div className="mb-space-md p-3 rounded-xl bg-alert-red-bg/90 border border-alert-red/30 text-alert-red flex items-start gap-2.5 text-xs font-semibold shadow-sm animate-in fade-in slide-in-from-top-1 duration-200">
             <span className="material-symbols-outlined text-[18px] shrink-0 mt-0.5">error</span>
-            <div className="flex-1 leading-relaxed">
-              {errorMessage}
-            </div>
+            <div className="flex-1 leading-relaxed">{errorMessage}</div>
             <button
               type="button"
               onClick={() => setErrorMessage(null)}
@@ -222,7 +258,10 @@ export function SignatureModal({
         <div className="mb-space-md">
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
-              <label className="font-label-md text-label-md text-on-surface font-semibold flex items-center gap-1">
+              <label
+                htmlFor="auditor-name-input"
+                className="font-label-md text-label-md text-on-surface font-semibold flex items-center gap-1"
+              >
                 <span className="material-symbols-outlined text-[16px] text-primary">verified</span>
                 1. Firma del Inspector / Auditor Oficial
               </label>
@@ -247,40 +286,36 @@ export function SignatureModal({
             </button>
           </div>
           <input
+            id="auditor-name-input"
             type="text"
             value={auditorName}
+            onChange={(e) => setAuditorName(e.target.value)}
             disabled={isSubmitting}
-            onChange={(e) => {
-              setAuditorName(e.target.value);
-              setErrorMessage(null);
-            }}
-            placeholder="Nombre completo del auditor..."
-            className={`w-full text-xs p-1.5 rounded border mb-1.5 bg-surface-container-low disabled:opacity-60 transition-colors ${
-              !auditorName.trim() && errorMessage ? "border-alert-red ring-1 ring-alert-red/30" : "border-slate-border"
-            }`}
+            placeholder="Nombre y credencial oficial"
+            className="w-full text-xs p-2 rounded-lg border border-slate-border mb-2 focus:ring-1 focus:ring-primary focus:outline-none"
           />
-          <div
-            className={`border rounded-lg bg-slate-surface overflow-hidden transition-all ${
-              !isAuditorSigned && errorMessage
-                ? "border-alert-red ring-2 ring-alert-red/20 shadow-sm"
-                : "border-slate-border"
-            }`}
-          >
+          <div className="border border-slate-border rounded-xl bg-slate-surface/30 p-1 relative overflow-hidden">
             <canvas
               ref={canvasAuditorRef}
-              width={450}
-              height={140}
-              className="w-full h-28 touch-none bg-white cursor-crosshair"
+              className="w-full h-28 touch-none bg-white rounded-lg cursor-crosshair block"
             />
+            {!isAuditorSigned && (
+              <span className="absolute inset-0 flex items-center justify-center text-slate-subtext/40 text-xs pointer-events-none select-none">
+                Dibuje la firma aquí con el dedo o puntero
+              </span>
+            )}
           </div>
         </div>
 
-        {/* Panel Firma 2: Empresa Auditada */}
+        {/* Panel Firma 2: Auditado */}
         <div className="mb-space-lg">
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
-              <label className="font-label-md text-label-md text-on-surface font-semibold flex items-center gap-1">
-                <span className="material-symbols-outlined text-[16px] text-primary">store</span>
+              <label
+                htmlFor="audited-name-input"
+                className="font-label-md text-label-md text-on-surface font-semibold flex items-center gap-1"
+              >
+                <span className="material-symbols-outlined text-[16px] text-slate-subtext">person</span>
                 2. Firma del Responsable del Establecimiento
               </label>
               {isAuditedSigned ? (
@@ -297,83 +332,62 @@ export function SignatureModal({
             <button
               type="button"
               disabled={isSubmitting}
-              onClick={() => clearCanvas(canvasAuditadoRef.current, setIsAuditedSigned)}
+              onClick={() => clearCanvas(canvasAuditadoRef.current, setIsAuditadoSigned)}
               className="text-slate-subtext hover:text-alert-red text-xs underline disabled:opacity-40"
             >
               Borrar
             </button>
           </div>
           <input
+            id="audited-name-input"
             type="text"
             value={auditedName}
+            onChange={(e) => setAuditedName(e.target.value)}
             disabled={isSubmitting}
-            onChange={(e) => {
-              setAuditedName(e.target.value);
-              setErrorMessage(null);
-            }}
-            placeholder="Nombre y cargo del responsable de la planta..."
-            className={`w-full text-xs p-1.5 rounded border mb-1.5 bg-surface-container-low disabled:opacity-60 transition-colors ${
-              !auditedName.trim() && errorMessage ? "border-alert-red ring-1 ring-alert-red/30" : "border-slate-border"
-            }`}
+            placeholder="Nombre y cargo del responsable"
+            className="w-full text-xs p-2 rounded-lg border border-slate-border mb-2 focus:ring-1 focus:ring-primary focus:outline-none"
           />
-          <div
-            className={`border rounded-lg bg-slate-surface overflow-hidden transition-all ${
-              !isAuditedSigned && errorMessage
-                ? "border-alert-red ring-2 ring-alert-red/20 shadow-sm"
-                : "border-slate-border"
-            }`}
-          >
+          <div className="border border-slate-border rounded-xl bg-slate-surface/30 p-1 relative overflow-hidden">
             <canvas
               ref={canvasAuditadoRef}
-              width={450}
-              height={140}
-              className="w-full h-28 touch-none bg-white cursor-crosshair"
+              className="w-full h-28 touch-none bg-white rounded-lg cursor-crosshair block"
             />
+            {!isAuditedSigned && (
+              <span className="absolute inset-0 flex items-center justify-center text-slate-subtext/40 text-xs pointer-events-none select-none">
+                Dibuje la firma aquí con el dedo o puntero
+              </span>
+            )}
           </div>
         </div>
 
-        {/* Botões de Ação com Feedback Imediato */}
-        <div className="flex flex-col gap-2.5 pt-space-sm border-t border-slate-border">
-          <div className="flex items-center justify-end gap-space-sm">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSubmitting}
-              className="px-4 py-2 rounded-lg font-label-md text-label-md font-semibold text-slate-subtext hover:bg-slate-surface disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              disabled={isSubmitting}
-              onClick={handleConfirm}
-              className={`px-5 py-2.5 rounded-lg font-label-md text-label-md font-bold transition-all flex items-center gap-2 select-none ${
-                isSubmitting
-                  ? "bg-primary/80 text-white cursor-wait shadow-inner ring-2 ring-primary/30"
-                  : "bg-primary text-on-primary shadow-sm hover:bg-primary-container active:scale-[0.98] cursor-pointer"
-              }`}
-            >
-              {isSubmitting ? (
-                <>
-                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
-                  <span>Validando y Emitiendo Laudo...</span>
-                </>
-              ) : (
-                <>
-                  <span className="material-symbols-outlined text-[18px]">verified</span>
-                  <span>Validar y Emitir Laudo Oficial</span>
-                </>
-              )}
-            </button>
-          </div>
-
-          {/* Banner visual explícito em processamento */}
-          {isSubmitting && (
-            <div className="p-2.5 rounded-xl bg-status-pass-bg text-primary border border-primary/20 flex items-center justify-center gap-2 text-xs font-semibold animate-pulse">
-              <span className="material-symbols-outlined text-[16px] animate-spin">refresh</span>
-              <span>Ratificando firmas y certificando dictamen sanitario...</span>
-            </div>
-          )}
+        {/* Acciones */}
+        <div className="flex items-center justify-end gap-space-xs pt-space-sm border-t border-slate-border">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isSubmitting}
+            className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-dark bg-slate-surface hover:bg-slate-border/50 disabled:opacity-40 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={handleConfirm}
+            disabled={isSubmitting}
+            className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-primary hover:bg-primary-hover active:scale-95 transition-all shadow-md flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isSubmitting ? (
+              <>
+                <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <span>Emitiendo Acta...</span>
+              </>
+            ) : (
+              <>
+                <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                <span>Finalizar y Emitir Laudo</span>
+              </>
+            )}
+          </button>
         </div>
       </div>
     </div>

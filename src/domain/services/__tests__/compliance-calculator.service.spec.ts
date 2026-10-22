@@ -9,7 +9,8 @@ import { AuditVerdict } from "../../value-objects/score";
 import { DEFAULT_CONTROL_POINTS } from "../../constants/default-control-points";
 
 describe("ComplianceCalculatorService", () => {
-  it("deve gerar o relatório completo com 30 pontos e determinar veredito FAVORABLE", () => {
+  it("should calculate complete report with 30 points and assign FAVORABLE verdict", () => {
+    // Arrange
     const audit = new Audit({
       id: "audit-test-1",
       company: new Company({
@@ -28,7 +29,6 @@ describe("ComplianceCalculatorService", () => {
       inspectionDate: new Date(),
     });
 
-    // Adiciona os 30 pontos com conformidade total (score 2)
     for (const p of DEFAULT_CONTROL_POINTS) {
       audit.addOrUpdateEvaluation(
         new ControlPointEvaluation({
@@ -41,8 +41,10 @@ describe("ComplianceCalculatorService", () => {
       );
     }
 
+    // Act
     const report = ComplianceCalculatorService.calculateReport(audit);
 
+    // Assert
     expect(report.totalPoints).toBe(30);
     expect(report.conformeCount).toBe(30);
     expect(report.parcialCount).toBe(0);
@@ -53,7 +55,8 @@ describe("ComplianceCalculatorService", () => {
     expect(report.deficiencies).toHaveLength(0);
   });
 
-  it("deve rebaixar o veredito para UNFAVORABLE se qualquer ponto crítico [CRÍTICO] falhar com nota 0", () => {
+  it("should downgrade verdict to UNFAVORABLE when any critical CCP fails with score 0", () => {
+    // Arrange
     const audit = new Audit({
       id: "audit-test-2",
       company: new Company({
@@ -73,7 +76,7 @@ describe("ComplianceCalculatorService", () => {
     });
 
     for (const p of DEFAULT_CONTROL_POINTS) {
-      // Falha proposital no ponto crítico de cadeia de frio (q3_1)
+      // Deliberate critical cold-chain failure on q3_1
       const score = p.code === "q3_1" ? 0 : 2;
       audit.addOrUpdateEvaluation(
         new ControlPointEvaluation({
@@ -86,8 +89,10 @@ describe("ComplianceCalculatorService", () => {
       );
     }
 
+    // Act
     const report = ComplianceCalculatorService.calculateReport(audit);
 
+    // Assert
     expect(report.criticalCcpFailuresCount).toBe(1);
     expect(report.verdict).toBe(AuditVerdict.UNFAVORABLE);
     expect(report.deficiencies).toHaveLength(1);

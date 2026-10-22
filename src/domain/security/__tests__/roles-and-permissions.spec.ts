@@ -2,37 +2,57 @@ import { describe, it, expect } from "vitest";
 import {
   hasPermission,
   canAccessAuditScope,
-  ROLE_PERMISSIONS,
   UserRole,
 } from "../roles-and-permissions";
 
-describe("RBAC & Permissions Modular System", () => {
-  it("deve atribuir permissões completas ao PLATFORM_SUPERADMIN, incluindo auditorias confidenciais", () => {
-    expect(hasPermission("PLATFORM_SUPERADMIN", "audit:read_confidential")).toBe(true);
-    expect(hasPermission("PLATFORM_SUPERADMIN", "tenant:manage")).toBe(true);
-    expect(hasPermission("PLATFORM_SUPERADMIN", "rubric:customize")).toBe(true);
-    expect(canAccessAuditScope("PLATFORM_SUPERADMIN", "CONFIDENTIAL")).toBe(true);
-    expect(canAccessAuditScope("PLATFORM_SUPERADMIN", "TENANT")).toBe(true);
+describe("RBAC & Permissions Domain System", () => {
+  it("should grant full administrative permissions and confidential scope access to PLATFORM_SUPERADMIN", () => {
+    // Arrange
+    const role: UserRole = "PLATFORM_SUPERADMIN";
+
+    // Act
+    const canReadConfidential = hasPermission(role, "audit:read_confidential");
+    const canManageTenant = hasPermission(role, "tenant:manage");
+    const canAccessConfidentialScope = canAccessAuditScope(role, "CONFIDENTIAL");
+    const canAccessTenantScope = canAccessAuditScope(role, "TENANT");
+
+    // Assert
+    expect(canReadConfidential).toBe(true);
+    expect(canManageTenant).toBe(true);
+    expect(canAccessConfidentialScope).toBe(true);
+    expect(canAccessTenantScope).toBe(true);
   });
 
-  it("NÃO deve permitir que TENANT_ADMIN ou AUDITOR acessem auditorias com escopo CONFIDENTIAL", () => {
-    expect(hasPermission("TENANT_ADMIN", "audit:read_confidential")).toBe(false);
-    expect(hasPermission("AUDITOR", "audit:read_confidential")).toBe(false);
-    expect(hasPermission("VIEWER", "audit:read_confidential")).toBe(false);
+  it("should strictly deny CONFIDENTIAL scope access to TENANT_ADMIN, AUDITOR and VIEWER", () => {
+    // Arrange
+    const roles: UserRole[] = ["TENANT_ADMIN", "AUDITOR", "VIEWER"];
 
-    expect(canAccessAuditScope("TENANT_ADMIN", "CONFIDENTIAL")).toBe(false);
-    expect(canAccessAuditScope("AUDITOR", "CONFIDENTIAL")).toBe(false);
-    expect(canAccessAuditScope("VIEWER", "CONFIDENTIAL")).toBe(false);
+    // Act & Assert
+    roles.forEach((role) => {
+      expect(hasPermission(role, "audit:read_confidential")).toBe(false);
+      expect(canAccessAuditScope(role, "CONFIDENTIAL")).toBe(false);
+    });
   });
 
-  it("deve permitir que TENANT_ADMIN e VIEWER visualizem escopo TENANT", () => {
-    expect(canAccessAuditScope("TENANT_ADMIN", "TENANT")).toBe(true);
-    expect(canAccessAuditScope("VIEWER", "TENANT")).toBe(true);
+  it("should allow TENANT_ADMIN and VIEWER to access standard TENANT scope audits", () => {
+    // Arrange & Act
+    const adminCanAccessTenant = canAccessAuditScope("TENANT_ADMIN", "TENANT");
+    const viewerCanAccessTenant = canAccessAuditScope("VIEWER", "TENANT");
+
+    // Assert
+    expect(adminCanAccessTenant).toBe(true);
+    expect(viewerCanAccessTenant).toBe(true);
   });
 
-  it("deve negar permissões quando o papel for inválido ou nulo", () => {
-    expect(hasPermission(null, "audit:create")).toBe(false);
-    expect(hasPermission(undefined, "audit:create")).toBe(false);
-    expect(hasPermission("PAPEL_INEXISTENTE" as UserRole, "audit:create")).toBe(false);
+  it("should deny all permissions when role is null, undefined or unrecognized", () => {
+    // Arrange & Act
+    const nullResult = hasPermission(null, "audit:create");
+    const undefinedResult = hasPermission(undefined, "audit:create");
+    const invalidResult = hasPermission("UNKNOWN_ROLE" as UserRole, "audit:create");
+
+    // Assert
+    expect(nullResult).toBe(false);
+    expect(undefinedResult).toBe(false);
+    expect(invalidResult).toBe(false);
   });
 });

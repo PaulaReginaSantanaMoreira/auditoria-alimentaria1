@@ -3,30 +3,43 @@ import { Cif } from "../cif";
 import { InvalidCifError } from "../../errors/domain-error";
 
 describe("Cif Value Object", () => {
-  it("deve aceitar um CIF de empresa válido (ex: B-84920194)", () => {
+  it("should accept and normalize a valid corporate CIF", () => {
+    // Arrange & Act
     const cif = new Cif("B-84920194");
+
+    // Assert
     expect(cif.value).toBe("B84920194");
   });
 
-  it("deve aceitar um NIF de pessoa física válido (8 dígitos + letra)", () => {
+  it("should accept a valid individual person NIF", () => {
+    // Arrange & Act
     const nif = new Cif("12345678Z");
+
+    // Assert
     expect(nif.value).toBe("12345678Z");
   });
 
-  it("deve aceitar um NIE válido (X, Y, Z + 7 dígitos + letra)", () => {
+  it("should accept a valid foreigner identification NIE", () => {
+    // Arrange & Act
     const nie = new Cif("X1234567L");
+
+    // Assert
     expect(nie.value).toBe("X1234567L");
   });
 
-  it("deve lançar InvalidCifError para um formato inválido", () => {
+  it("should throw InvalidCifError for invalid formats", () => {
+    // Act & Assert
     expect(() => new Cif("1234")).toThrow(InvalidCifError);
     expect(() => new Cif("INVALID_CIF")).toThrow(InvalidCifError);
     expect(() => new Cif("")).toThrow(InvalidCifError);
   });
 
-  it("deve comparar dois CIFs corretamente através do método equals", () => {
+  it("should correctly compare two identical CIFs regardless of spacing or dashes", () => {
+    // Arrange
     const cif1 = new Cif("B-84920194");
     const cif2 = new Cif("b 84920194");
+
+    // Act & Assert
     expect(cif1.equals(cif2)).toBe(true);
   });
 });

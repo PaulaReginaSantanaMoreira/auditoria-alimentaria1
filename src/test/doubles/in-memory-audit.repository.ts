@@ -1,5 +1,5 @@
-import { IAuditRepository } from "../../../domain/repositories/audit-repository.interface";
-import { Audit } from "../../../domain/entities/audit";
+import { IAuditRepository } from "@/domain/repositories/audit-repository.interface";
+import { Audit } from "@/domain/entities/audit";
 
 export class InMemoryAuditRepository implements IAuditRepository {
   public items: Map<string, Audit> = new Map();

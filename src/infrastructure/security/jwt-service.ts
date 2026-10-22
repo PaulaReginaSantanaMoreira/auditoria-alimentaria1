@@ -17,10 +17,35 @@ const AUDIENCE = "bioaudit-client";
 
 async function getJwtCryptoKey(): Promise<CryptoKey> {
   const secret =
+    process.env.JWT_SECRET ||
     process.env.SUPABASE_JWT_SECRET ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    "bioaudit-pro-enterprise-secure-jwt-secret-key-min-32-chars-2026";
+    process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!secret) {
+    // Apenas em modo teste/demo isolado usamos uma chave de teste fixa
+    if (process.env.NODE_ENV === "test" || process.env.NEXT_PUBLIC_APP_MODE === "demo") {
+      const fallbackTestKey = new Uint8Array(
+        Buffer.from("bioaudit-pro-test-jwt-secret-key-32-chars-minimum-safe-key", "utf-8")
+      );
+      return await crypto.subtle.importKey(
+        "raw",
+        fallbackTestKey,
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["sign", "verify"]
+      );
+    }
+
+    throw new Error(
+      "FATAL SECURITY ERROR: JWT_SECRET or SUPABASE_JWT_SECRET is missing. Production or development environments must define a 256-bit secret key."
+    );
+  }
+
+  if (secret.length < 32) {
+    throw new Error(
+      "FATAL SECURITY ERROR: JWT_SECRET must have at least 32 characters (256 bits)."
+    );
+  }
 
   const rawKey = new Uint8Array(Buffer.from(secret, "utf-8"));
 
