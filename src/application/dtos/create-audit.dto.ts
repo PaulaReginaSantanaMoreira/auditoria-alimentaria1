@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const CreateAuditInputSchema = z.object({
+  id: z.string().optional(),
   auditorId: z.string().min(1, "O ID do auditor é obrigatório"),
   companyName: z.string().min(2, "O nome da empresa deve ter pelo menos 2 caracteres"),
   companyCif: z.string().min(8, "CIF/NIF obrigatório"),

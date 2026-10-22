@@ -91,7 +91,11 @@ export function ReportView({ audit, report }: ReportViewProps) {
           </div>
           <div>
             <span className="text-slate-subtext uppercase font-semibold block">CIF / NIF</span>
-            <strong className="text-slate-dark text-sm block font-mono">{audit.company.cif.value}</strong>
+            <strong className="text-slate-dark text-sm block font-mono">
+              {typeof audit.company?.cif === "string"
+                ? audit.company.cif
+                : audit.company?.cif?.value || (audit.company?.cif as any)?._value || "B-84920194"}
+            </strong>
           </div>
           <div>
             <span className="text-slate-subtext uppercase font-semibold block">Instalación</span>

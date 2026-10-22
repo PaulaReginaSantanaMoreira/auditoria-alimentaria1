@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { createClient } from "@/infrastructure/database/supabase/supabase-client";
 import { ChangePasswordModal } from "./ChangePasswordModal";
+import { EditProfileModal } from "./EditProfileModal";
 import { useTheme } from "@/presentation/hooks/useTheme";
 
 interface HeaderProps {
@@ -24,11 +25,18 @@ export function Header({
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userEmail, setUserEmail] = useState("auditor@bioauditpro.com");
   const [userRole, setUserRole] = useState("Inspector Sanitario Oficial");
+  const [userRoleRaw, setUserRoleRaw] = useState("AUDITOR");
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [tenants, setTenants] = useState<Array<{ id: string; name: string; cif: string; role: string }>>([]);
+  const [activeTenantId, setActiveTenantId] = useState<string | null>(null);
+  const [isTenantSwitchOpen, setIsTenantSwitchOpen] = useState(false);
+
   const menuRef = useRef<HTMLDivElement>(null);
+  const tenantSwitchRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     try {
@@ -40,16 +48,22 @@ export function Header({
           setIsLoggedIn(true);
           if (parsed.identifier) setUserEmail(parsed.identifier);
           if (parsed.role) {
+            setUserRoleRaw(parsed.role);
             const roleLower = String(parsed.role).toLowerCase();
             const isSuper = roleLower === "superadmin" || roleLower.includes("superadmin");
             setIsSuperAdmin(isSuper);
             setUserRole(
               isSuper
                 ? "SuperAdmin Master"
-                : parsed.role === "auditor"
-                ? "Inspector Sanitario Oficial"
-                : parsed.role
+                : parsed.role === "TENANT_ADMIN" || parsed.role === "tenant_admin"
+                ? "Administrador de Empresa"
+                : parsed.role === "VIEWER" || parsed.role === "viewer"
+                ? "Auditor Consulta (Viewer)"
+                : "Inspector Sanitario Oficial"
             );
+          }
+          if (parsed.tenantId) {
+            setActiveTenantId(parsed.tenantId);
           }
           // Validação assíncrona remota com Supabase / API para detectar revogação de sessão
           fetch("/api/auth/session")
@@ -75,20 +89,67 @@ export function Header({
     }
   }, []);
 
-  // Fechar menu ao clicar fora
+  // Buscar lista de organizações vinculadas ao usuário logado
+  useEffect(() => {
+    if (isLoggedIn) {
+      fetch("/api/auth/tenants")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && data.tenants) {
+            setTenants(data.tenants);
+            if (data.activeTenantId) {
+              setActiveTenantId(data.activeTenantId);
+            }
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isLoggedIn]);
+
+  // Fechar menus ao clicar fora
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setIsMenuOpen(false);
       }
+      if (tenantSwitchRef.current && !tenantSwitchRef.current.contains(event.target as Node)) {
+        setIsTenantSwitchOpen(false);
+      }
     };
-    if (isMenuOpen) {
+    if (isMenuOpen || isTenantSwitchOpen) {
       document.addEventListener("mousedown", handleClickOutside);
     }
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [isMenuOpen]);
+  }, [isMenuOpen, isTenantSwitchOpen]);
+
+  const handleSwitchTenant = async (tenantId: string) => {
+    try {
+      const res = await fetch("/api/auth/tenants", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tenantId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setActiveTenantId(tenantId);
+        setIsTenantSwitchOpen(false);
+        const session = localStorage.getItem("bioaudit_session");
+        if (session) {
+          const parsed = JSON.parse(session);
+          parsed.role = data.role;
+          parsed.tenantId = tenantId;
+          localStorage.setItem("bioaudit_session", JSON.stringify(parsed));
+        }
+        window.location.reload();
+      } else {
+        alert(data.error || "Error al cambiar de empresa activa.");
+      }
+    } catch {
+      alert("Error de conexión al cambiar de empresa activa.");
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -171,6 +232,56 @@ export function Header({
         </Link>
 
         <div className="flex items-center gap-1.5 shrink-0">
+          {/* SELETOR DE ORGANIZAÇÃO (TENANT SWITCHER) */}
+          {isLoggedIn && tenants.length > 0 && (
+            <div className="relative hidden sm:block" ref={tenantSwitchRef}>
+              <button
+                type="button"
+                onClick={() => setIsTenantSwitchOpen((prev) => !prev)}
+                className="h-8 px-2.5 rounded-xl bg-surface-container-low hover:bg-primary/10 hover:text-primary text-on-surface text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer border border-slate-border/80 shadow-sm"
+                title="Empresa activa seleccionada"
+              >
+                <span className="material-symbols-outlined text-[16px] text-primary">domain</span>
+                <span className="truncate max-w-[130px] md:max-w-[180px]">
+                  {tenants.find((t) => t.id === activeTenantId)?.name || "Mi Empresa"}
+                </span>
+                {tenants.length > 1 && (
+                  <span className="material-symbols-outlined text-[15px] text-slate-subtext">arrow_drop_down</span>
+                )}
+              </button>
+
+              {isTenantSwitchOpen && tenants.length > 1 && (
+                <div className="absolute right-0 mt-1.5 w-64 rounded-2xl bg-white dark:bg-slate-900 shadow-2xl border border-slate-border py-1.5 z-50 text-slate-dark dark:text-slate-100 animate-in fade-in slide-in-from-top-1 duration-150">
+                  <div className="px-3.5 py-1.5 text-[10px] font-bold text-slate-subtext uppercase tracking-wider border-b border-slate-border/60">
+                    Mis Organizaciones ({tenants.length})
+                  </div>
+                  <div className="max-h-60 overflow-y-auto py-1">
+                    {tenants.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => handleSwitchTenant(t.id)}
+                        className={`w-full text-left px-3.5 py-2 text-xs flex items-center justify-between hover:bg-surface-container transition-colors cursor-pointer ${
+                          t.id === activeTenantId
+                            ? "font-bold text-primary bg-primary/10 dark:bg-emerald-950/40"
+                            : "text-on-surface"
+                        }`}
+                      >
+                        <div className="truncate pr-2">
+                          <div className="truncate font-semibold">{t.name}</div>
+                          <div className="text-[10px] text-slate-subtext font-mono">CIF: {t.cif} • {t.role}</div>
+                        </div>
+                        {t.id === activeTenantId && (
+                          <span className="material-symbols-outlined text-primary text-[16px] shrink-0">check_circle</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* BOTÃO DE DARK MODE GLOBAL (Acessível Logado ou Deslogado) */}
           <button
             type="button"
@@ -186,11 +297,12 @@ export function Header({
             )}
           </button>
 
-          {/* SuperAdmin não tem página de assinatura */}
-          {isLoggedIn && !isSuper && (
+          {/* O Administrador de empresa é o único que poderá visualizar o botão de subscrição */}
+          {isLoggedIn && (userRoleRaw === "TENANT_ADMIN" || userRoleRaw === "tenant_admin") && (
             <Link
               href="/suscripcion"
               aria-label="Gestión de suscripción"
+              title="Mi Suscripción Oficial"
               className="w-10 h-10 flex items-center justify-center text-on-surface-variant dark:text-slate-300 hover:text-primary dark:hover:text-emerald-400 rounded-full hover:bg-surface-container-high dark:hover:bg-slate-800 transition-colors"
             >
               <span className="material-symbols-outlined text-[20px]">credit_card</span>
@@ -248,7 +360,7 @@ export function Header({
                       <span>Nueva Inspección</span>
                     </Link>
 
-                    {!isSuper && (
+                    {(userRoleRaw === "TENANT_ADMIN" || userRoleRaw === "tenant_admin") && (
                       <Link
                         href="/suscripcion"
                         onClick={() => setIsMenuOpen(false)}
@@ -259,7 +371,7 @@ export function Header({
                       </Link>
                     )}
 
-                    {!isSuper && (
+                    {(userRoleRaw === "TENANT_ADMIN" || userRoleRaw === "tenant_admin" || isSuper) && (
                       <Link
                         href="/gestao/equipe"
                         onClick={() => setIsMenuOpen(false)}
@@ -280,6 +392,18 @@ export function Header({
                         <span>SuperAdmin Master</span>
                       </Link>
                     )}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        setIsEditProfileOpen(true);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs text-slate-dark dark:text-slate-200 hover:bg-slate-surface dark:hover:bg-slate-800 rounded-xl mx-1.5 transition-colors text-left cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-[18px] text-slate-subtext dark:text-slate-400">person</span>
+                      <span>Mis Datos / Perfil</span>
+                    </button>
 
                     <button
                       type="button"
@@ -326,6 +450,15 @@ export function Header({
         isOpen={isChangePasswordOpen}
         onClose={() => setIsChangePasswordOpen(false)}
         userEmail={userEmail}
+      />
+
+      {/* Modal para editar os próprios dados de usuário (Documento inalterável) */}
+      <EditProfileModal
+        isOpen={isEditProfileOpen}
+        onClose={() => setIsEditProfileOpen(false)}
+        onProfileUpdated={(updated) => {
+          if (updated.email) setUserEmail(updated.email);
+        }}
       />
     </header>
   );

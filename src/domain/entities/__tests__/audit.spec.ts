@@ -146,4 +146,48 @@ describe("Audit Aggregate Root", () => {
     expect(audit.score?.percentage).toBe(100);
     expect(audit.verdict).toBe("FAVORABLE");
   });
+
+  it("should correctly invalidate an audit with reason and author", () => {
+    // Arrange
+    const audit = new Audit({
+      id: "audit-002",
+      company,
+      auditor,
+      inspectionDate: new Date(),
+    });
+
+    // Act
+    audit.invalidate({
+      reason: "Muestras de laboratorio contaminadas externamente por rotura de embalaje",
+      invalidatedBy: "user-admin-123",
+    });
+
+    // Assert
+    expect(audit.status).toBe("INVALIDATED");
+    expect(audit.invalidatedBy).toBe("user-admin-123");
+    expect(audit.invalidationReason).toBe("Muestras de laboratorio contaminadas externamente por rotura de embalaje");
+    expect(audit.invalidatedAt).toBeInstanceOf(Date);
+  });
+
+  it("should throw error if attempting to invalidate an already invalidated audit", () => {
+    // Arrange
+    const audit = new Audit({
+      id: "audit-003",
+      company,
+      auditor,
+      inspectionDate: new Date(),
+    });
+    audit.invalidate({
+      reason: "Primera invalidación",
+      invalidatedBy: "admin-1",
+    });
+
+    // Act & Assert
+    expect(() => {
+      audit.invalidate({
+        reason: "Segunda invalidación",
+        invalidatedBy: "admin-2",
+      });
+    }).toThrow("La auditoría ya se encuentra invalidada");
+  });
 });

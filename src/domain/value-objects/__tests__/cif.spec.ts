@@ -42,4 +42,21 @@ describe("Cif Value Object", () => {
     // Act & Assert
     expect(cif1.equals(cif2)).toBe(true);
   });
+
+  it("should safely handle non-standard or malformed CIF via Cif.createSafe without throwing", () => {
+    // Valid input
+    const valid = Cif.createSafe("B-84920194");
+    expect(valid.value).toBe("B84920194");
+
+    // Oversized input like B84121212121
+    const oversized = Cif.createSafe("B84121212121");
+    expect(oversized.value).toBe("B84121212");
+
+    // Empty or gibberish input
+    const empty = Cif.createSafe("");
+    expect(empty.value).toBe("B84920194");
+
+    const gibberish = Cif.createSafe("not-a-cif");
+    expect(gibberish.value).toBe("B84920194");
+  });
 });

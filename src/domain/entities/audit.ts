@@ -10,7 +10,7 @@ import {
   MissingSignatureError,
 } from "../errors/domain-error";
 
-export type AuditStatus = "DRAFT" | "IN_PROGRESS" | "EVALUATED" | "SIGNED" | "FINALIZED";
+export type AuditStatus = "DRAFT" | "IN_PROGRESS" | "EVALUATED" | "SIGNED" | "FINALIZED" | "INVALIDATED";
 
 export class Audit {
   private readonly _id: string;
@@ -25,6 +25,9 @@ export class Audit {
   private _auditorSignature?: Signature;
   private _auditedSignature?: Signature;
   private _accessScope: AuditAccessScope;
+  private _invalidatedAt?: Date;
+  private _invalidatedBy?: string;
+  private _invalidationReason?: string;
   private readonly _createdAt: Date;
   private _updatedAt: Date;
 
@@ -41,6 +44,9 @@ export class Audit {
     auditorSignature?: Signature;
     auditedSignature?: Signature;
     accessScope?: AuditAccessScope;
+    invalidatedAt?: Date;
+    invalidatedBy?: string;
+    invalidationReason?: string;
     createdAt?: Date;
     updatedAt?: Date;
   }) {
@@ -61,6 +67,9 @@ export class Audit {
     this._auditorSignature = params.auditorSignature;
     this._auditedSignature = params.auditedSignature;
     this._accessScope = params.accessScope ?? "TENANT";
+    this._invalidatedAt = params.invalidatedAt;
+    this._invalidatedBy = params.invalidatedBy;
+    this._invalidationReason = params.invalidationReason;
     this._createdAt = params.createdAt || new Date();
     this._updatedAt = params.updatedAt || new Date();
   }
@@ -188,6 +197,39 @@ export class Audit {
     this._updatedAt = new Date();
   }
 
+  public get isInvalidated(): boolean {
+    return this._status === "INVALIDATED";
+  }
+
+  public get invalidatedAt(): Date | undefined {
+    return this._invalidatedAt;
+  }
+
+  public get invalidatedBy(): string | undefined {
+    return this._invalidatedBy;
+  }
+
+  public get invalidationReason(): string | undefined {
+    return this._invalidationReason;
+  }
+
+  public invalidate(params: { reason: string; invalidatedBy: string }): void {
+    if (this._status === "INVALIDATED") {
+      throw new Error("La auditoría ya se encuentra invalidada");
+    }
+    if (!params.reason || params.reason.trim().length === 0) {
+      throw new Error("Es obligatorio registrar el motivo técnico/legal para invalidar una inspección.");
+    }
+    if (!params.invalidatedBy) {
+      throw new Error("Identificación del responsable de invalidación requerida.");
+    }
+    this._status = "INVALIDATED";
+    this._invalidationReason = params.reason.trim();
+    this._invalidatedBy = params.invalidatedBy;
+    this._invalidatedAt = new Date();
+    this._updatedAt = new Date();
+  }
+
   public finalize(requiredTotalPoints = 30): void {
     if (this._evaluations.size < requiredTotalPoints) {
       throw new IncompleteAuditError(this._evaluations.size, requiredTotalPoints);
@@ -199,5 +241,61 @@ export class Audit {
     this.recalculateScore();
     this._status = "FINALIZED";
     this._updatedAt = new Date();
+  }
+
+  public toJSON() {
+    return {
+      id: this._id,
+      company: this._company?.toJSON ? this._company.toJSON() : {
+        id: this._company.id,
+        name: this._company.name,
+        cif: this._company.cif?.value || this._company.cif,
+        address: this._company.address,
+        sanitaryRegistryNumber: this._company.sanitaryRegistryNumber,
+      },
+      auditor: this._auditor?.toJSON ? this._auditor.toJSON() : {
+        id: this._auditor.id,
+        authUserId: this._auditor.authUserId,
+        fullName: this._auditor.fullName,
+        officialId: this._auditor.officialId,
+        email: this._auditor.email,
+      },
+      inspectionDate: this._inspectionDate.toISOString(),
+      normativeFramework: this._normativeFramework,
+      status: this._status,
+      evaluations: this.evaluations.map((e) => ({
+        code: e.code,
+        title: e.title,
+        category: e.category,
+        isCriticalCcp: e.isCriticalCcp,
+        score: e.score,
+        observations: e.observations,
+        evidencePhoto: e.evidencePhoto ? { url: e.evidencePhoto.url } : undefined,
+      })),
+      score: this._score ? {
+        obtainedPoints: this._score.obtainedPoints,
+        maxPoints: this._score.maxPoints,
+        percentage: this._score.percentage,
+      } : undefined,
+      verdict: this._verdict,
+      auditorSignature: this._auditorSignature ? {
+        signeeName: this._auditorSignature.signeeName,
+        signeeRole: this._auditorSignature.signeeRole,
+        signatureDataUrl: this._auditorSignature.signatureDataUrl,
+        signedAt: typeof this._auditorSignature.signedAt === "object" ? this._auditorSignature.signedAt.toISOString() : this._auditorSignature.signedAt,
+      } : undefined,
+      auditedSignature: this._auditedSignature ? {
+        signeeName: this._auditedSignature.signeeName,
+        signeeRole: this._auditedSignature.signeeRole,
+        signatureDataUrl: this._auditedSignature.signatureDataUrl,
+        signedAt: typeof this._auditedSignature.signedAt === "object" ? this._auditedSignature.signedAt.toISOString() : this._auditedSignature.signedAt,
+      } : undefined,
+      accessScope: this._accessScope,
+      invalidatedAt: this._invalidatedAt?.toISOString(),
+      invalidatedBy: this._invalidatedBy,
+      invalidationReason: this._invalidationReason,
+      createdAt: this._createdAt.toISOString(),
+      updatedAt: this._updatedAt.toISOString(),
+    };
   }
 }

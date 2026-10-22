@@ -64,4 +64,15 @@ export class Company {
       this._sanitaryRegistryNumber = sanitaryRegistryNumber.trim();
     }
   }
+
+  public toJSON() {
+    return {
+      id: this._id,
+      name: this._name,
+      cif: this._cif?.value || this._cif,
+      address: this._address,
+      sanitaryRegistryNumber: this._sanitaryRegistryNumber,
+      createdAt: this._createdAt.toISOString(),
+    };
+  }
 }

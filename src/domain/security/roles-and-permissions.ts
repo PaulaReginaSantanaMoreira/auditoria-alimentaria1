@@ -18,8 +18,12 @@ export type Permission =
   | "audit:read_confidential"
   | "audit:sign"
   | "audit:export_pdf"
+  | "audit:invalidate"
   | "tenant:manage"
+  | "tenant:update_profile"
   | "tenant:view_billing"
+  | "subscription:view"
+  | "user:update_profile"
   | "users:manage"
   | "rubric:customize";
 
@@ -31,8 +35,12 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
     "audit:read_confidential",
     "audit:sign",
     "audit:export_pdf",
+    "audit:invalidate",
     "tenant:manage",
+    "tenant:update_profile",
     "tenant:view_billing",
+    "subscription:view",
+    "user:update_profile",
     "users:manage",
     "rubric:customize",
   ],
@@ -42,7 +50,11 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
     "audit:read_tenant",
     "audit:sign",
     "audit:export_pdf",
+    "audit:invalidate",
+    "tenant:update_profile",
     "tenant:view_billing",
+    "subscription:view",
+    "user:update_profile",
     "users:manage",
   ],
   AUDITOR: [
@@ -50,10 +62,12 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
     "audit:read_own",
     "audit:sign",
     "audit:export_pdf",
+    "user:update_profile",
   ],
   VIEWER: [
     "audit:read_tenant",
     "audit:export_pdf",
+    "user:update_profile",
   ],
 } as const;
 

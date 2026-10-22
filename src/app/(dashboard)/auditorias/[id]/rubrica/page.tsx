@@ -289,7 +289,7 @@ export default function RubricaPage() {
         <div className="flex flex-col w-full max-w-5xl mx-auto">
           {/* Header Contextual: Datos de Inspección de Campo */}
           <section className="px-margin-mobile pt-space-sm pb-space-xs flex flex-col gap-space-sm">
-            <div className="bg-surface-container-lowest p-space-md rounded-2xl shadow-sm border border-slate-border/50 flex flex-col gap-space-sm">
+            <div className="bg-surface-container-lowest dark:bg-slate-900/90 p-space-md rounded-2xl shadow-sm border border-slate-border/50 dark:border-slate-800 flex flex-col gap-space-sm">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-space-xs">
                   <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-primary text-on-primary">
@@ -312,24 +312,24 @@ export default function RubricaPage() {
               </div>
 
               {/* Empresa Auditada Grid */}
-              <div className="bg-slate-surface rounded-xl p-space-sm grid grid-cols-2 sm:grid-cols-4 gap-space-xs text-xs">
+              <div className="bg-slate-surface dark:bg-slate-950/60 rounded-xl p-space-sm grid grid-cols-2 sm:grid-cols-4 gap-space-xs text-xs border border-transparent dark:border-slate-800/80">
                 <div>
-                  <span className="text-slate-subtext uppercase font-semibold block">Empresa Auditada</span>
-                  <span className="font-bold text-slate-dark text-sm truncate block">{companyName || "Empresa en Proceso de Auditoría"}</span>
+                  <span className="text-slate-subtext dark:text-slate-400 uppercase font-semibold block">Empresa Auditada</span>
+                  <span className="font-bold text-slate-dark dark:text-slate-100 text-sm truncate block">{companyName || "Empresa en Proceso de Auditoría"}</span>
                 </div>
                 <div>
-                  <span className="text-slate-subtext uppercase font-semibold block">CIF / NIF</span>
-                  <span className="font-mono text-slate-dark text-sm truncate block">{companyCif || "Pendiente de CIF"}</span>
+                  <span className="text-slate-subtext dark:text-slate-400 uppercase font-semibold block">CIF / NIF</span>
+                  <span className="font-mono text-slate-dark dark:text-slate-100 text-sm truncate block">{companyCif || "Pendiente de CIF"}</span>
                 </div>
                 <div>
-                  <span className="text-slate-subtext uppercase font-semibold block">Fecha de Visita</span>
-                  <span className="text-slate-dark block font-medium">
+                  <span className="text-slate-subtext dark:text-slate-400 uppercase font-semibold block">Fecha de Visita</span>
+                  <span className="text-slate-dark dark:text-slate-200 block font-medium">
                     {new Date().toLocaleDateString("es-ES")}
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-subtext uppercase font-semibold block">Instalación</span>
-                  <span className="text-slate-dark truncate block font-medium" title={companyAddress || "Instalación en Verificación"}>
+                  <span className="text-slate-subtext dark:text-slate-400 uppercase font-semibold block">Instalación</span>
+                  <span className="text-slate-dark dark:text-slate-200 truncate block font-medium" title={companyAddress || "Instalación en Verificación"}>
                     {companyAddress || "Instalación en Verificación"}
                   </span>
                 </div>
@@ -368,17 +368,17 @@ export default function RubricaPage() {
           </div>
 
           {/* Barra Flutuante de Ação Inferior */}
-          <div className="fixed bottom-0 inset-x-0 bg-surface/95 backdrop-blur-md p-space-sm border-t border-slate-border z-40 shadow-lg">
+          <div className="fixed bottom-0 inset-x-0 bg-surface/95 dark:bg-[#0b1120]/95 backdrop-blur-md p-space-sm border-t border-slate-border dark:border-slate-800 z-40 shadow-lg transition-colors">
             <div className="max-w-5xl mx-auto flex items-center justify-between gap-space-sm px-margin-mobile">
               <div className="flex flex-col">
-                <span className="text-xs text-slate-subtext font-semibold">Cumplimiento Global:</span>
-                <span className="text-lg font-bold text-primary">{metrics.conformePercentage}% Conforme</span>
+                <span className="text-xs text-slate-subtext dark:text-slate-400 font-semibold">Cumplimiento Global:</span>
+                <span className="text-lg font-bold text-primary dark:text-emerald-400">{metrics.conformePercentage}% Conforme</span>
               </div>
 
               <button
                 type="button"
                 onClick={() => setIsSignatureModalOpen(true)}
-                className="px-6 py-3 rounded-xl bg-primary text-white font-bold text-sm shadow hover:bg-primary-container transition-all flex items-center gap-2"
+                className="px-6 py-3 rounded-xl bg-primary hover:bg-primary-container dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-bold text-sm shadow-md transition-all flex items-center gap-2 cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[20px]">draw</span>
                 <span>Finalizar y Firmar Auditoría</span>

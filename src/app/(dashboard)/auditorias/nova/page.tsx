@@ -7,6 +7,7 @@ import { AuthLoadingScreen } from "@/presentation/components/AuthGuard";
 import { offlineDb } from "@/infrastructure/offline/offline-audit.db";
 import { AuditAccessScope } from "@/domain/security/roles-and-permissions";
 import { useAuthGuard } from "@/presentation/hooks/useAuthGuard";
+import { Cif } from "@/domain/value-objects/cif";
 
 interface ActiveDraft {
   id: string;
@@ -136,7 +137,14 @@ export default function NovaAuditoriaPage() {
   const validateForm = () => {
     const errors: Record<string, string> = {};
     if (!companyName.trim()) errors.companyName = "El nombre o razón social de la empresa es obligatorio";
-    if (!cif.trim()) errors.cif = "El CIF / NIF oficial es obligatorio";
+    if (!cif.trim()) {
+      errors.cif = "El CIF / NIF oficial es obligatorio";
+    } else {
+      const sanitized = cif.trim().toUpperCase().replace(/[\s-]/g, "");
+      if (!Cif.isValid(sanitized)) {
+        errors.cif = "Formato de CIF/NIF/NIE no válido (ej. B-84920194, 12345678Z, X1234567L)";
+      }
+    }
     if (!address.trim()) errors.address = "La dirección de la instalación es obligatoria";
     if (!rgseaa.trim()) errors.rgseaa = "El número de registro sanitario (RGSEAA) es obligatorio";
     if (!inspectionDate) errors.inspectionDate = "La fecha de inspección es obligatoria";
@@ -192,6 +200,7 @@ export default function NovaAuditoriaPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            id: newAuditId,
             auditorId: auditorName,
             companyName: companyName.trim(),
             companyCif: cif.trim(),

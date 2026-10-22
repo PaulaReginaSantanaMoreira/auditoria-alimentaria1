@@ -44,7 +44,7 @@ export class CreateAuditUseCase {
       email: input.auditorId.includes("@") ? input.auditorId : "auditor@sanidad.es",
     });
 
-    const auditId = crypto.randomUUID();
+    const auditId = input.id || crypto.randomUUID();
     const inspectionDate = input.inspectionDate ? new Date(input.inspectionDate) : new Date();
 
     const audit = new Audit({
@@ -69,12 +69,13 @@ export class CreateAuditUseCase {
       );
     }
 
+    // Persiste auditoria completa com seus 30 pontos
     await this.auditRepository.save(audit);
 
     return {
       auditId: audit.id,
       companyId: company.id,
-      inspectionDate: inspectionDate.toISOString(),
+      inspectionDate: audit.inspectionDate.toISOString(),
       status: audit.status,
       normativeFramework: audit.normativeFramework,
       totalControlPoints: audit.evaluations.length,

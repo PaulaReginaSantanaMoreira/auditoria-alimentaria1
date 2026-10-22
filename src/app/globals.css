@@ -39,6 +39,14 @@
   background-color: #0b1120 !important;
 }
 
+.dark .bg-surface\/95,
+.dark .bg-surface\/90,
+.dark .bg-surface\/85,
+.dark .bg-surface\/80,
+.dark .bg-surface\/75 {
+  background-color: rgba(11, 17, 32, 0.95) !important;
+}
+
 .dark .bg-surface-dim {
   background-color: #070b14 !important;
 }
@@ -68,6 +76,34 @@
   color: #f8fafc;
 }
 
+.dark .bg-slate-surface\/60,
+.dark .bg-slate-surface\/70,
+.dark .bg-slate-surface\/80,
+.dark .bg-slate-surface\/50,
+.dark .bg-slate-surface\/40,
+.dark .bg-slate-surface\/30 {
+  background-color: rgba(30, 41, 59, 0.75) !important;
+}
+
+.dark .bg-status-pass-bg {
+  background-color: rgba(6, 78, 59, 0.4) !important;
+  color: #34d399 !important;
+}
+
+.dark .text-status-pass {
+  color: #34d399 !important;
+}
+
+.dark .bg-alert-red-bg {
+  background-color: rgba(153, 27, 27, 0.3) !important;
+  color: #fca5a5 !important;
+}
+
+.dark .bg-alert-amber-bg {
+  background-color: rgba(180, 83, 9, 0.3) !important;
+  color: #fde047 !important;
+}
+
 .dark .bg-surface-container-high,
 .dark .bg-surface-container-highest {
   background-color: #273549 !important;
@@ -79,10 +115,10 @@
   background-color: rgba(0, 0, 0, 0.75) !important;
 }
 
-/* Canvas de Assinatura deve manter fundo branco para contraste de tinta escura oficial */
-.dark canvas.bg-white,
-.dark canvas[data-signature-pad] {
-  background-color: #ffffff !important;
+/* Canvas de Assinatura deve harmonizar perfeitamente no Dark Mode */
+.dark canvas[data-signature-pad],
+.dark canvas.signature-canvas {
+  background-color: #020617 !important;
 }
 
 /* --------------------------------------------------------------------------

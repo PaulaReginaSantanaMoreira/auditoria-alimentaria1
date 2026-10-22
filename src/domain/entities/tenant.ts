@@ -103,4 +103,20 @@ export class Tenant {
     }
     this.updateContactInfo(details);
   }
+
+  public toJSON() {
+    return {
+      id: this._id,
+      name: this._name,
+      cif: this._cif,
+      slug: this._slug,
+      status: this._status,
+      address: this._address,
+      phone: this._phone,
+      adminEmail: this._adminEmail,
+      adminName: this._adminName,
+      createdAt: this._createdAt,
+      updatedAt: this._updatedAt,
+    };
+  }
 }

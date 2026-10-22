@@ -50,7 +50,8 @@ export async function GET(req: NextRequest) {
     const adminOnly = searchParams.get("adminOnly") === "true";
     const scopeParam = searchParams.get("scope") as AuditAccessScope | null;
 
-    const { role: callerRole } = await resolveSessionAndRole(req);
+    const session = await resolveSessionAndRole(req);
+    const callerRole = session.role;
 
     // Se solicitou inspeções confidenciais/privadas do administrador
     if (adminOnly || scopeParam === "CONFIDENTIAL") {
@@ -97,14 +98,48 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(adminAudits || [], { status: 200 });
     }
 
-    const targetAuditorId = auditorId || "default-auditor";
     const auditRepo = new AuditRepository(supabase);
+
+    // Se houver empresa (tenant) ativa no contexto da sessão
+    if (session.tenantId && session.role !== "PLATFORM_SUPERADMIN") {
+      let canViewAll = callerRole === "TENANT_ADMIN" || callerRole === "VIEWER";
+
+      if (callerRole === "AUDITOR" && session.userId) {
+        const { data: member } = await supabase
+          .from("tenant_users")
+          .select("can_view_all_tenant_audits")
+          .eq("user_id", session.userId)
+          .eq("tenant_id", session.tenantId)
+          .maybeSingle();
+
+        canViewAll = Boolean(member?.can_view_all_tenant_audits);
+      }
+
+      // Regra de Invalidação:
+      // AUDITOR e VIEWER nunca visualizam auditorias anuladas/invalidadas.
+      // Apenas TENANT_ADMIN e SUPERADMIN podem vê-las.
+      const shouldExcludeInvalidated = callerRole === "AUDITOR" || callerRole === "VIEWER";
+
+      const tenantAudits = await auditRepo.findByTenantId(session.tenantId, {
+        excludeInvalidated: shouldExcludeInvalidated,
+        auditorId: canViewAll ? undefined : session.userId,
+      });
+
+      return NextResponse.json(tenantAudits, { status: 200 });
+    }
+
+    // Fallback legado ou auditoria individual direta
+    const targetAuditorId = auditorId || session.userId || "default-auditor";
     const audits = await auditRepo.findByAuditorId(targetAuditorId);
 
-    // Filtra pelo modelo de governança de escopos autorizados
-    const authorizedAudits = audits.filter((audit) =>
-      canAccessAuditScope(callerRole, audit.accessScope)
-    );
+    // Filtra pelo modelo de governança de escopos autorizados e oculta invalidadas de inspetores comuns
+    const authorizedAudits = audits.filter((audit) => {
+      if (!canAccessAuditScope(callerRole, audit.accessScope)) return false;
+      if ((callerRole === "AUDITOR" || callerRole === "VIEWER") && audit.status === "INVALIDATED") {
+        return false;
+      }
+      return true;
+    });
 
     return NextResponse.json(authorizedAudits, { status: 200 });
   } catch (error: any) {

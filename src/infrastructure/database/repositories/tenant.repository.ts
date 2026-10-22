@@ -14,6 +14,8 @@ export interface TenantUserDetail {
   userId: string;
   email: string;
   fullName: string;
+  phone?: string;
+  documentNumber?: string;
   role: "TENANT_ADMIN" | "AUDITOR" | "INSPECTOR" | "VIEWER";
   canViewAllTenantAudits: boolean;
   isActive: boolean;
@@ -586,7 +588,7 @@ export class TenantRepository implements ITenantRepository {
     if (!records || records.length === 0) return [];
 
     const userIds = records.map((r: any) => r.user_id);
-    const authUsersMap: Record<string, { email: string; fullName: string }> = {};
+    const authUsersMap: Record<string, { email: string; fullName: string; phone?: string; documentNumber?: string }> = {};
 
     try {
       const { data: authData } = await this.client.auth.admin.listUsers({ perPage: 1000 });
@@ -596,6 +598,12 @@ export class TenantRepository implements ITenantRepository {
             authUsersMap[u.id] = {
               email: u.email || "",
               fullName: u.user_metadata?.full_name || u.email?.split("@")[0] || "Inspector Oficial",
+              phone: u.user_metadata?.phone || u.phone || "",
+              documentNumber:
+                u.user_metadata?.document_number ||
+                u.user_metadata?.cif ||
+                u.user_metadata?.nif ||
+                "",
             };
           }
         }
@@ -609,6 +617,8 @@ export class TenantRepository implements ITenantRepository {
       userId: r.user_id,
       email: authUsersMap[r.user_id]?.email || `usuario-${r.id.substring(0, 6)}@tenant.com`,
       fullName: authUsersMap[r.user_id]?.fullName || "Inspector Oficial",
+      phone: authUsersMap[r.user_id]?.phone,
+      documentNumber: authUsersMap[r.user_id]?.documentNumber,
       role: r.role,
       canViewAllTenantAudits: r.can_view_all_tenant_audits,
       isActive: r.is_active,
@@ -620,6 +630,8 @@ export class TenantRepository implements ITenantRepository {
     tenantId: string;
     email: string;
     fullName: string;
+    phone?: string;
+    documentNumber?: string;
     role: "TENANT_ADMIN" | "AUDITOR" | "INSPECTOR" | "VIEWER";
     temporaryPassword?: string;
   }): Promise<{ user: TenantUserDetail; temporaryPassword: string }> {
@@ -637,6 +649,8 @@ export class TenantRepository implements ITenantRepository {
         email_confirm: true,
         user_metadata: {
           full_name: params.fullName.trim(),
+          phone: params.phone?.trim() || "",
+          document_number: params.documentNumber?.trim() || "",
           role: params.role,
           tenant_id: params.tenantId,
         },
@@ -650,6 +664,16 @@ export class TenantRepository implements ITenantRepository {
           );
           if (found) {
             authUserId = found.id;
+            // Atualizar metadados do usuário existente com telefone e documento fornecidos
+            await this.client.auth.admin.updateUserById(authUserId, {
+              user_metadata: {
+                ...(found.user_metadata || {}),
+                full_name: params.fullName.trim(),
+                phone: params.phone?.trim() || found.user_metadata?.phone || "",
+                document_number:
+                  params.documentNumber?.trim() || found.user_metadata?.document_number || "",
+              },
+            });
           } else {
             throw createError;
           }
@@ -685,6 +709,8 @@ export class TenantRepository implements ITenantRepository {
         userId: authUserId,
         email: params.email.trim().toLowerCase(),
         fullName: params.fullName.trim(),
+        phone: params.phone?.trim() || undefined,
+        documentNumber: params.documentNumber?.trim() || undefined,
         role: params.role,
         canViewAllTenantAudits: tenantUserRecord.can_view_all_tenant_audits,
         isActive: tenantUserRecord.is_active,

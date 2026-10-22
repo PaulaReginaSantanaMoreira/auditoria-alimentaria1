@@ -56,4 +56,15 @@ export class Auditor {
   public updateSubscriptionStatus(isActive: boolean): void {
     this._isActiveSubscription = isActive;
   }
+
+  public toJSON() {
+    return {
+      id: this._id,
+      authUserId: this._authUserId,
+      fullName: this._fullName,
+      officialId: this._officialId,
+      email: this._email,
+      isActiveSubscription: this._isActiveSubscription,
+    };
+  }
 }

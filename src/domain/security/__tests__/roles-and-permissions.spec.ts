@@ -44,6 +44,20 @@ describe("RBAC & Permissions Domain System", () => {
     expect(viewerCanAccessTenant).toBe(true);
   });
 
+  it("should enforce Tenant Admin governance permissions (profile update, user update, invalidation, subscription)", () => {
+    // Assert TENANT_ADMIN permissions
+    expect(hasPermission("TENANT_ADMIN", "tenant:update_profile")).toBe(true);
+    expect(hasPermission("TENANT_ADMIN", "user:update_profile")).toBe(true);
+    expect(hasPermission("TENANT_ADMIN", "audit:invalidate")).toBe(true);
+    expect(hasPermission("TENANT_ADMIN", "subscription:view")).toBe(true);
+
+    // Assert AUDITOR and VIEWER cannot invalidate or view subscription
+    expect(hasPermission("AUDITOR", "audit:invalidate")).toBe(false);
+    expect(hasPermission("AUDITOR", "subscription:view")).toBe(false);
+    expect(hasPermission("VIEWER", "audit:invalidate")).toBe(false);
+    expect(hasPermission("VIEWER", "subscription:view")).toBe(false);
+  });
+
   it("should deny all permissions when role is null, undefined or unrecognized", () => {
     // Arrange & Act
     const nullResult = hasPermission(null, "audit:create");

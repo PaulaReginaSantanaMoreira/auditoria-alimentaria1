@@ -104,21 +104,29 @@ export async function POST(request: Request) {
 
     let role = isSuper ? "PLATFORM_SUPERADMIN" : "AUDITOR";
     let tenantId: string | undefined = undefined;
+    let availableTenants: Array<{ id: string; name: string; cif: string; role: string }> = [];
 
     // Se não for superadmin, busca perfil de tenant e papel atribuído no Supabase
     if (!isSuper) {
       try {
-        const { data: tenantUser } = await supabase
+        const { data: memberships } = await supabase
           .from("tenant_users")
-          .select("role, tenant_id")
+          .select("role, tenant_id, tenants(id, name, cif)")
           .eq("user_id", authData.user.id)
-          .eq("is_active", true)
-          .maybeSingle();
+          .eq("is_active", true);
 
-        if (tenantUser) {
-          tenantId = tenantUser.tenant_id;
-          if (tenantUser.role === "TENANT_ADMIN") role = "TENANT_ADMIN";
-          else if (tenantUser.role === "VIEWER") role = "VIEWER";
+        if (memberships && memberships.length > 0) {
+          availableTenants = memberships.map((m: any) => ({
+            id: m.tenant_id,
+            name: m.tenants?.name || "Empresa",
+            cif: m.tenants?.cif || "",
+            role: m.role || "AUDITOR",
+          }));
+
+          const primary = availableTenants[0];
+          tenantId = primary.id;
+          if (primary.role === "TENANT_ADMIN") role = "TENANT_ADMIN";
+          else if (primary.role === "VIEWER") role = "VIEWER";
           else role = "AUDITOR";
         }
       } catch {
@@ -147,10 +155,21 @@ export async function POST(request: Request) {
         email: authData.user.email,
         role: isSuper ? "superadmin" : role.toLowerCase(),
         tenantId,
+        availableTenants,
         scope: accessScope,
       },
       redirectTo,
     });
+
+    if (tenantId) {
+      response.cookies.set("bioaudit_active_tenant", tenantId, {
+        httpOnly: false, // Permite leitura do client para UI e headers
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 24 * 60 * 60,
+        path: "/",
+      });
+    }
 
     // 4. Configurar Cookie HTTP-only com garantia de segurança e expiração de 1 dia (86400s)
     response.cookies.set("bioaudit_token", token, {

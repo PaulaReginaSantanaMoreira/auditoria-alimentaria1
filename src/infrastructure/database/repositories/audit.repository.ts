@@ -76,6 +76,50 @@ export class AuditRepository implements IAuditRepository {
     );
   }
 
+  /**
+   * Busca todas as auditorias vinculadas a uma empresa (tenant).
+   * Suporta filtro opcional por auditor e exclusão de auditorias invalidadas.
+   */
+  public async findByTenantId(
+    tenantId: string,
+    options?: { excludeInvalidated?: boolean; auditorId?: string }
+  ): Promise<Audit[]> {
+    let query = this.dbClient
+      .from("audits")
+      .select("*, company:companies(*), auditor:auditors(*)")
+      .eq("tenant_id", tenantId);
+
+    if (options?.auditorId) {
+      query = query.eq("auditor_id", options.auditorId);
+    }
+
+    if (options?.excludeInvalidated) {
+      query = query.neq("status", "INVALIDATED");
+    }
+
+    const { data: auditsData, error } = await query.order("created_at", { ascending: false });
+
+    if (error || !auditsData || auditsData.length === 0) return [];
+
+    const auditIds = auditsData.map((a: { id: string }) => a.id);
+
+    const { data: allEvaluations } = await this.dbClient
+      .from("audit_evaluations")
+      .select("*")
+      .in("audit_id", auditIds);
+
+    const evalMap = new Map<string, any[]>();
+    for (const ev of allEvaluations || []) {
+      const list = evalMap.get(ev.audit_id) || [];
+      list.push(ev);
+      evalMap.set(ev.audit_id, list);
+    }
+
+    return auditsData.map((auditRow: any) =>
+      this.mapToEntity(auditRow, evalMap.get(auditRow.id) || [])
+    );
+  }
+
   public async save(audit: Audit): Promise<void> {
     const payload: Record<string, any> = {
       id: audit.id,
@@ -257,6 +301,9 @@ export class AuditRepository implements IAuditRepository {
       auditorSignature,
       auditedSignature,
       accessScope: (auditData.access_scope as AuditAccessScope) || "TENANT",
+      invalidatedAt: auditData.invalidated_at ? new Date(auditData.invalidated_at) : undefined,
+      invalidatedBy: auditData.invalidated_by,
+      invalidationReason: auditData.invalidation_reason,
       createdAt: new Date(auditData.created_at),
       updatedAt: new Date(auditData.updated_at),
     });

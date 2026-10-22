@@ -18,6 +18,11 @@ export interface ResolvedSession {
  * Garante que a revogação/invalidação de sessão ativa no Supabase seja estritamente respeitada.
  */
 export async function resolveSessionAndRole(req: NextRequest): Promise<ResolvedSession> {
+  const requestedTenantId =
+    req.headers.get("x-tenant-id") ||
+    req.cookies.get("bioaudit_active_tenant")?.value ||
+    undefined;
+
   // 1. Tentar ler do Header Authorization: Bearer <token>
   const authHeader = req.headers.get("authorization");
   const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : null;
@@ -66,6 +71,34 @@ export async function resolveSessionAndRole(req: NextRequest): Promise<ResolvedS
         role = "VIEWER";
       }
 
+      let effectiveTenantId = payload.tenantId;
+
+      // Se for SuperAdmin, pode assumir qualquer tenant solicitado via x-tenant-id
+      if (role === "PLATFORM_SUPERADMIN") {
+        effectiveTenantId = requestedTenantId || payload.tenantId;
+      } else if (requestedTenantId && requestedTenantId !== payload.tenantId) {
+        // Valida se o usuário comum realmente possui acesso ativo ao tenant solicitado
+        try {
+          const supabase = await createServerSupabaseClient();
+          const { data: member } = await supabase
+            .from("tenant_users")
+            .select("role, tenant_id")
+            .eq("user_id", payload.sub)
+            .eq("tenant_id", requestedTenantId)
+            .eq("is_active", true)
+            .maybeSingle();
+
+          if (member) {
+            effectiveTenantId = member.tenant_id;
+            if (member.role === "TENANT_ADMIN") role = "TENANT_ADMIN";
+            else if (member.role === "VIEWER") role = "VIEWER";
+            else role = "AUDITOR";
+          }
+        } catch {
+          // Fallback para o tenant do payload
+        }
+      }
+
       const scope: AuditAccessScope =
         role === "PLATFORM_SUPERADMIN"
           ? "CONFIDENTIAL"
@@ -76,7 +109,7 @@ export async function resolveSessionAndRole(req: NextRequest): Promise<ResolvedS
         email: payload.email,
         role,
         scope,
-        tenantId: payload.tenantId,
+        tenantId: effectiveTenantId,
         isAuthenticated: true,
       };
     } catch {
@@ -113,17 +146,24 @@ export async function resolveSessionAndRole(req: NextRequest): Promise<ResolvedS
         email: user.email,
         role: "PLATFORM_SUPERADMIN",
         scope: "CONFIDENTIAL",
+        tenantId: requestedTenantId,
         isAuthenticated: true,
       };
     }
 
-    // Checar papel no Tenant
-    const { data: tenantUser } = await supabase
+    // Checar papel no Tenant (priorizando requestedTenantId se houver)
+    let tenantQuery = supabase
       .from("tenant_users")
       .select("role, tenant_id")
       .eq("user_id", user.id)
-      .eq("is_active", true)
-      .maybeSingle();
+      .eq("is_active", true);
+
+    if (requestedTenantId) {
+      tenantQuery = tenantQuery.eq("tenant_id", requestedTenantId);
+    }
+
+    const { data: tenantUsers } = await tenantQuery;
+    const tenantUser = tenantUsers && tenantUsers.length > 0 ? tenantUsers[0] : null;
 
     let tenantRole: UserRole = "AUDITOR";
     if (tenantUser?.role === "TENANT_ADMIN") tenantRole = "TENANT_ADMIN";

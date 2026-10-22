@@ -76,4 +76,12 @@ export class Score {
 
     return new Score(obtained, max);
   }
+
+  public toJSON() {
+    return {
+      obtainedPoints: this._obtainedPoints,
+      maxPoints: this._maxPoints,
+      percentage: this._percentage,
+    };
+  }
 }
