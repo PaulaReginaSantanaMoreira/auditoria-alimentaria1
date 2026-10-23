@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Header } from "@/presentation/components/Header";
 import { useAuthGuard } from "@/presentation/hooks/useAuthGuard";
 import { AuthLoadingScreen } from "@/presentation/components/AuthGuard";
 
@@ -36,8 +35,7 @@ export default function SuscripcionPage() {
 
   return (
     <>
-      <Header title="BioAudit Pro" subtitle="Suscripción & Licencia" />
-
+      
       <main className="flex-1 flex flex-col relative w-full pt-16 pb-20 bg-surface min-h-screen">
         <div className="flex flex-col w-full max-w-3xl mx-auto px-margin-mobile">
           {/* Header & Status Lock */}

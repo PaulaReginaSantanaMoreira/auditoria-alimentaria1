@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { NewTenantFormState, PlanItem } from "../types";
 import { Cif } from "@/domain/value-objects/cif";
+import { FormValidatorService } from "@/domain/services/form-validator.service";
 
 interface CreateTenantModalProps {
   isOpen: boolean;
@@ -94,39 +95,38 @@ export function CreateTenantModal({
     setClientError(null);
 
     // 1. Razón Social
-    if (!form.name || form.name.trim().length < 3) {
-      setClientError("La razón social de la empresa es obligatoria y debe tener al menos 3 caracteres.");
+    const nameVal = FormValidatorService.validateRequiredText(form.name, "La razón social de la empresa", 3);
+    if (!nameVal.isValid) {
+      setClientError(nameVal.error || "Razón social obligatoria.");
       return;
     }
 
     // 2. CIF / NIF Oficial
-    if (!Cif.isValid(sanitizedCif)) {
-      setClientError(
-        "El documento fiscal (CIF / NIF / NIE) no tiene un formato válido oficial en España (ej. B84920194, 12345678Z, X1234567Z)."
-      );
+    const cifVal = FormValidatorService.validateCif(form.cif, true);
+    if (!cifVal.isValid) {
+      setClientError(cifVal.error || "CIF / NIF no válido.");
       return;
     }
 
     // 3. Teléfono de Contacto
     if (form.phone && form.phone.trim()) {
-      const phoneRegex = /^[\+]?[(]?[0-9]{1,4}[)]?[-\s\./0-9]{5,15}$/;
-      if (!phoneRegex.test(form.phone.trim())) {
-        setClientError(
-          "El formato del teléfono contiene caracteres no permitidos. Use solo números, espacios o prefijo internacional (ej. +34 912 345 678)."
-        );
+      const phoneVal = FormValidatorService.validatePhone(form.phone, false);
+      if (!phoneVal.isValid) {
+        setClientError(phoneVal.error || "Teléfono no válido.");
         return;
       }
     }
 
     // 4. Administrador Inicial
     if (form.adminEmail && form.adminEmail.trim()) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(form.adminEmail.trim())) {
-        setClientError("El correo electrónico del administrador no es válido.");
+      const emailVal = FormValidatorService.validateEmail(form.adminEmail, true);
+      if (!emailVal.isValid) {
+        setClientError(emailVal.error || "Correo electrónico no válido.");
         return;
       }
-      if (!form.adminName || !form.adminName.trim()) {
-        setClientError("Debe indicar el nombre del administrador de empresa si asigna su correo.");
+      const adminNameVal = FormValidatorService.validateRequiredText(form.adminName, "El nombre del administrador de empresa", 2);
+      if (!adminNameVal.isValid) {
+        setClientError(adminNameVal.error || "Nombre del administrador obligatorio.");
         return;
       }
     }

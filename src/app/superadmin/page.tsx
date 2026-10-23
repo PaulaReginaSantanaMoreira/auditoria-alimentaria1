@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Header } from "@/presentation/components/Header";
 import { offlineDb } from "@/infrastructure/offline/offline-audit.db";
 import { useAuthGuard } from "@/presentation/hooks/useAuthGuard";
 import { AuthLoadingScreen } from "@/presentation/components/AuthGuard";
@@ -705,8 +704,7 @@ export default function SuperAdminPage() {
 
   return (
     <>
-      <Header title="BioAudit Pro" subtitle="Gobernanza de la Plataforma" planActive={false} />
-
+      
       <main className="flex-1 flex flex-col relative w-full pt-20 pb-24 bg-surface dark:bg-slate-950 min-h-screen">
         <div className="w-full max-w-5xl mx-auto px-margin-mobile space-y-space-md">
           {/* Hero Banner Gobernanza */}

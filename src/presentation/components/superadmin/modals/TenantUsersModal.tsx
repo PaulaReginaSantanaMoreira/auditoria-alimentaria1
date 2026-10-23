@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { TenantItem, TenantUserItem, NewUserFormState, EditTenantUserFormState } from "../types";
+import { FormValidatorService } from "@/domain/services/form-validator.service";
 
 interface TenantUsersModalProps {
   tenant: TenantItem | null;
@@ -27,6 +28,7 @@ export function TenantUsersModal({
   onResetPassword,
 }: TenantUsersModalProps) {
   const [showAddUserForm, setShowAddUserForm] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
   const [newUserForm, setNewUserForm] = useState<NewUserFormState>({
     email: "",
     fullName: "",
@@ -49,6 +51,7 @@ export function TenantUsersModal({
   if (!tenant) return null;
 
   const handleStartEdit = (u: TenantUserItem) => {
+    setValidationError(null);
     setEditingUser(u);
     setEditUserForm({
       fullName: u.fullName || "",
@@ -63,12 +66,66 @@ export function TenantUsersModal({
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingUser) return;
+    setValidationError(null);
+
+    const nameVal = FormValidatorService.validateRequiredText(editUserForm.fullName, "El nombre completo", 2);
+    if (!nameVal.isValid) {
+      setValidationError(nameVal.error || "Nombre obligatorio.");
+      return;
+    }
+
+    if (editUserForm.documentNumber) {
+      const docVal = FormValidatorService.validatePersonalDocument(editUserForm.documentNumber, false);
+      if (!docVal.isValid) {
+        setValidationError(docVal.error || "Documento no válido.");
+        return;
+      }
+    }
+
+    if (editUserForm.phone) {
+      const phoneVal = FormValidatorService.validatePhone(editUserForm.phone, false);
+      if (!phoneVal.isValid) {
+        setValidationError(phoneVal.error || "Teléfono no válido.");
+        return;
+      }
+    }
+
     await onEditUser(editingUser, editUserForm);
     setEditingUser(null);
   };
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
+    setValidationError(null);
+
+    const nameVal = FormValidatorService.validateRequiredText(newUserForm.fullName, "El nombre completo", 2);
+    if (!nameVal.isValid) {
+      setValidationError(nameVal.error || "Nombre obligatorio.");
+      return;
+    }
+
+    const emailVal = FormValidatorService.validateEmail(newUserForm.email, true);
+    if (!emailVal.isValid) {
+      setValidationError(emailVal.error || "Email no válido.");
+      return;
+    }
+
+    if (newUserForm.documentNumber) {
+      const docVal = FormValidatorService.validatePersonalDocument(newUserForm.documentNumber, false);
+      if (!docVal.isValid) {
+        setValidationError(docVal.error || "Documento no válido.");
+        return;
+      }
+    }
+
+    if (newUserForm.phone) {
+      const phoneVal = FormValidatorService.validatePhone(newUserForm.phone, false);
+      if (!phoneVal.isValid) {
+        setValidationError(phoneVal.error || "Teléfono no válido.");
+        return;
+      }
+    }
+
     await onAddUser(newUserForm);
     setShowAddUserForm(false);
     setNewUserForm({
@@ -112,6 +169,14 @@ export function TenantUsersModal({
             <span className="material-symbols-outlined text-[20px]">close</span>
           </button>
         </div>
+
+        {/* Alerta de Validação com Value Objects */}
+        {validationError && (
+          <div className="mx-1 my-2 p-3 rounded-xl bg-alert-red-bg/25 border border-alert-red/30 text-alert-red text-xs flex items-center gap-2 animate-in fade-in">
+            <span className="material-symbols-outlined text-[18px]">error</span>
+            <span>{validationError}</span>
+          </div>
+        )}
 
         {/* Botão de Adicionar Usuário */}
         <div className="py-3 flex items-center justify-between border-b border-slate-border/50">

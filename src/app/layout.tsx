@@ -22,6 +22,7 @@ export const viewport: Viewport = {
 
 import { CookieConsentBanner } from "@/presentation/components/CookieConsentBanner";
 import { LegalFooter } from "@/presentation/components/LegalFooter";
+import { Header } from "@/presentation/components/Header";
 
 export default function RootLayout({
   children,
@@ -52,6 +53,7 @@ export default function RootLayout({
         />
       </head>
       <body className="bg-surface dark:bg-slate-950 text-on-surface dark:text-slate-100 antialiased flex flex-col min-h-screen transition-colors duration-150">
+        <Header />
         <main className="flex-1 flex flex-col">
           {children}
         </main>

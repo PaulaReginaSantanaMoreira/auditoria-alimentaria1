@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Header } from "@/presentation/components/Header";
 import { useAuthGuard } from "@/presentation/hooks/useAuthGuard";
 import { AuthLoadingScreen } from "@/presentation/components/AuthGuard";
 import { PlanItem } from "@/presentation/components/superadmin/types";
@@ -125,12 +124,7 @@ export default function SuperAdminPlanosPage() {
 
   return (
     <div className="min-h-screen bg-surface-container-low text-on-surface">
-      <Header
-        title="BioAudit Pro"
-        subtitle="Gobernanza de la Plataforma • Planes"
-        planActive={false}
-      />
-
+      
       <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-20 sm:pt-24 pb-16 space-y-6">
         {/* Breadcrumb & Navigation */}
         <div className="flex items-center gap-2 text-xs text-slate-subtext">

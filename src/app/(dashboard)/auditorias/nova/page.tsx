@@ -2,12 +2,12 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Header } from "@/presentation/components/Header";
 import { AuthLoadingScreen } from "@/presentation/components/AuthGuard";
 import { offlineDb } from "@/infrastructure/offline/offline-audit.db";
 import { AuditAccessScope } from "@/domain/security/roles-and-permissions";
 import { useAuthGuard } from "@/presentation/hooks/useAuthGuard";
 import { Cif } from "@/domain/value-objects/cif";
+import { FormValidatorService } from "@/domain/services/form-validator.service";
 
 interface ActiveDraft {
   id: string;
@@ -136,17 +136,18 @@ export default function NovaAuditoriaPage() {
 
   const validateForm = () => {
     const errors: Record<string, string> = {};
-    if (!companyName.trim()) errors.companyName = "El nombre o razón social de la empresa es obligatorio";
-    if (!cif.trim()) {
-      errors.cif = "El CIF / NIF oficial es obligatorio";
-    } else {
-      const sanitized = cif.trim().toUpperCase().replace(/[\s-]/g, "");
-      if (!Cif.isValid(sanitized)) {
-        errors.cif = "Formato de CIF/NIF/NIE no válido (ej. B-84920194, 12345678Z, X1234567L)";
-      }
-    }
-    if (!address.trim()) errors.address = "La dirección de la instalación es obligatoria";
-    if (!rgseaa.trim()) errors.rgseaa = "El número de registro sanitario (RGSEAA) es obligatorio";
+    const nameVal = FormValidatorService.validateRequiredText(companyName, "El nombre o razón social de la empresa", 2);
+    if (!nameVal.isValid) errors.companyName = nameVal.error || "Obligatorio";
+
+    const cifVal = FormValidatorService.validateCif(cif, true);
+    if (!cifVal.isValid) errors.cif = cifVal.error || "CIF no válido";
+
+    const addrVal = FormValidatorService.validateRequiredText(address, "La dirección de la instalación", 3);
+    if (!addrVal.isValid) errors.address = addrVal.error || "Obligatorio";
+
+    const rgseaaVal = FormValidatorService.validateRequiredText(rgseaa, "El número de registro sanitario (RGSEAA)", 2);
+    if (!rgseaaVal.isValid) errors.rgseaa = rgseaaVal.error || "Obligatorio";
+
     if (!inspectionDate) errors.inspectionDate = "La fecha de inspección es obligatoria";
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -237,8 +238,7 @@ export default function NovaAuditoriaPage() {
 
   return (
     <>
-      <Header title="BioAudit Pro" subtitle="Identificación Oficial" />
-
+      
       <main className="flex-1 flex flex-col relative w-full pt-16 pb-20 bg-surface dark:bg-slate-950 min-h-screen">
         <div className="flex flex-col w-full max-w-3xl mx-auto px-margin-mobile">
           {/* Mensagem de Feedback ao Anular */}

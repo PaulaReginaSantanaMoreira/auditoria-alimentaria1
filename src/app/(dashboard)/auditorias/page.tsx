@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Header } from "@/presentation/components/Header";
 import { useAuthGuard } from "@/presentation/hooks/useAuthGuard";
 import { AuthLoadingScreen } from "@/presentation/components/AuthGuard";
 import { AuditsTable, AuditListItem } from "@/presentation/components/audits/AuditsTable";
@@ -106,12 +105,7 @@ export default function AuditoriasPage() {
 
   return (
     <div className="min-h-screen bg-surface-container-low text-on-surface">
-      <Header
-        title="BioAudit Pro"
-        subtitle="Centro de Inspecciones Sanitarias"
-        planActive={true}
-      />
-
+      
       <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-20 sm:pt-24 pb-16 space-y-6">
         {/* Banner de Título & CTA Principal */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-surface-container-lowest p-6 rounded-2xl border border-slate-border shadow-sm">

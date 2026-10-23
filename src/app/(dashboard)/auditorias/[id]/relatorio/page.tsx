@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
-import { Header } from "@/presentation/components/Header";
 import { ReportView } from "@/presentation/components/ReportView";
 import { Audit } from "@/domain/entities/audit";
 import { Company } from "@/domain/entities/company";
@@ -160,36 +159,31 @@ export default function RelatorioPage() {
 
   if (errorMessage) {
     return (
-      <>
-        <div className="no-print">
-          <Header title="BioAudit Pro" subtitle="Error en Laudo Oficial" />
-        </div>
-        <main className="flex-1 flex flex-col items-center justify-center p-6 bg-surface dark:bg-slate-950 min-h-screen text-center">
-          <div className="max-w-md w-full bg-surface-container-low dark:bg-slate-900 border border-alert-red/30 rounded-2xl p-6 shadow-lg">
-            <span className="material-symbols-outlined text-[48px] text-alert-red mb-3">error</span>
-            <h2 className="text-lg font-bold text-slate-dark dark:text-slate-100 mb-2">
-              No se pudo emitir el Laudo Oficial
-            </h2>
-            <p className="text-xs text-slate-subtext dark:text-slate-400 mb-6 leading-relaxed">
-              {errorMessage}
-            </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-              <button
-                onClick={() => router.push(`/auditorias/${auditId}/rubrica`)}
-                className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-border text-xs font-semibold text-slate-dark dark:text-slate-200 hover:bg-slate-surface dark:hover:bg-slate-800 transition-colors"
-              >
-                Volver a la Rúbrica
-              </button>
-              <button
-                onClick={() => loadData()}
-                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary-container transition-colors shadow-sm"
-              >
-                Reintentar Emisión
-              </button>
-            </div>
+      <main className="flex-1 flex flex-col items-center justify-center p-6 bg-surface dark:bg-slate-950 min-h-screen text-center">
+        <div className="max-w-md w-full bg-surface-container-low dark:bg-slate-900 border border-alert-red/30 rounded-2xl p-6 shadow-lg">
+          <span className="material-symbols-outlined text-[48px] text-alert-red mb-3">error</span>
+          <h2 className="text-lg font-bold text-slate-dark dark:text-slate-100 mb-2">
+            No se pudo emitir el Laudo Oficial
+          </h2>
+          <p className="text-xs text-slate-subtext dark:text-slate-400 mb-6 leading-relaxed">
+            {errorMessage}
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <button
+              onClick={() => router.push(`/auditorias/${auditId}/rubrica`)}
+              className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-border text-xs font-semibold text-slate-dark dark:text-slate-200 hover:bg-slate-surface dark:hover:bg-slate-800 transition-colors"
+            >
+              Volver a la Rúbrica
+            </button>
+            <button
+              onClick={() => loadData()}
+              className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary-container transition-colors shadow-sm"
+            >
+              Reintentar Emisión
+            </button>
           </div>
-        </main>
-      </>
+        </div>
+      </main>
     );
   }
 
@@ -198,14 +192,8 @@ export default function RelatorioPage() {
   }
 
   return (
-    <>
-      <div className="no-print">
-        <Header title="BioAudit Pro" subtitle="Laudo Oficial" />
-      </div>
-
-      <main className="flex-1 flex flex-col relative w-full pt-16 pb-16 bg-surface dark:bg-slate-950 min-h-screen">
-        <ReportView audit={audit} report={report} />
-      </main>
-    </>
+    <main className="flex-1 flex flex-col relative w-full pt-16 pb-16 bg-surface dark:bg-slate-950 min-h-screen">
+      <ReportView audit={audit} report={report} />
+    </main>
   );
 }

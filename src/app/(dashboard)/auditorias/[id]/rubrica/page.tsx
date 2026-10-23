@@ -2,7 +2,6 @@
 
 import React, { useState, useMemo, useEffect } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { Header } from "@/presentation/components/Header";
 import { ProgressTracker } from "@/presentation/components/ProgressTracker";
 import { RubricControlCard } from "@/presentation/components/RubricControlCard";
 import { SignatureModal } from "@/presentation/components/SignatureModal";
@@ -283,8 +282,7 @@ export default function RubricaPage() {
 
   return (
     <>
-      <Header title="BioAudit Pro" subtitle="Rúbrica de Campo" />
-
+      
       <main className="flex-1 flex flex-col relative w-full pt-16 pb-28 bg-surface min-h-screen">
         <div className="flex flex-col w-full max-w-5xl mx-auto">
           {/* Header Contextual: Datos de Inspección de Campo */}

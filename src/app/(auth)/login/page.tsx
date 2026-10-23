@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/infrastructure/database/supabase/supabase-client";
-import { Header } from "@/presentation/components/Header";
+import { FormValidatorService } from "@/domain/services/form-validator.service";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -127,15 +127,10 @@ export default function LoginPage() {
     const emailVal = (identifier || emailEl?.value || "").trim();
     const passwordVal = password || passwordEl?.value || "";
 
-    if (!emailVal) {
-      setErrors({ general: "Por favor, introduce tu correo electrónico corporativo." });
-      return;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(emailVal)) {
+    const emailValidation = FormValidatorService.validateEmail(emailVal, true);
+    if (!emailValidation.isValid) {
       setErrors({
-        general: "Formato de correo no válido. Introduce tu dirección completa (ej: auditor@bioauditpro.com).",
+        general: emailValidation.error || "Formato de correo no válido (ej: auditor@bioauditpro.com).",
       });
       return;
     }
@@ -259,9 +254,7 @@ export default function LoginPage() {
   
 
   return (
-    <>
-      <Header title="BioAudit Pro" subtitle="Acceso Corporativo" planActive={false} />
-      <main className="flex flex-col flex-1 relative w-full bg-surface dark:bg-slate-950 pt-24 pb-safe min-h-screen justify-center items-center py-8 transition-colors duration-150">
+    <main className="flex flex-col flex-1 relative w-full bg-surface dark:bg-slate-950 pt-24 pb-safe min-h-screen justify-center items-center py-8 transition-colors duration-150">
       <div className="flex flex-col w-full px-margin-mobile pb-space-xl max-w-md mx-auto">
         {/* Corporate Header Card */}
         <div className="bg-surface-container-lowest rounded-2xl p-space-md shadow-sm mb-space-md flex flex-col items-center text-center border border-slate-border">
@@ -473,6 +466,5 @@ export default function LoginPage() {
         </div>
       )}
     </main>
-    </>
   );
 }

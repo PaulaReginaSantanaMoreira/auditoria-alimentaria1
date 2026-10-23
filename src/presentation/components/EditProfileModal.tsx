@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { FormValidatorService } from "@/domain/services/form-validator.service";
 import { createPortal } from "react-dom";
 
 interface EditProfileModalProps {
@@ -80,14 +81,24 @@ export function EditProfileModal({ isOpen, onClose, onProfileUpdated }: EditProf
     setErrorMessage("");
     setSuccessMessage("");
 
-    if (!fullName.trim()) {
-      setErrorMessage("El nombre completo es obligatorio.");
+    const nameVal = FormValidatorService.validateRequiredText(fullName, "El nombre completo", 2);
+    if (!nameVal.isValid) {
+      setErrorMessage(nameVal.error || "El nombre completo es obligatorio.");
       return;
     }
 
-    if (!email.trim() || !email.includes("@")) {
-      setErrorMessage("Por favor introduzca un correo electrónico válido.");
+    const emailVal = FormValidatorService.validateEmail(email, true);
+    if (!emailVal.isValid) {
+      setErrorMessage(emailVal.error || "Por favor introduzca un correo electrónico válido.");
       return;
+    }
+
+    if (phone && phone.trim()) {
+      const phoneVal = FormValidatorService.validatePhone(phone, false);
+      if (!phoneVal.isValid) {
+        setErrorMessage(phoneVal.error || "El formato del teléfono es inválido.");
+        return;
+      }
     }
 
     setIsSaving(true);

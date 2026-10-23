@@ -2,9 +2,9 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Header } from "@/presentation/components/Header";
 import { useAuthGuard } from "@/presentation/hooks/useAuthGuard";
 import { AuthLoadingScreen } from "@/presentation/components/AuthGuard";
+import { FormValidatorService } from "@/domain/services/form-validator.service";
 
 interface TenantInfo {
   id: string;
@@ -184,6 +184,26 @@ export default function GestaoEquipePage() {
 
   const handleUpdateCompany = async (e: React.FormEvent) => {
     e.preventDefault();
+    const nameVal = FormValidatorService.validateRequiredText(editCompanyForm.name, "La razón social", 3);
+    if (!nameVal.isValid) {
+      setFeedback({ type: "error", message: nameVal.error || "Razón social obligatoria." });
+      return;
+    }
+    if (editCompanyForm.phone) {
+      const phoneVal = FormValidatorService.validatePhone(editCompanyForm.phone, false);
+      if (!phoneVal.isValid) {
+        setFeedback({ type: "error", message: phoneVal.error || "Teléfono no válido." });
+        return;
+      }
+    }
+    if (editCompanyForm.adminEmail) {
+      const emailVal = FormValidatorService.validateEmail(editCompanyForm.adminEmail, false);
+      if (!emailVal.isValid) {
+        setFeedback({ type: "error", message: emailVal.error || "Correo electrónico no válido." });
+        return;
+      }
+    }
+
     setIsUpdatingCompany(true);
     try {
       const res = await fetch("/api/tenant/profile", {
@@ -208,6 +228,24 @@ export default function GestaoEquipePage() {
 
   const handleUpdateMyProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+    const nameVal = FormValidatorService.validateRequiredText(myProfileForm.fullName, "El nombre completo", 2);
+    if (!nameVal.isValid) {
+      setFeedback({ type: "error", message: nameVal.error || "Nombre completo obligatorio." });
+      return;
+    }
+    const emailVal = FormValidatorService.validateEmail(myProfileForm.email, true);
+    if (!emailVal.isValid) {
+      setFeedback({ type: "error", message: emailVal.error || "Correo electrónico no válido." });
+      return;
+    }
+    if (myProfileForm.phone) {
+      const phoneVal = FormValidatorService.validatePhone(myProfileForm.phone, false);
+      if (!phoneVal.isValid) {
+        setFeedback({ type: "error", message: phoneVal.error || "Teléfono no válido." });
+        return;
+      }
+    }
+
     setIsUpdatingProfile(true);
     try {
       const res = await fetch("/api/tenant/me", {
@@ -235,6 +273,31 @@ export default function GestaoEquipePage() {
 
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
+    const nameVal = FormValidatorService.validateRequiredText(newMemberForm.fullName, "El nombre completo", 2);
+    if (!nameVal.isValid) {
+      setFeedback({ type: "error", message: nameVal.error || "Nombre completo obligatorio." });
+      return;
+    }
+    const emailVal = FormValidatorService.validateEmail(newMemberForm.email, true);
+    if (!emailVal.isValid) {
+      setFeedback({ type: "error", message: emailVal.error || "Correo electrónico no válido." });
+      return;
+    }
+    if (newMemberForm.documentNumber) {
+      const docVal = FormValidatorService.validatePersonalDocument(newMemberForm.documentNumber, false);
+      if (!docVal.isValid) {
+        setFeedback({ type: "error", message: docVal.error || "Documento de identidad no válido." });
+        return;
+      }
+    }
+    if (newMemberForm.phone) {
+      const phoneVal = FormValidatorService.validatePhone(newMemberForm.phone, false);
+      if (!phoneVal.isValid) {
+        setFeedback({ type: "error", message: phoneVal.error || "Teléfono no válido." });
+        return;
+      }
+    }
+
     setIsAddingMember(true);
     try {
       const res = await fetch("/api/tenant/users", {
@@ -386,8 +449,7 @@ export default function GestaoEquipePage() {
 
   return (
     <>
-      <Header title="BioAudit Pro" subtitle="Gobernanza de Empresa" />
-
+      
       <main className="flex-1 flex flex-col relative w-full pt-20 pb-24 bg-surface min-h-screen">
         <div className="w-full max-w-5xl mx-auto px-margin-mobile space-y-space-md">
           {/* Top Breadcrumb & Quick Actions */}

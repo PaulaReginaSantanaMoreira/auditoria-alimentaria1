@@ -7,6 +7,7 @@ import { createClient } from "@/infrastructure/database/supabase/supabase-client
 import { ChangePasswordModal } from "./ChangePasswordModal";
 import { EditProfileModal } from "./EditProfileModal";
 import { useTheme } from "@/presentation/hooks/useTheme";
+import { UserRole, hasPermission } from "@/domain/security/roles-and-permissions";
 
 interface HeaderProps {
   title?: string;
@@ -14,9 +15,32 @@ interface HeaderProps {
   planActive?: boolean;
 }
 
+function normalizeUserRole(rawRole?: string | null): UserRole {
+  if (!rawRole) return "AUDITOR";
+  const r = String(rawRole).toUpperCase();
+  if (r.includes("SUPERADMIN") || r === "PLATFORM_SUPERADMIN") return "PLATFORM_SUPERADMIN";
+  if (r === "TENANT_ADMIN" || r === "ADMIN") return "TENANT_ADMIN";
+  if (r === "VIEWER") return "VIEWER";
+  return "AUDITOR";
+}
+
+function getSubtitleForRoute(pathname: string | null): string {
+  if (!pathname) return "Inocuidad Alimentaria";
+  if (pathname === "/login") return "Acceso Corporativo";
+  if (pathname === "/superadmin") return "Gobernanza de la Plataforma";
+  if (pathname.startsWith("/superadmin/planos")) return "Planes de Suscripción";
+  if (pathname === "/gestao/equipe") return "Gobernanza de Empresa";
+  if (pathname === "/suscripcion") return "Suscripción & Licencia";
+  if (pathname === "/auditorias/nova") return "Identificación Oficial";
+  if (pathname.includes("/rubrica")) return "Rúbrica de Campo";
+  if (pathname.includes("/relatorio")) return "Laudo Oficial";
+  if (pathname === "/auditorias" || pathname.startsWith("/auditorias")) return "Historial de Inspecciones";
+  return "Inocuidad Alimentaria";
+}
+
 export function Header({
   title = "BioAudit Pro",
-  subtitle = "Rúbrica",
+  subtitle,
   planActive = true,
 }: HeaderProps) {
   const router = useRouter();
@@ -52,12 +76,13 @@ export function Header({
             const roleLower = String(parsed.role).toLowerCase();
             const isSuper = roleLower === "superadmin" || roleLower.includes("superadmin");
             setIsSuperAdmin(isSuper);
+            const normalized = normalizeUserRole(parsed.role);
             setUserRole(
-              isSuper
+              normalized === "PLATFORM_SUPERADMIN"
                 ? "Administrador de la Plataforma"
-                : parsed.role === "TENANT_ADMIN" || parsed.role === "tenant_admin"
+                : normalized === "TENANT_ADMIN"
                 ? "Administrador de Empresa"
-                : parsed.role === "VIEWER" || parsed.role === "viewer"
+                : normalized === "VIEWER"
                 ? "Auditor Consulta (Viewer)"
                 : "Inspector Sanitario Oficial"
             );
@@ -177,9 +202,18 @@ export function Header({
 
   const userInitials = (userEmail.split("@")[0] || "AU").slice(0, 2).toUpperCase();
 
+  const normalizedRole = normalizeUserRole(userRoleRaw);
   // SuperAdmin não possui restrições, não tem plano/assinatura e se mantém no painel master
-  const isSuper = isSuperAdmin || (pathname ? pathname.startsWith("/superadmin") : false);
+  const isSuper = normalizedRole === "PLATFORM_SUPERADMIN" || (pathname ? pathname.startsWith("/superadmin") : false);
   const logoHref = !isLoggedIn ? "/login" : isSuper ? "/superadmin" : "/auditorias/nova";
+
+  // Permissões RBAC governadas pelo domínio
+  const canCreateAudit = hasPermission(normalizedRole, "audit:create");
+  const canManagePlatform = isSuper || hasPermission(normalizedRole, "tenant:manage");
+  const canManageUsers = hasPermission(normalizedRole, "users:manage");
+  const canViewBilling = hasPermission(normalizedRole, "subscription:view") || hasPermission(normalizedRole, "tenant:view_billing");
+
+  const resolvedSubtitle = subtitle || getSubtitleForRoute(pathname);
 
   const isRouteActive = (route: string) => {
     if (!pathname) return false;
@@ -215,9 +249,9 @@ export function Header({
   };
 
   return (
-    <header className="fixed top-0 inset-x-0 z-50 bg-surface/90 dark:bg-slate-900/90 backdrop-blur-xl border-b border-transparent dark:border-slate-800/80 shadow-[0_1px_8px_rgba(0,0,0,0.04)] pt-safe transition-colors duration-200">
+    <header className="print:hidden fixed top-0 inset-x-0 z-50 bg-surface/90 dark:bg-slate-900/90 backdrop-blur-xl border-b border-transparent dark:border-slate-800/80 shadow-[0_1px_8px_rgba(0,0,0,0.04)] pt-safe transition-colors duration-200">
       <div className="h-16 px-margin-mobile flex items-center justify-between gap-space-xs max-w-5xl mx-auto">
-        <Link href={logoHref} className="flex items-center gap-space-sm min-w-0 flex-1">
+        <Link href={logoHref} aria-label="BioAudit Pro - Inicio" className="flex items-center gap-space-sm min-w-0 flex-1">
           <div className="w-9 h-9 rounded-xl bg-status-pass-bg dark:bg-emerald-950/60 flex items-center justify-center text-primary dark:text-emerald-400 shrink-0 shadow-sm border border-emerald-500/20">
             <span className="material-symbols-outlined text-[24px]">verified_user</span>
           </div>
@@ -235,7 +269,7 @@ export function Header({
               )}
             </div>
             <span className="font-label-sm text-label-sm text-slate-subtext dark:text-slate-400 truncate uppercase tracking-wider">
-              {subtitle}
+              {resolvedSubtitle}
             </span>
           </div>
         </Link>
@@ -329,8 +363,8 @@ export function Header({
             )}
           </button>
 
-          {/* O Administrador de empresa é o único que poderá visualizar o botão de subscrição */}
-          {isLoggedIn && (userRoleRaw === "TENANT_ADMIN" || userRoleRaw === "tenant_admin") && (
+          {/* O Administrador de empresa / gestor de faturação é quem visualiza o botão de atalho de subscrição */}
+          {isLoggedIn && !isSuper && canViewBilling && (
             <Link
               href="/suscripcion"
               aria-label="Gestión de suscripción"
@@ -375,56 +409,20 @@ export function Header({
                       <span className="text-xs font-bold text-slate-dark dark:text-slate-100 truncate" title={userEmail}>
                         {userEmail}
                       </span>
-                      <span className="text-[11px] text-slate-subtext dark:text-slate-400 truncate">
+                      <span className="text-[10px] font-semibold text-primary dark:text-emerald-400 bg-primary/10 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full inline-block mt-1 truncate w-fit">
                         {userRole}
                       </span>
                     </div>
                   </div>
 
-                  {/* Ações */}
+                  {/* Lista de Ações por Seções de UX & RBAC */}
                   <div className="py-1">
-                    <Link
-                      href="/auditorias"
-                      onClick={() => setIsMenuOpen(false)}
-                      className={getMenuItemClasses("/auditorias")}
-                    >
-                      <span className={getMenuIconClasses("/auditorias")}>assignment</span>
-                      <span>Historial de Inspecciones</span>
-                    </Link>
-
-                    <Link
-                      href="/auditorias/nova"
-                      onClick={() => setIsMenuOpen(false)}
-                      className={getMenuItemClasses("/auditorias/nova")}
-                    >
-                      <span className={getMenuIconClasses("/auditorias/nova")}>add_circle</span>
-                      <span>Nueva Inspección</span>
-                    </Link>
-
-                    {(userRoleRaw === "TENANT_ADMIN" || userRoleRaw === "tenant_admin") && (
-                      <Link
-                        href="/suscripcion"
-                        onClick={() => setIsMenuOpen(false)}
-                        className={getMenuItemClasses("/suscripcion")}
-                      >
-                        <span className={getMenuIconClasses("/suscripcion")}>credit_card</span>
-                        <span>Mi Suscripción</span>
-                      </Link>
-                    )}
-
-                    {(userRoleRaw === "TENANT_ADMIN" || userRoleRaw === "tenant_admin" || isSuper) && (
-                      <Link
-                        href="/gestao/equipe"
-                        onClick={() => setIsMenuOpen(false)}
-                        className={getMenuItemClasses("/gestao/equipe")}
-                      >
-                        <span className={getMenuIconClasses("/gestao/equipe")}>group</span>
-                        <span>Equipo e Inspectores</span>
-                      </Link>
-                    )}
-
-                    {isSuper && (
-                      <>
+                    {/* SEÇÃO 1: GOBERNANZA GLOBAL (Apenas SuperAdmin com permissão de plataforma) */}
+                    {canManagePlatform && (
+                      <div className="pb-1 mb-1 border-b border-slate-border/50 dark:border-slate-800/80">
+                        <div className="px-3.5 pt-1.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-subtext dark:text-slate-400">
+                          Gobernanza
+                        </div>
                         <Link
                           href="/superadmin"
                           onClick={() => setIsMenuOpen(false)}
@@ -442,35 +440,98 @@ export function Header({
                           <span className={getMenuIconClasses("/superadmin/planos")}>loyalty</span>
                           <span>Planes de Suscripción</span>
                         </Link>
-                      </>
+                      </div>
                     )}
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsMenuOpen(false);
-                        setIsEditProfileOpen(true);
-                      }}
-                      className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs text-slate-dark dark:text-slate-200 hover:bg-slate-surface dark:hover:bg-slate-800 rounded-xl mx-1.5 transition-colors text-left cursor-pointer"
-                    >
-                      <span className="material-symbols-outlined text-[18px] text-slate-subtext dark:text-slate-400">person</span>
-                      <span>Mis Datos / Perfil</span>
-                    </button>
+                    {/* SEÇÃO 2: INSPECCIONES SANITARIAS / CONSULTAS (Operação) */}
+                    <div className="pb-1 mb-1 border-b border-slate-border/50 dark:border-slate-800/80">
+                      <div className="px-3.5 pt-1.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-subtext dark:text-slate-400">
+                        {canCreateAudit ? "Inspecciones" : "Consultas"}
+                      </div>
+                      <Link
+                        href="/auditorias"
+                        onClick={() => setIsMenuOpen(false)}
+                        className={getMenuItemClasses("/auditorias")}
+                      >
+                        <span className={getMenuIconClasses("/auditorias")}>assignment</span>
+                        <span>Historial de Inspecciones</span>
+                      </Link>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsMenuOpen(false);
-                        setIsChangePasswordOpen(true);
-                      }}
-                      className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs text-slate-dark dark:text-slate-200 hover:bg-slate-surface dark:hover:bg-slate-800 rounded-xl mx-1.5 transition-colors text-left cursor-pointer"
-                    >
-                      <span className="material-symbols-outlined text-[18px] text-slate-subtext dark:text-slate-400">key</span>
-                      <span>Cambiar Contraseña</span>
-                    </button>
+                      {canCreateAudit && (
+                        <Link
+                          href="/auditorias/nova"
+                          onClick={() => setIsMenuOpen(false)}
+                          className={getMenuItemClasses("/auditorias/nova")}
+                        >
+                          <span className={getMenuIconClasses("/auditorias/nova")}>add_circle</span>
+                          <span>Nueva Inspección</span>
+                        </Link>
+                      )}
+                    </div>
+
+                    {/* SEÇÃO 3: ORGANIZACIÓN (Apenas perfis autorizados de Empresa - não SuperAdmin) */}
+                    {!isSuper && (canManageUsers || canViewBilling) && (
+                      <div className="pb-1 mb-1 border-b border-slate-border/50 dark:border-slate-800/80">
+                        <div className="px-3.5 pt-1.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-subtext dark:text-slate-400">
+                          Organización
+                        </div>
+                        {canManageUsers && (
+                          <Link
+                            href="/gestao/equipe"
+                            onClick={() => setIsMenuOpen(false)}
+                            className={getMenuItemClasses("/gestao/equipe")}
+                          >
+                            <span className={getMenuIconClasses("/gestao/equipe")}>group</span>
+                            <span>Equipo e Inspectores</span>
+                          </Link>
+                        )}
+
+                        {canViewBilling && (
+                          <Link
+                            href="/suscripcion"
+                            onClick={() => setIsMenuOpen(false)}
+                            className={getMenuItemClasses("/suscripcion")}
+                          >
+                            <span className={getMenuIconClasses("/suscripcion")}>credit_card</span>
+                            <span>Mi Suscripción</span>
+                          </Link>
+                        )}
+                      </div>
+                    )}
+
+                    {/* SEÇÃO 4: MI CUENTA (Para todos os perfis autenticados) */}
+                    <div className="pb-1">
+                      <div className="px-3.5 pt-1.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-subtext dark:text-slate-400">
+                        Mi Cuenta
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          setIsEditProfileOpen(true);
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs text-slate-dark dark:text-slate-200 hover:bg-slate-surface dark:hover:bg-slate-800 rounded-xl mx-1.5 transition-colors text-left cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-[18px] text-slate-subtext dark:text-slate-400">person</span>
+                        <span>Mis Datos / Perfil</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          setIsChangePasswordOpen(true);
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs text-slate-dark dark:text-slate-200 hover:bg-slate-surface dark:hover:bg-slate-800 rounded-xl mx-1.5 transition-colors text-left cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-[18px] text-slate-subtext dark:text-slate-400">key</span>
+                        <span>Cambiar Contraseña</span>
+                      </button>
+                    </div>
 
                     <div className="my-1 border-t border-slate-border/70 dark:border-slate-800" />
 
+                    {/* SEÇÃO 5: LOGOUT */}
                     <button
                       type="button"
                       onClick={handleLogout}

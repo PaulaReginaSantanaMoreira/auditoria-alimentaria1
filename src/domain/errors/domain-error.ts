@@ -8,7 +8,21 @@ export abstract class DomainError extends Error {
 
 export class InvalidCifError extends DomainError {
   constructor(cif: string) {
-    super(`O CIF/NIF fornecido é inválido segundo a normativa fiscal espanhola: '${cif}'`);
+    super(`O CIF/NIF/documento fornecido é inválido segundo a normativa fiscal espanhola: '${cif}'`);
+  }
+}
+
+export class InvalidEmailError extends DomainError {
+  constructor(email: string) {
+    super(`O endereço de email '${email}' é inválido. Formato esperado: usuario@dominio.com`);
+  }
+}
+
+export class InvalidPhoneNumberError extends DomainError {
+  constructor(phone: string, reason?: string) {
+    super(
+      `O número de telefone '${phone}' é inválido. ${reason || "Deve conter DDI/DDD e cumprir os padrões nacionais ou internacionais (E.164)."}`
+    );
   }
 }
 
