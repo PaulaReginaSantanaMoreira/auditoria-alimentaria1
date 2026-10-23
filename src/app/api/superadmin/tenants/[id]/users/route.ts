@@ -35,7 +35,7 @@ export async function POST(
     const { id: tenantId } = await params;
     const body = await request.json();
 
-    const { email, fullName, role, temporaryPassword } = body;
+    const { email, fullName, role, temporaryPassword, phone, documentNumber, canViewAllTenantAudits } = body;
 
     if (!email || !fullName) {
       return NextResponse.json(
@@ -70,8 +70,14 @@ export async function POST(
       tenantId,
       email,
       fullName,
+      phone: phone ? String(phone).trim() : undefined,
+      documentNumber: documentNumber ? String(documentNumber).trim() : undefined,
       role: assignedRole,
       temporaryPassword,
+      canViewAllTenantAudits:
+        typeof canViewAllTenantAudits === "boolean"
+          ? canViewAllTenantAudits
+          : assignedRole === "TENANT_ADMIN",
     });
 
     return NextResponse.json(

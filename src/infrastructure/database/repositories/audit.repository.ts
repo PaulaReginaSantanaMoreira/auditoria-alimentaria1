@@ -120,7 +120,7 @@ export class AuditRepository implements IAuditRepository {
     );
   }
 
-  public async save(audit: Audit): Promise<void> {
+  public async save(audit: Audit, options?: { tenantId?: string | null }): Promise<void> {
     const payload: Record<string, any> = {
       id: audit.id,
       auditor_id: audit.auditor.id,
@@ -135,7 +135,19 @@ export class AuditRepository implements IAuditRepository {
       updated_at: audit.updatedAt.toISOString(),
     };
 
+    if (options?.tenantId && options.tenantId !== "global") {
+      payload.tenant_id = options.tenantId;
+    } else {
+      payload.tenant_id = null;
+    }
+
     let { error: auditError } = await this.dbClient.from("audits").insert(payload);
+
+    if (auditError && auditError.message.includes("tenant_id")) {
+      delete payload.tenant_id;
+      const retry = await this.dbClient.from("audits").insert(payload);
+      auditError = retry.error;
+    }
 
     if (auditError && auditError.message.includes("access_scope")) {
       delete payload.access_scope;

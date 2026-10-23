@@ -7,6 +7,7 @@ export interface AuthSession {
   userId?: string;
   identifier: string;
   role: string;
+  tenantId?: string;
   fullName?: string;
   token?: string;
   expiresAt?: number;

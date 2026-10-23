@@ -7,7 +7,7 @@ export interface IAuditRepository {
     tenantId: string,
     options?: { excludeInvalidated?: boolean; auditorId?: string }
   ): Promise<Audit[]>;
-  save(audit: Audit): Promise<void>;
+  save(audit: Audit, options?: { tenantId?: string | null }): Promise<void>;
   update(audit: Audit): Promise<void>;
   delete(id: string): Promise<void>;
 }

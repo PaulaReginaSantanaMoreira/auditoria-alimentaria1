@@ -73,9 +73,13 @@ export async function resolveSessionAndRole(req: NextRequest): Promise<ResolvedS
 
       let effectiveTenantId = payload.tenantId;
 
-      // Se for SuperAdmin, pode assumir qualquer tenant solicitado via x-tenant-id
+      // Se for SuperAdmin, pode assumir qualquer tenant solicitado via x-tenant-id ou operar em Modo Global (Sin Tenant)
       if (role === "PLATFORM_SUPERADMIN") {
-        effectiveTenantId = requestedTenantId || payload.tenantId;
+        if (!requestedTenantId || requestedTenantId === "global" || requestedTenantId === "none") {
+          effectiveTenantId = undefined;
+        } else {
+          effectiveTenantId = requestedTenantId;
+        }
       } else if (requestedTenantId && requestedTenantId !== payload.tenantId) {
         // Valida se o usuário comum realmente possui acesso ativo ao tenant solicitado
         try {
@@ -141,12 +145,17 @@ export async function resolveSessionAndRole(req: NextRequest): Promise<ResolvedS
       .maybeSingle();
 
     if (superuser) {
+      const effTenantId =
+        requestedTenantId === "global" || requestedTenantId === "none" || !requestedTenantId
+          ? undefined
+          : requestedTenantId;
+
       return {
         userId: user.id,
         email: user.email,
         role: "PLATFORM_SUPERADMIN",
         scope: "CONFIDENTIAL",
-        tenantId: requestedTenantId,
+        tenantId: effTenantId,
         isAuthenticated: true,
       };
     }

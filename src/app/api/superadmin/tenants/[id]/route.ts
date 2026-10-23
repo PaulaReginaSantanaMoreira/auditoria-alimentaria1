@@ -132,3 +132,34 @@ export async function PATCH(
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    await ensureSuperAdmin();
+    const { id } = await params;
+
+    const existing = await tenantRepo.findById(id);
+    if (!existing) {
+      return NextResponse.json(
+        { success: false, error: "Empresa no encontrada." },
+        { status: 404 }
+      );
+    }
+
+    await tenantRepo.delete(id);
+
+    return NextResponse.json({
+      success: true,
+      message: `Empresa "${existing.tenant.name}" y sus configuraciones asociadas eliminadas con éxito.`,
+    });
+  } catch (error: any) {
+    console.error("Erro ao deletar tenant:", error);
+    return NextResponse.json(
+      { success: false, error: error.message || "Error al eliminar la empresa." },
+      { status: 500 }
+    );
+  }
+}

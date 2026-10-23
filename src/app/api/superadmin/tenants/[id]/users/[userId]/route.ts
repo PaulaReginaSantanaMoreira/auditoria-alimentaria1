@@ -13,7 +13,7 @@ export async function PATCH(
     const { id: tenantId, userId } = await params;
     const body = await request.json();
 
-    const { fullName, role, isActive } = body;
+    const { fullName, role, isActive, phone, documentNumber, canViewAllTenantAudits } = body;
 
     // REGRA DE SEGURANÇA MANDATÓRIA:
     // Nenhum usuário vinculado a tenant poderá ter perfil de superadmin.
@@ -38,8 +38,12 @@ export async function PATCH(
       tenantId,
       userId,
       fullName: fullName !== undefined ? String(fullName).trim() : undefined,
+      phone: phone !== undefined ? String(phone).trim() : undefined,
+      documentNumber: documentNumber !== undefined ? String(documentNumber).trim() : undefined,
       role: role !== undefined ? role : undefined,
       isActive: isActive !== undefined ? Boolean(isActive) : undefined,
+      canViewAllTenantAudits:
+        canViewAllTenantAudits !== undefined ? Boolean(canViewAllTenantAudits) : undefined,
     });
 
     return NextResponse.json({

@@ -161,6 +161,10 @@ export default function NovaAuditoriaPage() {
 
     // Guardar borrador activo en localStorage para continuidad inmediata
     const accessScope: AuditAccessScope = isSuperAdmin ? "CONFIDENTIAL" : "TENANT";
+    const effectiveTenantId =
+      isSuperAdmin && (!session?.tenantId || session?.tenantId === "global")
+        ? null
+        : session?.tenantId || null;
 
     const draftPayload: ActiveDraft = {
       id: newAuditId,
@@ -188,6 +192,7 @@ export default function NovaAuditoriaPage() {
         status: "IN_PROGRESS",
         evaluations: {},
         accessScope,
+        tenantId: effectiveTenantId || undefined,
         createdByRole: isSuperAdmin ? "PLATFORM_SUPERADMIN" : "AUDITOR",
         createdByEmail: auditorName,
         isSynced: false,
@@ -208,6 +213,7 @@ export default function NovaAuditoriaPage() {
             sanitaryRegistryNumber: rgseaa.trim(),
             normativeFramework: normative,
             accessScope,
+            tenantId: effectiveTenantId,
           }),
         });
       } catch {
@@ -320,15 +326,27 @@ export default function NovaAuditoriaPage() {
             </p>
           </section>
 
-          {/* Alerta de Modo SuperAdmin Confidencial */}
+          {/* Alerta de Modo SuperAdmin Confidencial / Sin Tenant */}
           {isSuperAdmin && (
-            <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-500/30 rounded-xl p-3.5 flex items-center gap-3 text-xs text-emerald-900 dark:text-emerald-200 font-semibold mb-2 shadow-sm">
-              <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-[20px]">verified_user</span>
+            <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-500/40 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-emerald-950 dark:text-emerald-100 mb-3 shadow-sm animate-in fade-in">
+              <div className="flex items-start sm:items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                  <span className="material-symbols-outlined text-[22px]">shield</span>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <strong className="text-sm font-bold text-emerald-950 dark:text-emerald-100">
+                      Inspección Sanitaria Oficial Independiente (Sin Tenant)
+                    </strong>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-200/80 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-200 uppercase tracking-wide">
+                      Plataforma Global
+                    </span>
+                  </div>
+                  <p className="text-emerald-800 dark:text-emerald-300 mt-0.5 leading-relaxed">
+                    Como <strong>SuperAdministrador</strong>, usted opera de manera independiente y sin vinculación forzosa a ninguna empresa. Esta acta quedará registrada con alcance <strong>Confidencial</strong> y bajo su control exclusivo en la gobernanza.
+                  </p>
+                </div>
               </div>
-              <p className="leading-relaxed">
-                <strong>Inspección Sanitaria de Administrador:</strong> Esta auditoría quedará clasificada con visibilidade confidencial. Exclusivamente usted como Administrador Master podrá visualizar sus registros e informes.
-              </p>
             </div>
           )}
 

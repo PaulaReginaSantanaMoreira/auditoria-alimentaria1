@@ -13,24 +13,38 @@ export async function GET(req: NextRequest) {
 
     const adminClient = createAdminClient();
 
-    // Se for SuperAdmin, tem acesso a todas as empresas cadastradas
+    // Se for SuperAdmin, tem acesso a todas as empresas cadastradas + Modo Plataforma Global
     if (session.role === "PLATFORM_SUPERADMIN") {
       const { data: allTenants } = await adminClient
         .from("tenants")
         .select("id, name, cif, status")
         .order("name", { ascending: true });
 
-      const mapped = (allTenants || []).map((t: any) => ({
-        id: t.id,
-        name: t.name,
-        cif: t.cif,
-        role: "PLATFORM_SUPERADMIN",
-        status: t.status,
-      }));
+      const mapped = [
+        {
+          id: "global",
+          name: "Plataforma Global (Sin Tenant)",
+          cif: "MASTER",
+          role: "PLATFORM_SUPERADMIN",
+          status: "ACTIVE",
+        },
+        ...(allTenants || []).map((t: any) => ({
+          id: t.id,
+          name: t.name,
+          cif: t.cif,
+          role: "PLATFORM_SUPERADMIN",
+          status: t.status,
+        })),
+      ];
+
+      const activeTenantId =
+        session.tenantId && session.tenantId !== "global"
+          ? session.tenantId
+          : "global";
 
       return NextResponse.json({
         success: true,
-        activeTenantId: session.tenantId || (mapped[0]?.id ?? null),
+        activeTenantId,
         tenants: mapped,
       });
     }
@@ -85,6 +99,42 @@ export async function POST(req: NextRequest) {
     let tenantName = "";
 
     if (session.role === "PLATFORM_SUPERADMIN") {
+      if (tenantId === "global" || !tenantId || tenantId === "none") {
+        // SuperAdmin desvinculado de qualquer tenant (Master Global)
+        const { token, expiresAt } = await signSessionToken({
+          sub: session.userId,
+          email: session.email || "superadmin@bioauditpro.com",
+          role: "PLATFORM_SUPERADMIN",
+          scope: "CONFIDENTIAL",
+        });
+
+        const response = NextResponse.json({
+          success: true,
+          message: "Modo Plataforma Global (Sin Tenant) activado con éxito.",
+          activeTenantId: "global",
+          role: "PLATFORM_SUPERADMIN",
+          token,
+          expiresAt,
+        });
+
+        response.cookies.set("bioaudit_active_tenant", "global", {
+          path: "/",
+          httpOnly: false,
+          sameSite: "lax",
+          maxAge: 60 * 60 * 24 * 30,
+        });
+
+        response.cookies.set("bioaudit_token", token, {
+          path: "/",
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          maxAge: 60 * 60 * 24 * 7,
+        });
+
+        return response;
+      }
+
       const { data: t } = await adminClient.from("tenants").select("name").eq("id", tenantId).maybeSingle();
       tenantName = t?.name || "Empresa";
     } else {

@@ -239,11 +239,19 @@ export function Header({
                 type="button"
                 onClick={() => setIsTenantSwitchOpen((prev) => !prev)}
                 className="h-8 px-2.5 rounded-xl bg-surface-container-low hover:bg-primary/10 hover:text-primary text-on-surface text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer border border-slate-border/80 shadow-sm"
-                title="Empresa activa seleccionada"
+                title={
+                  isSuperAdmin && (!activeTenantId || activeTenantId === "global")
+                    ? "Modo Plataforma Global (Sin Tenant vinculado)"
+                    : "Empresa activa seleccionada"
+                }
               >
-                <span className="material-symbols-outlined text-[16px] text-primary">domain</span>
-                <span className="truncate max-w-[130px] md:max-w-[180px]">
-                  {tenants.find((t) => t.id === activeTenantId)?.name || "Mi Empresa"}
+                <span className="material-symbols-outlined text-[16px] text-primary">
+                  {isSuperAdmin && (!activeTenantId || activeTenantId === "global") ? "shield" : "domain"}
+                </span>
+                <span className="truncate max-w-[130px] md:max-w-[190px]">
+                  {isSuperAdmin && (!activeTenantId || activeTenantId === "global")
+                    ? "🛡️ Plataforma Global"
+                    : tenants.find((t) => t.id === activeTenantId)?.name || "Mi Empresa"}
                 </span>
                 {tenants.length > 1 && (
                   <span className="material-symbols-outlined text-[15px] text-slate-subtext">arrow_drop_down</span>
@@ -253,29 +261,44 @@ export function Header({
               {isTenantSwitchOpen && tenants.length > 1 && (
                 <div className="absolute right-0 mt-1.5 w-64 rounded-2xl bg-white dark:bg-slate-900 shadow-2xl border border-slate-border py-1.5 z-50 text-slate-dark dark:text-slate-100 animate-in fade-in slide-in-from-top-1 duration-150">
                   <div className="px-3.5 py-1.5 text-[10px] font-bold text-slate-subtext uppercase tracking-wider border-b border-slate-border/60">
-                    Mis Organizaciones ({tenants.length})
+                    {isSuperAdmin ? "Ámbito Operativo / Empresas" : `Mis Organizaciones (${tenants.length})`}
                   </div>
-                  <div className="max-h-60 overflow-y-auto py-1">
-                    {tenants.map((t) => (
-                      <button
-                        key={t.id}
-                        type="button"
-                        onClick={() => handleSwitchTenant(t.id)}
-                        className={`w-full text-left px-3.5 py-2 text-xs flex items-center justify-between hover:bg-surface-container transition-colors cursor-pointer ${
-                          t.id === activeTenantId
-                            ? "font-bold text-primary bg-primary/10 dark:bg-emerald-950/40"
-                            : "text-on-surface"
-                        }`}
-                      >
-                        <div className="truncate pr-2">
-                          <div className="truncate font-semibold">{t.name}</div>
-                          <div className="text-[10px] text-slate-subtext font-mono">CIF: {t.cif} • {t.role}</div>
-                        </div>
-                        {t.id === activeTenantId && (
-                          <span className="material-symbols-outlined text-primary text-[16px] shrink-0">check_circle</span>
-                        )}
-                      </button>
-                    ))}
+                  <div className="max-h-64 overflow-y-auto py-1">
+                    {tenants.map((t) => {
+                      const isSelected =
+                        t.id === activeTenantId ||
+                        (t.id === "global" && (!activeTenantId || activeTenantId === "global"));
+
+                      return (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => handleSwitchTenant(t.id)}
+                          className={`w-full text-left px-3.5 py-2 text-xs flex items-center justify-between hover:bg-surface-container transition-colors cursor-pointer ${
+                            isSelected
+                              ? "font-bold text-primary bg-primary/10 dark:bg-emerald-950/40"
+                              : "text-on-surface"
+                          }`}
+                        >
+                          <div className="truncate pr-2">
+                            <div className="truncate font-semibold flex items-center gap-1.5">
+                              {t.id === "global" && (
+                                <span className="material-symbols-outlined text-primary text-[15px]">shield</span>
+                              )}
+                              <span>{t.name}</span>
+                            </div>
+                            <div className="text-[10px] text-slate-subtext font-mono">
+                              {t.id === "global" ? "Autoridad Sanitaria • Sin Tenant" : `CIF: ${t.cif} • ${t.role}`}
+                            </div>
+                          </div>
+                          {isSelected && (
+                            <span className="material-symbols-outlined text-primary text-[16px] shrink-0">
+                              check_circle
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}

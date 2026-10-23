@@ -18,8 +18,13 @@ export async function POST(req: NextRequest) {
 
     // Se quem cria for PLATFORM_SUPERADMIN, o escopo da auditoria é CONFIDENTIAL por padrão
     let accessScope: AuditAccessScope = "TENANT";
+    let tenantId = body.tenantId || null;
+
     if (hasPermission(callerRole, "audit:read_confidential") || body.accessScope === "CONFIDENTIAL") {
       accessScope = "CONFIDENTIAL";
+      if (tenantId === "global" || !tenantId) {
+        tenantId = null; // Independente de empresa (Plataforma Global)
+      }
     } else if (body.accessScope === "PRIVATE") {
       accessScope = "PRIVATE";
     }
@@ -30,6 +35,7 @@ export async function POST(req: NextRequest) {
 
     const result = await useCase.execute({
       ...body,
+      tenantId,
       accessScope,
     });
 

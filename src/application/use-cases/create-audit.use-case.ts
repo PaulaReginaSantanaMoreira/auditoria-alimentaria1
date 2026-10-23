@@ -70,7 +70,7 @@ export class CreateAuditUseCase {
     }
 
     // Persiste auditoria completa com seus 30 pontos
-    await this.auditRepository.save(audit);
+    await this.auditRepository.save(audit, { tenantId: input.tenantId });
 
     return {
       auditId: audit.id,

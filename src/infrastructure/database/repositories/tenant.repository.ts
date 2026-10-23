@@ -58,7 +58,10 @@ export class TenantRepository implements ITenantRepository {
     }
 
     return (tenants || []).map((t: any) => {
-      const sub = t.tenant_subscriptions?.[0] || {
+      const rawSub = Array.isArray(t.tenant_subscriptions)
+        ? t.tenant_subscriptions[0]
+        : t.tenant_subscriptions;
+      const sub = rawSub || {
         id: "default-sub",
         plan_tier: "PRO",
         max_user_seats: 5,
@@ -123,7 +126,10 @@ export class TenantRepository implements ITenantRepository {
 
     if (error || !t) return null;
 
-    const sub = (t as any).tenant_subscriptions?.[0] || {
+    const rawSub = Array.isArray((t as any).tenant_subscriptions)
+      ? (t as any).tenant_subscriptions[0]
+      : (t as any).tenant_subscriptions;
+    const sub = rawSub || {
       id: "default-sub",
       plan_tier: "PRO",
       max_user_seats: 5,
@@ -417,6 +423,13 @@ export class TenantRepository implements ITenantRepository {
     return this.updateTenantDetails(tenantId, info);
   }
 
+  public async delete(id: string): Promise<void> {
+    const { error } = await this.client.from("tenants").delete().eq("id", id);
+    if (error) {
+      throw new Error(`Falha ao remover empresa/tenant: ${error.message}`);
+    }
+  }
+
   public async getSubscriptionContracts(tenantId: string): Promise<SubscriptionContract[]> {
     const { data: records, error } = await this.client
       .from("tenant_subscription_contracts")
@@ -634,6 +647,7 @@ export class TenantRepository implements ITenantRepository {
     documentNumber?: string;
     role: "TENANT_ADMIN" | "AUDITOR" | "INSPECTOR" | "VIEWER";
     temporaryPassword?: string;
+    canViewAllTenantAudits?: boolean;
   }): Promise<{ user: TenantUserDetail; temporaryPassword: string }> {
     if (String(params.role).toUpperCase().includes("SUPERADMIN")) {
       throw new Error("VIOLAÇÃO DE SEGURANÇA: Nenhum usuário vinculado a tenant pode possuir perfil de SuperAdmin.");
@@ -687,13 +701,18 @@ export class TenantRepository implements ITenantRepository {
       throw new Error(`Falha ao registrar credencial de autenticação: ${err.message}`);
     }
 
+    const effectiveCanViewAll =
+      params.canViewAllTenantAudits !== undefined
+        ? Boolean(params.canViewAllTenantAudits)
+        : params.role === "TENANT_ADMIN";
+
     const { data: tenantUserRecord, error: linkError } = await this.client
       .from("tenant_users")
       .insert({
         tenant_id: params.tenantId,
         user_id: authUserId,
         role: params.role,
-        can_view_all_tenant_audits: params.role === "TENANT_ADMIN",
+        can_view_all_tenant_audits: effectiveCanViewAll,
         is_active: true,
       })
       .select()
@@ -753,8 +772,11 @@ export class TenantRepository implements ITenantRepository {
     tenantId: string;
     userId: string;
     fullName?: string;
+    phone?: string;
+    documentNumber?: string;
     role?: "TENANT_ADMIN" | "AUDITOR" | "INSPECTOR" | "VIEWER";
     isActive?: boolean;
+    canViewAllTenantAudits?: boolean;
   }): Promise<TenantUserDetail> {
     if (params.role && String(params.role).toUpperCase().includes("SUPERADMIN")) {
       throw new Error("VIOLAÇÃO DE SEGURANÇA: Nenhum usuário vinculado a tenant pode possuir perfil de SuperAdmin.");
@@ -774,7 +796,11 @@ export class TenantRepository implements ITenantRepository {
     const updatePayload: any = { updated_at: new Date().toISOString() };
     if (params.role !== undefined) {
       updatePayload.role = params.role;
-      updatePayload.can_view_all_tenant_audits = params.role === "TENANT_ADMIN";
+    }
+    if (params.canViewAllTenantAudits !== undefined) {
+      updatePayload.can_view_all_tenant_audits = Boolean(params.canViewAllTenantAudits);
+    } else if (params.role === "TENANT_ADMIN") {
+      updatePayload.can_view_all_tenant_audits = true;
     }
     if (params.isActive !== undefined) {
       updatePayload.is_active = params.isActive;
@@ -791,34 +817,45 @@ export class TenantRepository implements ITenantRepository {
       throw new Error(`Falha ao atualizar dados do membro: ${updateMemberError.message}`);
     }
 
-    const authUpdatePayload: any = {};
-    if (params.fullName) {
-      authUpdatePayload.user_metadata = {
-        full_name: params.fullName.trim(),
-        role: params.role || member.role,
-        tenant_id: params.tenantId,
-      };
+    // Obter metadados auth atuais para mesclagem sem perda de dados
+    let authUserMeta: any = {};
+    let email = "";
+    try {
+      const { data: authUser } = await this.client.auth.admin.getUserById(params.userId);
+      if (authUser?.user) {
+        authUserMeta = authUser.user.user_metadata || {};
+        email = authUser.user.email || "";
+      }
+    } catch {
+      // ignore
     }
 
-    let email = "";
-    let fullName = params.fullName || "";
+    const authUpdatePayload: any = {
+      user_metadata: {
+        ...authUserMeta,
+        full_name: params.fullName !== undefined ? params.fullName.trim() : (authUserMeta.full_name || ""),
+        phone: params.phone !== undefined ? params.phone.trim() : (authUserMeta.phone || ""),
+        document_number:
+          params.documentNumber !== undefined ? params.documentNumber.trim() : (authUserMeta.document_number || ""),
+        role: params.role || authUserMeta.role || member.role,
+        tenant_id: params.tenantId,
+      },
+    };
+
+    let fullName = params.fullName || authUserMeta.full_name || "Inspector";
+    let phone = params.phone !== undefined ? params.phone.trim() : authUserMeta.phone;
+    let documentNumber = params.documentNumber !== undefined ? params.documentNumber.trim() : authUserMeta.document_number;
 
     try {
-      if (params.fullName || params.role) {
-        const { data: authUser, error: authError } = await this.client.auth.admin.updateUserById(
-          params.userId,
-          authUpdatePayload
-        );
-        if (!authError && authUser?.user) {
-          email = authUser.user.email || "";
-          fullName = authUser.user.user_metadata?.full_name || fullName;
-        }
-      } else {
-        const { data: authUser } = await this.client.auth.admin.getUserById(params.userId);
-        if (authUser?.user) {
-          email = authUser.user.email || "";
-          fullName = authUser.user.user_metadata?.full_name || fullName;
-        }
+      const { data: authUser, error: authError } = await this.client.auth.admin.updateUserById(
+        params.userId,
+        authUpdatePayload
+      );
+      if (!authError && authUser?.user) {
+        email = authUser.user.email || email;
+        fullName = authUser.user.user_metadata?.full_name || fullName;
+        phone = authUser.user.user_metadata?.phone || phone;
+        documentNumber = authUser.user.user_metadata?.document_number || documentNumber;
       }
     } catch (authErr: any) {
       console.warn("Aviso ao atualizar metadados de autenticação:", authErr.message);
@@ -829,6 +866,8 @@ export class TenantRepository implements ITenantRepository {
       userId: params.userId,
       email,
       fullName,
+      phone,
+      documentNumber,
       role: updatedMember.role,
       canViewAllTenantAudits: updatedMember.can_view_all_tenant_audits,
       isActive: updatedMember.is_active,
