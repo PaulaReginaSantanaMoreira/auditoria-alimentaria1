@@ -710,49 +710,33 @@ export default function SuperAdminPage() {
       <main className="flex-1 flex flex-col relative w-full pt-20 pb-24 bg-surface dark:bg-slate-950 min-h-screen">
         <div className="w-full max-w-5xl mx-auto px-margin-mobile space-y-space-md">
           {/* Hero Banner Gobernanza */}
-          <div className="bg-surface-container-lowest rounded-2xl p-space-md sm:p-space-lg border border-slate-border shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-space-md">
-            <div>
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary font-bold text-xs uppercase tracking-wider mb-2">
+          <div className="bg-surface-container-lowest rounded-2xl p-space-md sm:p-space-lg border border-slate-border shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-space-md">
+            <div className="flex-1 min-w-0 pr-0 md:pr-4">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary font-bold text-xs uppercase tracking-wider mb-2 whitespace-nowrap">
                 <span className="material-symbols-outlined text-[16px]">admin_panel_settings</span>
-                <span>Gobernanza Multi-Empresa</span>
+                <span>Gobernanza de la Plataforma</span>
               </div>
-              <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight">
-                Gobernanza &amp; Inspecciones Sanitarias
+              <h1 className="text-xl sm:text-2xl font-black text-on-surface tracking-tight leading-snug">
+                Gobernanza de Empresas &amp; Clientes
               </h1>
-              <p className="mt-1 text-body-sm text-slate-subtext max-w-2xl">
-                Administre empresas clientes (Tenants), gestione inspectores, restablezca contraseñas y asigne cupos oficiales con visibilidad exclusiva.
+              <p className="mt-1 text-body-sm text-slate-subtext max-w-xl leading-relaxed">
+                Administre empresas clientes (Tenants), gestione contratos, inspectores oficiales y vigencia de licencias.
               </p>
             </div>
 
-            <div className="flex items-center gap-2.5 flex-wrap shrink-0">
+            <div className="flex items-center gap-3 shrink-0 flex-wrap">
               <Link
                 href="/superadmin/planos"
-                className="inline-flex items-center gap-2 px-space-md py-3 rounded-xl bg-surface-container hover:bg-surface-container-high border border-slate-border text-on-surface font-bold text-xs uppercase tracking-wider shadow-sm transition-all cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-border text-xs font-semibold text-on-surface hover:bg-surface-container transition-colors"
               >
                 <span className="material-symbols-outlined text-[18px]">loyalty</span>
                 <span>Planes de Suscripción</span>
               </Link>
 
-              <Link
-                href="/auditorias"
-                className="inline-flex items-center gap-2 px-space-md py-3 rounded-xl bg-surface-container hover:bg-surface-container-high border border-slate-border text-on-surface font-bold text-xs uppercase tracking-wider shadow-sm transition-all cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[18px]">assignment</span>
-                <span>Ver Inspecciones</span>
-              </Link>
-
-              <Link
-                href="/auditorias/nova"
-                className="inline-flex items-center gap-2 px-space-md py-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs uppercase tracking-wider shadow-sm transition-all cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[18px]">add_circle</span>
-                <span>Nueva Inspección</span>
-              </Link>
-
               <button
                 type="button"
                 onClick={() => setShowCreateModal(true)}
-                className="inline-flex items-center gap-2 px-space-md py-3 rounded-xl bg-primary hover:bg-primary-container text-white font-bold text-xs uppercase tracking-wider shadow-sm transition-all cursor-pointer"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary hover:bg-primary-hover text-white font-bold text-xs uppercase tracking-wider shadow-sm transition-all cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[18px]">add_business</span>
                 <span>Nueva Empresa</span>

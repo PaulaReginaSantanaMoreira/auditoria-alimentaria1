@@ -385,7 +385,7 @@ export function CreateTenantModal({
                     </div>
 
                     <div className="mt-2 text-xs font-black text-on-surface">
-                      {isFree ? "🎁 Bonificado (R$ 0)" : `R$ ${plan.price.toFixed(2)}`}
+                      {isFree ? "🎁 Bonificado (0,00 €)" : `${plan.price.toFixed(2)} €`}
                     </div>
                   </button>
                 );
@@ -398,7 +398,7 @@ export function CreateTenantModal({
                   Plan: <strong className="text-on-surface">{selectedPlan.name}</strong> ({selectedPlan.durationDays} días / {selectedPlan.maxUserSeats} puestos)
                 </span>
                 <span className="font-bold text-on-surface">
-                  {selectedPlan.price === 0 ? "Sin costo inicial" : `R$ ${selectedPlan.price.toFixed(2)}`}
+                  {selectedPlan.price === 0 ? "Sin costo inicial" : `${selectedPlan.price.toFixed(2)} €`}
                 </span>
               </div>
             )}

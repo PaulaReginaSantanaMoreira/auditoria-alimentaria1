@@ -40,10 +40,6 @@ export default function LoginPage() {
 
     const mode = process.env.NEXT_PUBLIC_APP_MODE;
     setIsDemoMode(mode === "demo");
-    if (mode === "demo") {
-      setIdentifier("auditor@bioauditpro.com");
-      setPassword("Admin1234!");
-    }
 
     // 1. Validação de Usuário Já Autenticado (Sessão Ativa e Não Expirada)
     const checkActiveSession = async () => {
@@ -331,7 +327,7 @@ export default function LoginPage() {
                       handleLogin();
                     }
                   }}
-                  placeholder="auditor@bioauditpro.com"
+                  placeholder="usuario@empresa.com"
                   className="w-full h-11 pl-10 pr-space-sm rounded-xl bg-surface border border-slate-border text-on-surface text-body-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                 />
               </div>

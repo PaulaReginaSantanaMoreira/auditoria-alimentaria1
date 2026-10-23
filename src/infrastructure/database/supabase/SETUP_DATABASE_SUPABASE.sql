@@ -2,10 +2,12 @@
 -- BIOAUDIT PRO — SCRIPT CONSOLIDADO DE IMPLANTAÇÃO COMPLETA NO SUPABASE
 -- Execute este script no SQL Editor do seu Dashboard Supabase (1-Click Run)
 -- Marco Normativo: CE 852/2004, ISO 22000, RD 1021/2022, GDPR/RGPD e LGPD
+-- Versão Consolidada: 2.4.0+
 -- =============================================================================
 
--- 1. Habilitar extensão de UUID
+-- 1. Habilitar extensões
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- 2. Tabela de Tenants (Empresas / Organizações)
 CREATE TABLE IF NOT EXISTS public.tenants (
@@ -14,17 +16,46 @@ CREATE TABLE IF NOT EXISTS public.tenants (
     cif TEXT NOT NULL UNIQUE,
     slug TEXT NOT NULL UNIQUE,
     status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'SUSPENDED', 'PENDING')),
+    address TEXT,
+    phone TEXT,
+    admin_email TEXT,
+    admin_name TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. Tabela de Subscrições (Pertence ao Tenant)
+CREATE INDEX IF NOT EXISTS idx_tenants_admin_email ON public.tenants(admin_email);
+CREATE INDEX IF NOT EXISTS idx_tenants_cif ON public.tenants(cif);
+
+-- 3. Tabela de Catálogo de Planos de Subscrição
+CREATE TABLE IF NOT EXISTS public.subscription_plans (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name TEXT NOT NULL,
+    code TEXT NOT NULL UNIQUE,
+    description TEXT,
+    duration_days INT NOT NULL DEFAULT 30,
+    max_user_seats INT NOT NULL DEFAULT 1,
+    price NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+    currency TEXT NOT NULL DEFAULT 'EUR',
+    is_default BOOLEAN NOT NULL DEFAULT FALSE,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_subscription_plans_code ON public.subscription_plans(code);
+CREATE INDEX IF NOT EXISTS idx_subscription_plans_active ON public.subscription_plans(is_active);
+
+-- 4. Tabela de Subscrições Ativas (Pertence ao Tenant)
 CREATE TABLE IF NOT EXISTS public.tenant_subscriptions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE UNIQUE,
     plan_tier TEXT NOT NULL DEFAULT 'PRO' CHECK (plan_tier IN ('STARTER', 'PRO', 'ENTERPRISE')),
     max_user_seats INT NOT NULL DEFAULT 5 CHECK (max_user_seats >= 1),
     status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'EXPIRED', 'SUSPENDED')),
+    payment_status TEXT NOT NULL DEFAULT 'PAID' CHECK (payment_status IN ('PAID', 'COURTESY', 'PENDING_PAYMENT')),
+    invoice_ref TEXT,
+    notes TEXT,
     valid_from TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '365 days'),
     feature_flags JSONB NOT NULL DEFAULT '{"custom_rubric": true, "offline_sync": true, "export_pdf": true, "analytics": true}'::jsonb,
@@ -32,7 +63,28 @@ CREATE TABLE IF NOT EXISTS public.tenant_subscriptions (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 4. Tabela de Superusuários da Plataforma (Platform Admins)
+-- 5. Tabela de Histórico de Contratos e Renovações
+CREATE TABLE IF NOT EXISTS public.tenant_subscription_contracts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+    subscription_id UUID REFERENCES public.tenant_subscriptions(id) ON DELETE SET NULL,
+    action_type TEXT NOT NULL DEFAULT 'RENEWAL' CHECK (action_type IN ('CREATION', 'RENEWAL', 'EXTENSION', 'SEATS_ADJUSTMENT')),
+    valid_from TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMPTZ NOT NULL,
+    days_added INT NOT NULL DEFAULT 0,
+    seats INT NOT NULL DEFAULT 5,
+    payment_status TEXT NOT NULL DEFAULT 'PAID' CHECK (payment_status IN ('PAID', 'COURTESY', 'PENDING_PAYMENT')),
+    amount NUMERIC(10, 2),
+    invoice_ref TEXT,
+    notes TEXT,
+    created_by TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_tenant_sub_contracts_tenant ON public.tenant_subscription_contracts(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_tenant_sub_contracts_created_at ON public.tenant_subscription_contracts(created_at DESC);
+
+-- 6. Tabela de Superusuários da Plataforma (Platform Admins)
 CREATE TABLE IF NOT EXISTS public.platform_superusers (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE UNIQUE,
@@ -40,7 +92,7 @@ CREATE TABLE IF NOT EXISTS public.platform_superusers (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 5. Tabela de Usuários Vinculados ao Tenant
+-- 7. Tabela de Usuários Vinculados ao Tenant
 CREATE TABLE IF NOT EXISTS public.tenant_users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
@@ -53,7 +105,7 @@ CREATE TABLE IF NOT EXISTS public.tenant_users (
     UNIQUE(tenant_id, user_id)
 );
 
--- 6. Trigger de Limite de Assentos (Seats Enforcement)
+-- 8. Trigger de Limite de Assentos (Seats Enforcement)
 CREATE OR REPLACE FUNCTION public.check_tenant_seats_limit()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
 DECLARE
@@ -86,7 +138,7 @@ CREATE TRIGGER trg_check_tenant_seats
 BEFORE INSERT OR UPDATE OF is_active ON public.tenant_users
 FOR EACH ROW EXECUTE FUNCTION public.check_tenant_seats_limit();
 
--- 7. Tabela de Auditores Oficiais
+-- 9. Tabela de Auditores Oficiais
 CREATE TABLE IF NOT EXISTS public.auditors (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     auth_user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -98,7 +150,7 @@ CREATE TABLE IF NOT EXISTS public.auditors (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 8. Tabela de Empresas Auditadas
+-- 10. Tabela de Empresas Auditadas
 CREATE TABLE IF NOT EXISTS public.companies (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID REFERENCES public.tenants(id) ON DELETE CASCADE,
@@ -110,7 +162,7 @@ CREATE TABLE IF NOT EXISTS public.companies (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 9. Tabela de Templates de Rubricas (Padrão 30 Pontos vs Customizado)
+-- 11. Tabela de Templates de Rúbricas (Padrão 30 Pontos vs Customizado)
 CREATE TABLE IF NOT EXISTS public.control_point_templates (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID REFERENCES public.tenants(id) ON DELETE CASCADE,
@@ -130,7 +182,7 @@ CREATE TABLE IF NOT EXISTS public.control_point_templates (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_cpt_tenant_code 
 ON public.control_point_templates (COALESCE(tenant_id, '00000000-0000-0000-0000-000000000000'::uuid), code);
 
--- 10. Tabela de Auditorias Sanitárias
+-- 12. Tabela de Auditorias Sanitárias
 CREATE TABLE IF NOT EXISTS public.audits (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID REFERENCES public.tenants(id) ON DELETE CASCADE,
@@ -150,7 +202,7 @@ CREATE TABLE IF NOT EXISTS public.audits (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 11. Tabela de Avaliações dos Pontos de Controle
+-- 13. Tabela de Avaliações dos Pontos de Controle
 CREATE TABLE IF NOT EXISTS public.audit_evaluations (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     audit_id UUID NOT NULL REFERENCES public.audits(id) ON DELETE CASCADE,
@@ -166,7 +218,7 @@ CREATE TABLE IF NOT EXISTS public.audit_evaluations (
     UNIQUE(audit_id, control_point_code)
 );
 
--- 12. Tabela de Rastreabilidade de Consentimento (GDPR / LGPD)
+-- 14. Tabela de Rastreabilidade de Consentimento (GDPR / LGPD)
 CREATE TABLE IF NOT EXISTS public.user_consent_logs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
@@ -178,7 +230,7 @@ CREATE TABLE IF NOT EXISTS public.user_consent_logs (
     consented_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 13. Funções de Apoio ao Row Level Security (RLS)
+-- 15. Funções de Apoio ao Row Level Security (RLS)
 CREATE OR REPLACE FUNCTION public.is_platform_superadmin()
 RETURNS BOOLEAN LANGUAGE plpgsql SECURITY DEFINER AS $$
 BEGIN
@@ -213,9 +265,11 @@ BEGIN
 END;
 $$;
 
--- 14. Habilitar RLS em todas as tabelas
+-- 16. Habilitar RLS em todas as tabelas
 ALTER TABLE public.tenants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.subscription_plans ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tenant_subscriptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tenant_subscription_contracts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.platform_superusers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tenant_users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.auditors ENABLE ROW LEVEL SECURITY;
@@ -225,7 +279,7 @@ ALTER TABLE public.audits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_evaluations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_consent_logs ENABLE ROW LEVEL SECURITY;
 
--- 15. Políticas RLS (com DROP POLICY IF EXISTS para total idempotência)
+-- 17. Políticas RLS
 DROP POLICY IF EXISTS "tenants_read" ON public.tenants;
 CREATE POLICY "tenants_read" ON public.tenants FOR SELECT USING (
     public.is_platform_superadmin() OR id = public.get_auth_tenant_id()
@@ -234,6 +288,14 @@ CREATE POLICY "tenants_read" ON public.tenants FOR SELECT USING (
 DROP POLICY IF EXISTS "tenants_superadmin" ON public.tenants;
 CREATE POLICY "tenants_superadmin" ON public.tenants FOR ALL USING (public.is_platform_superadmin());
 
+-- Políticas dos Planos
+DROP POLICY IF EXISTS "plans_read_all" ON public.subscription_plans;
+CREATE POLICY "plans_read_all" ON public.subscription_plans FOR SELECT USING (TRUE);
+
+DROP POLICY IF EXISTS "plans_admin_manage" ON public.subscription_plans;
+CREATE POLICY "plans_admin_manage" ON public.subscription_plans FOR ALL USING (public.is_platform_superadmin());
+
+-- Políticas de Subscrições
 DROP POLICY IF EXISTS "subs_read" ON public.tenant_subscriptions;
 CREATE POLICY "subs_read" ON public.tenant_subscriptions FOR SELECT USING (
     public.is_platform_superadmin() OR tenant_id = public.get_auth_tenant_id()
@@ -242,6 +304,12 @@ CREATE POLICY "subs_read" ON public.tenant_subscriptions FOR SELECT USING (
 DROP POLICY IF EXISTS "subs_superadmin" ON public.tenant_subscriptions;
 CREATE POLICY "subs_superadmin" ON public.tenant_subscriptions FOR ALL USING (public.is_platform_superadmin());
 
+-- Políticas de Contratos
+DROP POLICY IF EXISTS "service_role_all_tenant_contracts" ON public.tenant_subscription_contracts;
+CREATE POLICY service_role_all_tenant_contracts ON public.tenant_subscription_contracts 
+FOR ALL USING (auth.jwt() ->> 'role' = 'service_role' OR auth.role() = 'authenticated');
+
+-- Usuários do Tenant
 DROP POLICY IF EXISTS "tenant_users_read" ON public.tenant_users;
 CREATE POLICY "tenant_users_read" ON public.tenant_users FOR SELECT USING (
     public.is_platform_superadmin() OR tenant_id = public.get_auth_tenant_id()
@@ -252,9 +320,11 @@ CREATE POLICY "tenant_users_manage" ON public.tenant_users FOR ALL USING (
     public.is_platform_superadmin() OR public.is_tenant_admin(tenant_id)
 );
 
+-- Superusuários
 DROP POLICY IF EXISTS "superusers_select" ON public.platform_superusers;
 CREATE POLICY "superusers_select" ON public.platform_superusers FOR ALL USING (public.is_platform_superadmin());
 
+-- Templates de Rúbricas
 DROP POLICY IF EXISTS "cpt_select" ON public.control_point_templates;
 CREATE POLICY "cpt_select" ON public.control_point_templates FOR SELECT USING (
     public.is_platform_superadmin() OR tenant_id IS NULL OR tenant_id = public.get_auth_tenant_id()
@@ -263,6 +333,7 @@ CREATE POLICY "cpt_select" ON public.control_point_templates FOR SELECT USING (
 DROP POLICY IF EXISTS "cpt_admin_manage" ON public.control_point_templates;
 CREATE POLICY "cpt_admin_manage" ON public.control_point_templates FOR ALL USING (public.is_platform_superadmin());
 
+-- Auditorias Sanitárias
 DROP POLICY IF EXISTS "Auditors can manage their own audits" ON public.audits;
 DROP POLICY IF EXISTS "audits_view_policy" ON public.audits;
 CREATE POLICY "audits_view_policy" ON public.audits FOR SELECT USING (
@@ -305,7 +376,7 @@ CREATE POLICY "audits_update_policy" ON public.audits FOR UPDATE USING (
     )
 );
 
-DROP POLICY IF EXISTS "Auditors can manage their own audit evaluations" ON public.audit_evaluations;
+-- Avaliações
 DROP POLICY IF EXISTS "evaluations_manage" ON public.audit_evaluations;
 CREATE POLICY "evaluations_manage" ON public.audit_evaluations FOR ALL USING (
     public.is_platform_superadmin() OR
@@ -316,6 +387,7 @@ CREATE POLICY "evaluations_manage" ON public.audit_evaluations FOR ALL USING (
     )
 );
 
+-- Consentimentos
 DROP POLICY IF EXISTS "consent_insert" ON public.user_consent_logs;
 CREATE POLICY "consent_insert" ON public.user_consent_logs FOR INSERT WITH CHECK (true);
 
@@ -324,7 +396,7 @@ CREATE POLICY "consent_select" ON public.user_consent_logs FOR SELECT USING (
     public.is_platform_superadmin() OR user_id = auth.uid()
 );
 
--- 16. Popular os 30 Pontos Sanitários Padrão (tenant_id = NULL)
+-- 18. Popular os 30 Pontos Sanitários Padrão (tenant_id = NULL)
 INSERT INTO public.control_point_templates 
 (tenant_id, code, number, category, category_label, title, is_critical_ccp, legal_reference, order_index)
 VALUES
@@ -345,7 +417,7 @@ VALUES
 (NULL, 'q2_4', '2.4', 'HIGIENE_PERSONAL', 'Higiene del Personal y Buenas Prácticas', 'Existe procedimiento documentado para notificar e intervenir ante enfermedades transmisibles (gastroenteritis, cortes, heridas o forúnculos).', FALSE, 'RD 852/2004 Anexo II Cap. VIII', 14),
 (NULL, 'q2_5', '2.5', 'HIGIENE_PERSONAL', 'Higiene del Personal y Buenas Prácticas', 'Los apósitos y apósitos para heridas en extremidades son impermeables y de color llamativo (preferentemente azul con tira metálica detectable).', TRUE, 'ISO 22000 Cláusula 8.2', 15),
 (NULL, 'q2_6', '2.6', 'HIGIENE_PERSONAL', 'Higiene del Personal y Buenas Prácticas', 'No se fuma, come, bebe (excepto agua en dispensadores habilitados) ni mastica chicle en las zonas de manipulación y envasado.', FALSE, 'RD 852/2004 Anexo II Cap. VIII', 16),
-(NULL, 'q2_7', '2.7', 'HIGIENE_PERSONAL', 'Higiene del Personal y Buenas Prácticas', 'Los vestuarios del personal están limpios, con doble taquilla individual (ropa de calle / ropa de trabajo) y sin acceso directo a obradores.', FALSE, 'RD 852/2004 Anexo II Cap. I', 17),
+(NULL, 'q2_7', '2.7', 'HIGIENE_PERSONAL', 'Higiene del Personal y Buenas Prácticas', 'Los vestuarios del personal están limpios, con doble taquilla individual (ropa de calle / ropa de trabalho) y sin acceso directo a obradores.', FALSE, 'RD 852/2004 Anexo II Cap. I', 17),
 (NULL, 'q2_8', '2.8', 'HIGIENE_PERSONAL', 'Higiene del Personal y Buenas Prácticas', 'El uso de guantes se realiza bajo protocolo: uso correcto, desechado tras cada rotura o cambio de actividad, y lavado previo de manos.', FALSE, 'Guía de Buenas Prácticas AECOSAN', 18),
 (NULL, 'q2_9', '2.9', 'HIGIENE_PERSONAL', 'Higiene del Personal y Buenas Prácticas', 'Se respeta la separación de flujos de personal limpio y sucio, evitando que operarios de zonas sucias crucen zonas de riesgo microbiológico.', FALSE, 'ISO 22000 Cláusula 8.2', 19),
 (NULL, 'q2_10', '2.10', 'HIGIENE_PERSONAL', 'Higiene del Personal y Buenas Prácticas', 'Las visitas externas (proveedores, auditores, técnicos) acceden con indumentaria protectora de un solo uso y registro de entrada sanitario.', FALSE, 'IFS Food / BRCGS Versión 9', 20),
@@ -360,19 +432,51 @@ VALUES
 (NULL, 'q3_8', '3.8', 'APPCC_FRIO_PROCESOS', 'Plan APPCC, Cadena de Frío y Procesos', 'El agua utilizada es potable de red o con sistema propio de cloración automática y analíticas periódicas físico-químicas y microbiológicas conformes.', FALSE, 'RD 3/2023 Calidad del Agua', 28),
 (NULL, 'q3_9', '3.9', 'APPCC_FRIO_PROCESOS', 'Plan APPCC, Cadena de Frío y Procesos', 'La descongelación se efectúa en cámara frigorífica protegida (≤ 4 °C) o en equipos específicos, nunca a temperatura ambiente ni en contacto con exudados.', FALSE, 'RD 1021/2022 Art. 9', 29),
 (NULL, 'q3_10', '3.10', 'APPCC_FRIO_PROCESOS', 'Plan APPCC, Cadena de Frío y Procesos', 'El plan de muestreo microbiológico de superficies, manipuladores y producto final se ejecuta con laboratorio acreditado según criterios microbiológicos.', FALSE, 'Reglamento (CE) 2073/2005', 30)
-ON CONFLICT (COALESCE(tenant_id, '00000000-0000-0000-0000-000000000000'::uuid), code) DO NOTHING;
+ON CONFLICT (COALESCE(tenant_id, '00000000-0000-0000-0000-000000000000'::uuid), code) DO UPDATE SET
+  is_critical_ccp = EXCLUDED.is_critical_ccp;
 
--- 17. Configuração dos Buckets de Storage
+-- 19. Seed de Planos Comerciais e Plano Default em EUR
+INSERT INTO public.subscription_plans (name, code, description, duration_days, max_user_seats, price, currency, is_default, is_active)
+VALUES 
+  ('Plano Piloto Bonificado (Default)', 'TRIAL_7D', 'Acesso inicial bonificado de 7 dias com 1 inspetor habilitado', 7, 1, 0.00, 'EUR', TRUE, TRUE),
+  ('Plano Profissional Mensal', 'PRO_30D', 'Assinatura mensal para até 5 inspetores ativos e suporte prioritário', 30, 5, 29.00, 'EUR', FALSE, TRUE),
+  ('Plano Corporativo Anual', 'CORP_365D', 'Licença anual para até 15 inspetores com personalização completa de rúbricas', 365, 15, 290.00, 'EUR', FALSE, TRUE)
+ON CONFLICT (code) DO UPDATE SET
+  name = EXCLUDED.name,
+  description = EXCLUDED.description,
+  duration_days = EXCLUDED.duration_days,
+  max_user_seats = EXCLUDED.max_user_seats,
+  price = EXCLUDED.price,
+  currency = EXCLUDED.currency,
+  is_default = EXCLUDED.is_default;
+
+-- 20. Configuração dos Buckets de Storage
 INSERT INTO storage.buckets (id, name, public)
 VALUES 
   ('audit-evidences', 'audit-evidences', true),
   ('audit-signatures', 'audit-signatures', false)
-ON CONFLICT (id) DO UPDATE SET public = false;
+ON CONFLICT (id) DO UPDATE SET public = EXCLUDED.public;
+
+UPDATE storage.buckets SET public = false WHERE id = 'audit-signatures';
 
 DROP POLICY IF EXISTS "Evidences upload" ON storage.objects;
 DROP POLICY IF EXISTS "Authenticated users can upload audit evidence" ON storage.objects;
-CREATE POLICY "Evidences upload" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id IN ('audit-evidences', 'audit-signatures'));
+CREATE POLICY "Evidences upload" ON storage.objects FOR INSERT TO authenticated 
+WITH CHECK (bucket_id IN ('audit-evidences', 'audit-signatures'));
 
 DROP POLICY IF EXISTS "Evidences public read" ON storage.objects;
 DROP POLICY IF EXISTS "Public read for audit evidence" ON storage.objects;
-CREATE POLICY "Evidences public read" ON storage.objects FOR SELECT USING (bucket_id = 'audit-evidences' OR (bucket_id = 'audit-signatures' AND (auth.role() = 'authenticated' OR public.is_platform_superadmin())));
+CREATE POLICY "Evidences public read" ON storage.objects FOR SELECT USING (
+    bucket_id = 'audit-evidences' OR (
+        bucket_id = 'audit-signatures' AND (
+            auth.role() = 'authenticated' OR public.is_platform_superadmin()
+        )
+    )
+);
+
+-- 21. Índices de Alta Performance (Anti N+1)
+CREATE INDEX IF NOT EXISTS idx_audits_tenant_auditor ON public.audits (tenant_id, auditor_id, inspection_date DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_evaluations_audit_id ON public.audit_evaluations (audit_id);
+CREATE INDEX IF NOT EXISTS idx_companies_tenant_cif ON public.companies (tenant_id, cif);
+
+-- FIM DA IMPLANTAÇÃO COMPLETA

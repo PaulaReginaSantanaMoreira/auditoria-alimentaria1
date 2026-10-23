@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
       durationDays,
       maxUserSeats,
       price,
-      currency = "BRL",
+      currency = "EUR",
       isDefault = false,
       isActive = true,
     } = body;

@@ -24,7 +24,7 @@ export function PlanModal({
   const [durationDays, setDurationDays] = useState(30);
   const [maxUserSeats, setMaxUserSeats] = useState(1);
   const [price, setPrice] = useState(0);
-  const [currency, setCurrency] = useState("BRL");
+  const [currency, setCurrency] = useState("EUR");
   const [isDefault, setIsDefault] = useState(false);
   const [isActive, setIsActive] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +37,7 @@ export function PlanModal({
       setDurationDays(planToEdit.durationDays);
       setMaxUserSeats(planToEdit.maxUserSeats);
       setPrice(planToEdit.price);
-      setCurrency(planToEdit.currency || "BRL");
+      setCurrency(planToEdit.currency || "EUR");
       setIsDefault(planToEdit.isDefault);
       setIsActive(planToEdit.isActive);
     } else {
@@ -47,7 +47,7 @@ export function PlanModal({
       setDurationDays(30);
       setMaxUserSeats(1);
       setPrice(0);
-      setCurrency("BRL");
+      setCurrency("EUR");
       setIsDefault(false);
       setIsActive(true);
     }
@@ -167,9 +167,9 @@ export function PlanModal({
                 onChange={(e) => setCurrency(e.target.value)}
                 className="w-full h-10 px-3 rounded-xl bg-surface border border-slate-border text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30"
               >
-                <option value="BRL">BRL (R$)</option>
                 <option value="EUR">EUR (€)</option>
                 <option value="USD">USD ($)</option>
+                <option value="BRL">BRL (R$)</option>
               </select>
             </div>
 

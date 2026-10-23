@@ -51,7 +51,7 @@ export class SubscriptionPlan {
     this._durationDays = params.durationDays;
     this._maxUserSeats = params.maxUserSeats;
     this._price = params.price;
-    this._currency = params.currency || "BRL";
+    this._currency = params.currency || "EUR";
     this._isDefault = Boolean(params.isDefault);
     this._isActive = params.isActive !== undefined ? Boolean(params.isActive) : true;
     this._createdAt = params.createdAt || new Date();

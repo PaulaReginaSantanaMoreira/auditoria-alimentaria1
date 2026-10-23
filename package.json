@@ -15,7 +15,9 @@
     "build:worker": "opennextjs-cloudflare build",
     "preview": "opennextjs-cloudflare build && wrangler dev",
     "deploy": "opennextjs-cloudflare build && wrangler deploy",
+    "deploy:develop": "opennextjs-cloudflare build && wrangler deploy",
     "create:superadmin": "node --env-file=.env.develop scripts/create-superadmin.mjs",
+    "db:clean": "node --env-file=.env.develop scripts/clean-database.mjs",
     "postinstall": "npx github:fabioferreccio/antigravity-skills install"
   },
   "dependencies": {

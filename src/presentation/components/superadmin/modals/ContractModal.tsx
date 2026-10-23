@@ -198,7 +198,7 @@ export function ContractModal({
 
               <div className="flex flex-col gap-1">
                 <label className="text-[11px] font-bold text-on-surface uppercase">
-                  Importe / Valor (€ o R$)
+                  Importe / Valor (€)
                 </label>
                 <input
                   type="number"

@@ -14,7 +14,7 @@ describe("PlansTable Component (Triple AAA Pattern)", () => {
       durationDays: 7,
       maxUserSeats: 1,
       price: 0,
-      currency: "BRL",
+      currency: "EUR",
       isDefault: true,
       isActive: true,
     },
@@ -25,8 +25,8 @@ describe("PlansTable Component (Triple AAA Pattern)", () => {
       description: "Plano Pro 30 dias",
       durationDays: 30,
       maxUserSeats: 5,
-      price: 149,
-      currency: "BRL",
+      price: 29,
+      currency: "EUR",
       isDefault: false,
       isActive: true,
     },
@@ -56,7 +56,7 @@ describe("PlansTable Component (Triple AAA Pattern)", () => {
     // Assert
     expect(screen.getByText("Plano Piloto Bonificado")).toBeInTheDocument();
     expect(screen.getByText("Default")).toBeInTheDocument();
-    expect(screen.getByText("Bonificado (R$ 0,00)")).toBeInTheDocument();
+    expect(screen.getByText("Bonificado (0,00 €)")).toBeInTheDocument();
     expect(screen.getByText("Plano Profissional")).toBeInTheDocument();
     expect(screen.getByText("7 días")).toBeInTheDocument();
     expect(screen.getByText("1 inspector")).toBeInTheDocument();

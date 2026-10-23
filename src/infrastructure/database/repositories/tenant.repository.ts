@@ -255,7 +255,7 @@ export class TenantRepository implements ITenantRepository {
         // Fallback
       }
     } else if (!dto.subscriptionDays && !dto.maxUserSeats) {
-      // Usa o plano default da plataforma (1 usuário, 7 dias, R$ 0,00)
+      // Usa o plano default da plataforma (1 usuário, 7 dias, 0,00 €)
       maxSeats = 1;
       days = 7;
       planTier = "TRIAL_7D" as any;

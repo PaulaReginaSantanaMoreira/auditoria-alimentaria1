@@ -176,11 +176,11 @@ export function PlansTable({
                       {isFree ? (
                         <span className="text-xs font-bold text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-950/70 px-2.5 py-1 rounded-full inline-flex items-center gap-1">
                           <span className="material-symbols-outlined text-[14px]">card_giftcard</span>
-                          Bonificado (R$ 0,00)
+                          Bonificado (0,00 €)
                         </span>
                       ) : (
                         <span className="font-bold text-on-surface text-sm">
-                          {new Intl.NumberFormat("pt-BR", { style: "currency", currency: p.currency || "BRL" }).format(
+                          {new Intl.NumberFormat("es-ES", { style: "currency", currency: p.currency || "EUR" }).format(
                             p.price
                           )}
                         </span>

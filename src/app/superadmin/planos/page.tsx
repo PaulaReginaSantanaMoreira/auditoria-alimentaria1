@@ -144,21 +144,21 @@ export default function SuperAdminPlanosPage() {
 
         {/* Hero Header Card */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-surface-container-lowest p-6 rounded-2xl border border-slate-border shadow-sm">
-          <div>
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-primary/10 text-primary mb-2">
+          <div className="flex-1 min-w-0 pr-0 sm:pr-4">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-primary/10 text-primary mb-2 whitespace-nowrap">
               <span className="material-symbols-outlined text-[14px]">loyalty</span>
               <span>Oferta Comercial y Licenciamiento</span>
             </div>
-            <h1 className="text-2xl font-black text-on-surface tracking-tight">
+            <h1 className="text-xl sm:text-2xl font-black text-on-surface tracking-tight leading-snug">
               Planes de Suscripción
             </h1>
-            <p className="text-xs text-slate-subtext mt-1 max-w-xl">
+            <p className="text-xs text-slate-subtext mt-1 max-w-xl leading-relaxed">
               Administre planes, vigencias y cupos de usuarios. Las empresas registradas pueden
               iniciar en el plan default bonificado o contratar planes adicionales acumulativos.
             </p>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap shrink-0">
             <Link
               href="/superadmin"
               className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-border text-xs font-semibold text-on-surface hover:bg-surface-container transition-colors"
@@ -220,7 +220,7 @@ export default function SuperAdminPlanosPage() {
               {defaultPlan?.name || "No definido"}
             </div>
             <div className="text-[11px] text-slate-subtext mt-1">
-              {defaultPlan ? `${defaultPlan.durationDays}d • ${defaultPlan.maxUserSeats} usuario • R$ 0,00` : "—"}
+              {defaultPlan ? `${defaultPlan.durationDays}d • ${defaultPlan.maxUserSeats} usuario • 0,00 €` : "—"}
             </div>
           </div>
 

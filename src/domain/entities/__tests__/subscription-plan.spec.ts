@@ -12,7 +12,7 @@ describe("SubscriptionPlan Entity (Triple AAA Pattern)", () => {
       durationDays: 7,
       maxUserSeats: 1,
       price: 0,
-      currency: "BRL",
+      currency: "EUR",
       isDefault: true,
       isActive: true,
     };
