@@ -41,12 +41,171 @@ export class TenantRepository implements ITenantRepository {
     return createAdminClient();
   }
 
+  private resolveLatestSubscription(
+    subsRaw: any,
+    contractsRaw: any,
+    tenantId: string,
+    availablePlans: any[] = []
+  ): any {
+    const subs = Array.isArray(subsRaw) ? subsRaw : subsRaw ? [subsRaw] : [];
+    const contracts = Array.isArray(contractsRaw) ? contractsRaw : contractsRaw ? [contractsRaw] : [];
+
+    subs.sort(
+      (a, b) =>
+        new Date(b.created_at || b.expires_at || 0).getTime() -
+        new Date(a.created_at || a.expires_at || 0).getTime()
+    );
+    // Filtrar e ordenar contratos exatamente como a regra LATERAL da governança:
+    // WHERE t.id = tsc.tenant_id AND tsc.payment_status IN ('COURTESY', 'PAID')
+    // ORDER BY tsc.expires_at DESC LIMIT 1
+    const validContracts = contracts.filter((c) =>
+      ["COURTESY", "PAID"].includes(c.payment_status)
+    );
+    const targetContracts =
+      validContracts.length > 0
+        ? validContracts
+        : contracts.filter((c) => c.payment_status === "PENDING_PAYMENT").length > 0
+        ? contracts.filter((c) => c.payment_status === "PENDING_PAYMENT")
+        : contracts;
+
+    targetContracts.sort((a, b) => {
+      const expA = new Date(a.expires_at || 0).getTime();
+      const expB = new Date(b.expires_at || 0).getTime();
+      if (expB !== expA) return expB - expA;
+      return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+    });
+
+    const latestSub = subs[0];
+    const latestContract = targetContracts[0];
+
+    if (!latestSub && !latestContract) {
+      return null;
+    }
+
+    const resolvePlanName = (contract?: any, sub?: any): string => {
+      // COALESCE(tsc.plan_name, sp.name)
+      if (contract?.plan_name && !contract.plan_name.includes("Alta oficial de tenant e contrato inicial")) {
+        return contract.plan_name;
+      }
+      if (contract?.subscription_plans?.name) {
+        return contract.subscription_plans.name;
+      }
+      const planId = contract?.plan_id || sub?.plan_id;
+      if (planId) {
+        const found = availablePlans.find((p) => p.id === planId);
+        if (found) return found.name;
+      }
+      const planCode = contract?.plan_code || sub?.plan_code;
+      if (planCode) {
+        const found = availablePlans.find((p) => p.code === planCode);
+        if (found) return found.name;
+      }
+      if (sub?.plan_name && !sub.plan_name.includes("Alta oficial de tenant e contrato inicial")) {
+        return sub.plan_name;
+      }
+      if (contract?.seats !== undefined && contract?.days_added !== undefined) {
+        const found = availablePlans.find(
+          (p) => p.maxUserSeats === contract.seats && p.durationDays === contract.days_added
+        );
+        if (found) return found.name;
+      }
+      return contract?.plan_name || sub?.plan_name || "Plano Contratado";
+    };
+
+    if (!latestSub && latestContract) {
+      const planName = resolvePlanName(latestContract, null);
+
+      const subFromContract = {
+        id: latestContract.subscription_id || latestContract.id,
+        tenant_id: tenantId,
+        plan_id: latestContract.plan_id || null,
+        plan_name: planName,
+        plan_code: latestContract.plan_code || "TRIAL",
+        max_user_seats: latestContract.seats || 1,
+        status: new Date(latestContract.expires_at) > new Date() ? "ACTIVE" : "EXPIRED",
+        payment_status: latestContract.payment_status || "PAID",
+        invoice_ref: latestContract.invoice_ref || null,
+        notes: latestContract.notes || null,
+        valid_from: latestContract.valid_from,
+        expires_at: latestContract.expires_at,
+        feature_flags: { customRubric: true, offlineSync: true, exportPdf: true, analytics: true },
+        created_at: latestContract.created_at,
+        updated_at: latestContract.created_at,
+      };
+
+      // Auto-cura assíncrona do registro em tenant_subscriptions
+      Promise.resolve(
+        this.client
+          .from("tenant_subscriptions")
+          .upsert(
+            {
+              tenant_id: tenantId,
+              plan_id: subFromContract.plan_id,
+              plan_name: subFromContract.plan_name,
+              plan_code: subFromContract.plan_code,
+              max_user_seats: subFromContract.max_user_seats,
+              status: subFromContract.status,
+              payment_status: subFromContract.payment_status,
+              invoice_ref: subFromContract.invoice_ref,
+              notes: subFromContract.notes,
+              valid_from: subFromContract.valid_from,
+              expires_at: subFromContract.expires_at,
+            },
+            { onConflict: "tenant_id" }
+          )
+      ).catch(() => {});
+
+      return subFromContract;
+    }
+
+    if (latestSub && !latestContract) {
+      return latestSub;
+    }
+
+    // Ambos existem: a regra de negócio da governança é exibir a última contratada vigente
+    const subDate = new Date(latestSub.updated_at || latestSub.created_at || 0).getTime();
+    const contractDate = new Date(latestContract.created_at || 0).getTime();
+
+    if (
+      contractDate >= subDate ||
+      !latestSub.expires_at ||
+      new Date(latestContract.expires_at).getTime() > new Date(latestSub.expires_at || 0).getTime()
+    ) {
+      const planName = resolvePlanName(latestContract, latestSub);
+
+      return {
+        id: latestSub.id || latestContract.subscription_id || latestContract.id,
+        tenant_id: tenantId,
+        plan_id: latestContract.plan_id || latestSub.plan_id || null,
+        plan_name: planName,
+        plan_code: latestContract.plan_code || latestSub.plan_code,
+        max_user_seats: latestContract.seats ?? latestSub.max_user_seats,
+        status: new Date(latestContract.expires_at) > new Date() ? "ACTIVE" : "EXPIRED",
+        payment_status: latestContract.payment_status || latestSub.payment_status,
+        invoice_ref: latestContract.invoice_ref || latestSub.invoice_ref,
+        notes: latestContract.notes || latestSub.notes,
+        valid_from: latestContract.valid_from || latestSub.valid_from,
+        expires_at: latestContract.expires_at || latestSub.expires_at,
+        feature_flags: latestSub.feature_flags || { customRubric: true, offlineSync: true, exportPdf: true, analytics: true },
+        created_at: latestSub.created_at || latestContract.created_at,
+        updated_at: latestContract.created_at || latestSub.updated_at,
+      };
+    }
+
+    return latestSub;
+  }
+
   public async findAll(): Promise<TenantWithSubscription[]> {
-    const { data: tenants, error: tenantsError } = await this.client
+    let tenants: any[] = [];
+    const { data: tenantsData, error: tenantsError } = await this.client
       .from("tenants")
       .select(`
         *,
         tenant_subscriptions (*),
+        tenant_subscription_contracts (
+          *,
+          subscription_plans (*)
+        ),
         tenant_users (
           id,
           is_active
@@ -55,22 +214,101 @@ export class TenantRepository implements ITenantRepository {
       .order("created_at", { ascending: false });
 
     if (tenantsError) {
-      throw new Error(`Erro ao buscar tenants: ${tenantsError.message}`);
+      const { data: fbTenants, error: fbError } = await this.client
+        .from("tenants")
+        .select(`
+          *,
+          tenant_subscriptions (*),
+          tenant_subscription_contracts (*),
+          tenant_users (
+            id,
+            is_active
+          )
+        `)
+        .order("created_at", { ascending: false });
+
+      if (fbError) {
+        throw new Error(`Erro ao buscar tenants: ${fbError.message}`);
+      }
+
+      tenants = fbTenants || [];
+
+      const tenantIds = tenants.map((t: any) => t.id);
+      if (tenantIds.length > 0) {
+        const { data: contractsData } = await this.client
+          .from("tenant_subscription_contracts")
+          .select("*, subscription_plans (*)")
+          .in("tenant_id", tenantIds)
+          .order("expires_at", { ascending: false });
+
+        if (contractsData) {
+          tenants.forEach((t: any) => {
+            t.tenant_subscription_contracts = contractsData.filter((c: any) => c.tenant_id === t.id);
+          });
+        }
+      }
+    } else {
+      tenants = tenantsData || [];
     }
 
+    if (tenantsError) {
+      const { data: fbTenants, error: fbError } = await this.client
+        .from("tenants")
+        .select(`
+          *,
+          tenant_subscriptions (*),
+          tenant_users (
+            id,
+            is_active
+          )
+        `)
+        .order("created_at", { ascending: false });
+
+      if (fbError) {
+        throw new Error(`Erro ao buscar tenants: ${fbError.message}`);
+      }
+
+      tenants = fbTenants || [];
+
+      const tenantIds = tenants.map((t: any) => t.id);
+      if (tenantIds.length > 0) {
+        const { data: contractsData } = await this.client
+          .from("tenant_subscription_contracts")
+          .select("*")
+          .in("tenant_id", tenantIds)
+          .order("created_at", { ascending: false });
+
+        if (contractsData) {
+          tenants.forEach((t: any) => {
+            t.tenant_subscription_contracts = contractsData.filter((c: any) => c.tenant_id === t.id);
+          });
+        }
+      }
+    } else {
+      tenants = tenantsData || [];
+    }
+
+    let allPlans: any[] = [];
+    try {
+      const planRepo = new SubscriptionPlanRepository(this.client);
+      allPlans = await planRepo.findAll();
+    } catch {}
+
     return (tenants || []).map((t: any) => {
-      const rawSub = Array.isArray(t.tenant_subscriptions)
-        ? t.tenant_subscriptions[0]
-        : t.tenant_subscriptions;
+      const rawSub = this.resolveLatestSubscription(
+        t.tenant_subscriptions,
+        t.tenant_subscription_contracts,
+        t.id,
+        allPlans
+      );
 
       const subEntity = rawSub
         ? new TenantSubscription({
             id: rawSub.id,
             tenantId: t.id,
             planId: rawSub.plan_id,
-            planName: rawSub.plan_name || rawSub.plan_code || rawSub.plan_tier,
-            planCode: rawSub.plan_code || rawSub.plan_tier,
-            planTier: rawSub.plan_name || rawSub.plan_code || rawSub.plan_tier,
+            planName: rawSub.plan_name || rawSub.plan_code || "Plano Contratado",
+            planCode: rawSub.plan_code || "TRIAL",
             maxUserSeats: rawSub.max_user_seats,
             status: rawSub.status,
             paymentStatus: (rawSub.payment_status as SubscriptionPaymentStatus) || "PAID",
@@ -107,11 +345,16 @@ export class TenantRepository implements ITenantRepository {
   }
 
   public async findById(id: string): Promise<TenantWithSubscription | null> {
-    const { data: t, error } = await this.client
+    let t: any = null;
+    const { data, error } = await this.client
       .from("tenants")
       .select(`
         *,
         tenant_subscriptions (*),
+        tenant_subscription_contracts (
+          *,
+          subscription_plans (*)
+        ),
         tenant_users (
           id,
           is_active
@@ -120,20 +363,57 @@ export class TenantRepository implements ITenantRepository {
       .eq("id", id)
       .maybeSingle();
 
-    if (error || !t) return null;
+    if (error) {
+      const { data: fbData, error: fbError } = await this.client
+        .from("tenants")
+        .select(`
+          *,
+          tenant_subscriptions (*),
+          tenant_subscription_contracts (*),
+          tenant_users (
+            id,
+            is_active
+          )
+        `)
+        .eq("id", id)
+        .maybeSingle();
 
-    const rawSub = Array.isArray((t as any).tenant_subscriptions)
-      ? (t as any).tenant_subscriptions[0]
-      : (t as any).tenant_subscriptions;
+      if (fbError || !fbData) return null;
+      t = fbData;
+
+      const { data: contractsData } = await this.client
+        .from("tenant_subscription_contracts")
+        .select("*, subscription_plans (*)")
+        .eq("tenant_id", id)
+        .order("expires_at", { ascending: false });
+
+      t.tenant_subscription_contracts = contractsData || [];
+    } else {
+      t = data;
+    }
+
+    if (!t) return null;
+
+    let allPlans: any[] = [];
+    try {
+      const planRepo = new SubscriptionPlanRepository(this.client);
+      allPlans = await planRepo.findAll();
+    } catch {}
+
+    const rawSub = this.resolveLatestSubscription(
+      t.tenant_subscriptions,
+      t.tenant_subscription_contracts,
+      t.id,
+      allPlans
+    );
 
     const subEntity = rawSub
       ? new TenantSubscription({
           id: rawSub.id,
           tenantId: (t as any).id,
           planId: rawSub.plan_id,
-          planName: rawSub.plan_name || rawSub.plan_code || rawSub.plan_tier,
-          planCode: rawSub.plan_code || rawSub.plan_tier,
-          planTier: rawSub.plan_name || rawSub.plan_code || rawSub.plan_tier,
+          planName: rawSub.plan_name || rawSub.plan_code || "Plano Contratado",
+          planCode: rawSub.plan_code || "TRIAL",
           maxUserSeats: rawSub.max_user_seats,
           status: rawSub.status,
           paymentStatus: (rawSub.payment_status as SubscriptionPaymentStatus) || "PAID",
@@ -228,7 +508,7 @@ export class TenantRepository implements ITenantRepository {
     let days = dto.subscriptionDays ?? 7;
     let planId: string | null = dto.planId || null;
     let planName = dto.planName || "Plano Piloto";
-    let planCode = dto.planCode || dto.planTier || "TRIAL_7D";
+    let planCode = dto.planCode || "TRIAL_7D";
     let initialPaymentStatus: SubscriptionPaymentStatus = dto.paymentStatus || "COURTESY";
 
     if (dto.planId) {
@@ -269,72 +549,40 @@ export class TenantRepository implements ITenantRepository {
 
     const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
 
-    const validLegacyTiers = ["STARTER", "PRO", "ENTERPRISE"];
-    const safeLegacyTier = validLegacyTiers.includes(String(planCode).toUpperCase())
-      ? String(planCode).toUpperCase()
-      : initialPaymentStatus === "COURTESY" || maxSeats <= 1
-      ? "STARTER"
-      : maxSeats > 5
-      ? "ENTERPRISE"
-      : "PRO";
-
     let sub: any;
-    try {
-      const { data: subData, error: subError } = await this.client
-        .from("tenant_subscriptions")
-        .insert({
-          tenant_id: tenant.id,
-          plan_id: planId,
-          plan_name: planName,
-          plan_code: planCode,
-          plan_tier: planCode,
-          max_user_seats: maxSeats,
-          status: "ACTIVE",
-          payment_status: initialPaymentStatus,
-          invoice_ref: dto.invoiceRef || null,
-          notes: dto.notes || `Plan contratado: ${planName}`,
-          expires_at: expiresAt.toISOString(),
-        })
-        .select()
-        .single();
+    const { data: subData, error: subError } = await this.client
+      .from("tenant_subscriptions")
+      .insert({
+        tenant_id: tenant.id,
+        plan_id: planId,
+        plan_name: planName,
+        plan_code: planCode,
+        max_user_seats: maxSeats,
+        status: "ACTIVE",
+        payment_status: initialPaymentStatus,
+        invoice_ref: dto.invoiceRef || null,
+        notes: dto.notes || `Plan contratado: ${planName}`,
+        expires_at: expiresAt.toISOString(),
+      })
+      .select()
+      .single();
 
-      if (subError) throw subError;
-      sub = subData;
-    } catch (subErr: any) {
-      console.warn("[TenantRepository.create] Retrying with legacy schema:", subErr?.message);
-      // Tenta com safeLegacyTier para contornar constraint legada
+    if (subError) {
+      // Fallback sem plan_id se colunas foram omitidas em runtime
       const { data: fbSub, error: fbErr } = await this.client
         .from("tenant_subscriptions")
         .insert({
           tenant_id: tenant.id,
-          plan_tier: safeLegacyTier,
           max_user_seats: maxSeats,
           status: "ACTIVE",
           payment_status: initialPaymentStatus,
-          invoice_ref: dto.invoiceRef || null,
-          notes: dto.notes || `Plan contratado: ${planName}`,
           expires_at: expiresAt.toISOString(),
         })
         .select()
         .single();
-
-      if (fbErr) {
-        // Tenta fallback com campos mínimos
-        const { data: minSub } = await this.client
-          .from("tenant_subscriptions")
-          .insert({
-            tenant_id: tenant.id,
-            plan_tier: safeLegacyTier,
-            max_user_seats: maxSeats,
-            status: "ACTIVE",
-            expires_at: expiresAt.toISOString(),
-          })
-          .select()
-          .single();
-        sub = minSub;
-      } else {
-        sub = fbSub;
-      }
+      sub = fbSub;
+    } else {
+      sub = subData;
     }
 
     // Registra entrada de criação no histórico de contratos
@@ -386,7 +634,6 @@ export class TenantRepository implements ITenantRepository {
           planId: sub.plan_id || planId,
           planName: sub.plan_name || planName,
           planCode: sub.plan_code || planCode,
-          planTier: sub.plan_name || planName,
           maxUserSeats: sub.max_user_seats ?? maxSeats,
           status: sub.status || "ACTIVE",
           paymentStatus: (sub.payment_status as SubscriptionPaymentStatus) || initialPaymentStatus,
@@ -467,27 +714,16 @@ export class TenantRepository implements ITenantRepository {
     const payload: any = { updated_at: new Date().toISOString() };
     if (plan.planId !== undefined) payload.plan_id = plan.planId;
     if (plan.planName !== undefined) payload.plan_name = plan.planName;
-    if (plan.planCode !== undefined) {
-      payload.plan_code = plan.planCode;
-      payload.plan_tier = plan.planCode;
-    }
+    if (plan.planCode !== undefined) payload.plan_code = plan.planCode;
     if (plan.maxUserSeats !== undefined) payload.max_user_seats = plan.maxUserSeats;
 
-    try {
-      const { error } = await this.client
-        .from("tenant_subscriptions")
-        .update(payload)
-        .eq("tenant_id", tenantId);
+    const { error } = await this.client
+      .from("tenant_subscriptions")
+      .update(payload)
+      .eq("tenant_id", tenantId);
 
-      if (error) throw error;
-    } catch (err: any) {
-      await this.client
-        .from("tenant_subscriptions")
-        .update({
-          plan_tier: plan.planCode || plan.planName,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("tenant_id", tenantId);
+    if (error) {
+      throw new Error(`Falha ao atualizar plano da subscrição: ${error.message}`);
     }
   }
 
@@ -574,7 +810,8 @@ export class TenantRepository implements ITenantRepository {
     const currentSub = existing.subscription || new TenantSubscription({
       id: crypto.randomUUID(),
       tenantId: dto.tenantId,
-      planTier: "STARTER",
+      planName: dto.planName || "Plano Contratado",
+      planCode: dto.planCode || "DEFAULT",
       maxUserSeats: dto.newSeats || 1,
       status: "ACTIVE",
       paymentStatus: dto.paymentStatus,
@@ -610,31 +847,22 @@ export class TenantRepository implements ITenantRepository {
     };
     if (dto.planId !== undefined) subUpdatePayload.plan_id = dto.planId;
     if (dto.planName !== undefined) subUpdatePayload.plan_name = dto.planName;
-    if (dto.planCode !== undefined) {
-      subUpdatePayload.plan_code = dto.planCode;
-      subUpdatePayload.plan_tier = dto.planCode;
-    }
+    if (dto.planCode !== undefined) subUpdatePayload.plan_code = dto.planCode;
     if (dto.invoiceRef !== undefined) subUpdatePayload.invoice_ref = dto.invoiceRef.trim();
     if (dto.notes !== undefined) subUpdatePayload.notes = dto.notes.trim();
 
-    try {
-      const { error: subUpdateError } = await this.client
-        .from("tenant_subscriptions")
-        .update(subUpdatePayload)
-        .eq("tenant_id", dto.tenantId);
+    const { error: subUpdateError } = await this.client
+      .from("tenant_subscriptions")
+      .upsert(
+        {
+          tenant_id: dto.tenantId,
+          ...subUpdatePayload,
+        },
+        { onConflict: "tenant_id" }
+      );
 
-      if (subUpdateError) throw subUpdateError;
-    } catch (updateErr: any) {
-      // Fallback se colunas financeiras não existirem
-      await this.client
-        .from("tenant_subscriptions")
-        .update({
-          expires_at: targetExpiration.toISOString(),
-          max_user_seats: seatsToSet,
-          status: targetExpiration > new Date() ? "ACTIVE" : "EXPIRED",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("tenant_id", dto.tenantId);
+    if (subUpdateError) {
+      throw new Error(`Falha ao atualizar subscrição ativa: ${subUpdateError.message}`);
     }
 
     // 2. Inserir registro no histórico imutável de contratos

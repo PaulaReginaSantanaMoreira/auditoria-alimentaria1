@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { TenantItem, ContractHistoryItem, RenewContractFormState } from "../types";
 
 interface ContractModalProps {
@@ -45,6 +45,15 @@ export function ContractModal({
     invoiceRef: "",
     notes: "",
   });
+
+  useEffect(() => {
+    if (tenant) {
+      setRenewalForm((prev) => ({
+        ...prev,
+        newSeats: tenant.maxUserSeats || 1,
+      }));
+    }
+  }, [tenant]);
 
   if (!tenant) return null;
 

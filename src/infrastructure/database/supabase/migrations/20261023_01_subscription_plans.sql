@@ -28,9 +28,9 @@ ALTER TABLE public.tenant_subscription_contracts ADD COLUMN IF NOT EXISTS plan_i
 ALTER TABLE public.tenant_subscription_contracts ADD COLUMN IF NOT EXISTS plan_name TEXT;
 ALTER TABLE public.tenant_subscription_contracts ADD COLUMN IF NOT EXISTS plan_code TEXT;
 
--- Remover restrição estática legada de tiers ('STARTER', 'PRO', 'ENTERPRISE') para permitir planos dinâmicos
-ALTER TABLE public.tenant_subscriptions ALTER COLUMN plan_tier DROP NOT NULL;
+-- Remover coluna e restrição estática legada de tiers ('STARTER', 'PRO', 'ENTERPRISE') definitivamente
 ALTER TABLE public.tenant_subscriptions DROP CONSTRAINT IF EXISTS tenant_subscriptions_plan_tier_check;
+ALTER TABLE public.tenant_subscriptions DROP COLUMN IF EXISTS plan_tier;
 
 -- Habilitar RLS
 ALTER TABLE public.subscription_plans ENABLE ROW LEVEL SECURITY;

@@ -35,7 +35,9 @@ export function TenantsTable({
     (t) =>
       t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       t.cif.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (t.adminEmail && t.adminEmail.toLowerCase().includes(searchTerm.toLowerCase()))
+      (t.adminEmail && t.adminEmail.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (t.adminName && t.adminName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (t.phone && t.phone.includes(searchTerm))
   );
 
   return (
@@ -47,7 +49,7 @@ export function TenantsTable({
           </span>
           <input
             type="text"
-            placeholder="Buscar por nombre, CIF o email de administrador..."
+            placeholder="Buscar por nombre, CIF, administrador, email o teléfono..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-space-sm py-2 rounded-xl text-body-sm bg-surface border border-slate-border focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-on-surface"
@@ -83,42 +85,98 @@ export function TenantsTable({
           <table className="w-full text-left text-sm">
             <thead className="bg-surface-container text-xs font-bold text-slate-subtext uppercase tracking-wider border-b border-slate-border">
               <tr>
-                <th className="py-3 px-space-md">Empresa / Contacto</th>
-                <th className="py-3 px-space-md">Plan &amp; Estado</th>
-                <th className="py-3 px-space-md">Estado Contrato</th>
-                <th className="py-3 px-space-md">Inspectores Habilitados</th>
-                <th className="py-3 px-space-md">Vigencia Subscripción</th>
-                <th className="py-3 px-space-md text-right">Acciones</th>
+                <th className="py-3 px-space-md min-w-[320px]">Empresa / Contacto</th>
+                <th className="py-3 px-space-md min-w-[140px]">Plan &amp; Estado</th>
+                <th className="py-3 px-space-md min-w-[150px]">Estado Contrato</th>
+                <th className="py-3 px-space-md min-w-[150px]">Inspectores Habilitados</th>
+                <th className="py-3 px-space-md min-w-[160px]">Vigencia Subscripción</th>
+                <th className="py-3 px-space-md text-right min-w-[90px]">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-border/60 text-on-surface font-body-sm">
               {filtered.map((t) => (
                 <tr key={t.id} className="hover:bg-surface-container-low dark:hover:bg-slate-800/60 transition-colors">
+                  {/* Coluna 1: Empresa & Contacto */}
                   <td className="py-space-md px-space-md">
-                    <div className="font-bold text-on-surface text-sm">{t.name}</div>
-                    <div className="text-label-sm text-slate-subtext font-mono mt-0.5">CIF: {t.cif}</div>
-                    {t.address && (
-                      <div className="text-xs text-slate-subtext flex items-center gap-1 mt-1">
-                        <span className="material-symbols-outlined text-[14px]">location_on</span>
-                        <span className="truncate max-w-xs">{t.address}</span>
+                    <div className="flex items-start gap-3">
+                      {/* Avatar / Monograma com Badge de Status */}
+                      <div className="relative shrink-0 mt-0.5">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/15 to-primary/5 dark:from-primary/25 dark:to-primary/10 text-primary flex items-center justify-center font-bold text-sm border border-primary/20 shadow-xs">
+                          {t.name ? t.name.slice(0, 2).toUpperCase() : "EM"}
+                        </div>
+                        <span
+                          className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-surface dark:border-slate-900 ${
+                            t.status === "ACTIVE" ? "bg-status-pass" : "bg-alert-red"
+                          }`}
+                          title={t.status === "ACTIVE" ? "Empresa Activa" : "Empresa Suspendida"}
+                        />
                       </div>
-                    )}
-                    {(t.adminEmail || t.phone) && (
-                      <div className="text-[11px] text-slate-subtext flex items-center gap-2 mt-1">
-                        {t.adminEmail && (
-                          <span className="flex items-center gap-0.5" title="Administrador de Empresa">
-                            <span className="material-symbols-outlined text-[13px] text-primary">mail</span>
-                            <span>{t.adminEmail}</span>
+
+                      <div className="flex-1 min-w-0 space-y-1">
+                        {/* Linha 1: Nome da Empresa e Badge CIF */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-on-surface text-sm truncate max-w-[200px]" title={t.name}>
+                            {t.name}
                           </span>
+                          <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-md bg-surface-container dark:bg-slate-800 text-slate-subtext border border-slate-border/60 shrink-0">
+                            CIF: {t.cif}
+                          </span>
+                        </div>
+
+                        {/* Linha 2: Endereço com ícone de localização */}
+                        {t.address && (
+                          <div className="text-xs text-slate-subtext flex items-center gap-1.5" title={t.address}>
+                            <span className="material-symbols-outlined text-[14px] text-slate-400 shrink-0">
+                              location_on
+                            </span>
+                            <span className="truncate max-w-[260px]">{t.address}</span>
+                          </div>
                         )}
-                        {t.phone && (
-                          <span className="flex items-center gap-0.5">
-                            <span className="material-symbols-outlined text-[13px]">phone</span>
-                            <span>{t.phone}</span>
-                          </span>
+
+                        {/* Linha 3: Contato & Administrador com links rápidos */}
+                        {(t.adminName || t.adminEmail || t.phone) && (
+                          <div className="pt-1 flex flex-col gap-1">
+                            {t.adminName && (
+                              <div className="flex items-center gap-1.5 text-xs font-medium text-on-surface/90">
+                                <span className="material-symbols-outlined text-[14px] text-slate-400 shrink-0">
+                                  person
+                                </span>
+                                <span className="truncate">{t.adminName}</span>
+                                <span className="text-[10px] text-slate-subtext font-normal">(Admin)</span>
+                              </div>
+                            )}
+
+                            <div className="flex items-center gap-x-3 gap-y-1 text-[11px] text-slate-subtext flex-wrap">
+                              {t.adminEmail && (
+                                <a
+                                  href={`mailto:${t.adminEmail}`}
+                                  className="inline-flex items-center gap-1 hover:text-primary transition-colors whitespace-nowrap group"
+                                  title={`Enviar email para ${t.adminEmail}`}
+                                >
+                                  <span className="material-symbols-outlined text-[14px] text-slate-400 group-hover:text-primary transition-colors shrink-0">
+                                    mail
+                                  </span>
+                                  <span className="group-hover:underline">{t.adminEmail}</span>
+                                </a>
+                              )}
+
+                              {t.phone && (
+                                <a
+                                  href={`tel:${t.phone}`}
+                                  className="inline-flex items-center gap-1 hover:text-primary transition-colors whitespace-nowrap group"
+                                  title={`Llamar a ${t.phone}`}
+                                >
+                                  <span className="material-symbols-outlined text-[14px] text-slate-400 group-hover:text-primary transition-colors shrink-0">
+                                    phone
+                                  </span>
+                                  <span className="group-hover:underline font-mono">{t.phone}</span>
+                                </a>
+                              )}
+                            </div>
+                          </div>
                         )}
                       </div>
-                    )}
+                    </div>
                   </td>
 
                   {/* Coluna 2: Plan & Estado */}

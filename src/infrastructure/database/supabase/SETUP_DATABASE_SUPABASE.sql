@@ -50,29 +50,38 @@ CREATE INDEX IF NOT EXISTS idx_subscription_plans_active ON public.subscription_
 CREATE TABLE IF NOT EXISTS public.tenant_subscriptions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE UNIQUE,
-    plan_tier TEXT NOT NULL DEFAULT 'PRO' CHECK (plan_tier IN ('STARTER', 'PRO', 'ENTERPRISE')),
-    max_user_seats INT NOT NULL DEFAULT 5 CHECK (max_user_seats >= 1),
+    plan_id UUID REFERENCES public.subscription_plans(id) ON DELETE SET NULL,
+    plan_name TEXT,
+    plan_code TEXT,
+    max_user_seats INT NOT NULL DEFAULT 1 CHECK (max_user_seats >= 1),
     status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'EXPIRED', 'SUSPENDED')),
     payment_status TEXT NOT NULL DEFAULT 'PAID' CHECK (payment_status IN ('PAID', 'COURTESY', 'PENDING_PAYMENT')),
     invoice_ref TEXT,
     notes TEXT,
     valid_from TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '365 days'),
+    expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '30 days'),
     feature_flags JSONB NOT NULL DEFAULT '{"custom_rubric": true, "offline_sync": true, "export_pdf": true, "analytics": true}'::jsonb,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Garantir remoção definitiva de plan_tier e restrições legadas
+ALTER TABLE public.tenant_subscriptions DROP CONSTRAINT IF EXISTS tenant_subscriptions_plan_tier_check;
+ALTER TABLE public.tenant_subscriptions DROP COLUMN IF EXISTS plan_tier;
 
 -- 5. Tabela de Histórico de Contratos e Renovações
 CREATE TABLE IF NOT EXISTS public.tenant_subscription_contracts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
     subscription_id UUID REFERENCES public.tenant_subscriptions(id) ON DELETE SET NULL,
+    plan_id UUID REFERENCES public.subscription_plans(id) ON DELETE SET NULL,
+    plan_name TEXT,
+    plan_code TEXT,
     action_type TEXT NOT NULL DEFAULT 'RENEWAL' CHECK (action_type IN ('CREATION', 'RENEWAL', 'EXTENSION', 'SEATS_ADJUSTMENT')),
     valid_from TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMPTZ NOT NULL,
     days_added INT NOT NULL DEFAULT 0,
-    seats INT NOT NULL DEFAULT 5,
+    seats INT NOT NULL DEFAULT 1,
     payment_status TEXT NOT NULL DEFAULT 'PAID' CHECK (payment_status IN ('PAID', 'COURTESY', 'PENDING_PAYMENT')),
     amount NUMERIC(10, 2),
     invoice_ref TEXT,
