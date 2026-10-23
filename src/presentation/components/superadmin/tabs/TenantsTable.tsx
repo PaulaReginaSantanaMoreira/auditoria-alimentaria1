@@ -2,6 +2,7 @@
 
 import React from "react";
 import { TenantItem } from "../types";
+import { ActionMenu, ActionMenuItem } from "@/presentation/components/ui/ActionMenu";
 
 interface TenantsTableProps {
   tenants: TenantItem[];
@@ -180,75 +181,64 @@ export function TenantsTable({
                     </div>
                   </td>
 
-                  {/* Coluna 6: Acciones (Editar, Contrato, Rúbrica, Inspectores, Suspender/Reactivar) */}
+                  {/* Coluna 6: Acciones (Menu 3 Pontinhos Dropdown) */}
                   <td className="py-space-md px-space-md text-right">
-                    <div className="flex items-center justify-end gap-1.5 flex-wrap">
-                      <button
-                        type="button"
-                        onClick={() => onOpenEdit(t)}
-                        className="h-8 px-2.5 rounded-xl text-xs font-semibold bg-surface-container hover:bg-primary/10 hover:text-primary text-on-surface inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors shrink-0 shadow-sm"
-                        title="Editar datos de la empresa (documento fiscal inmutable)"
-                      >
-                        <span className="material-symbols-outlined text-[16px]">edit</span>
-                        <span>Editar</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => onOpenContract(t)}
-                        className="h-8 px-2.5 rounded-xl text-xs font-semibold bg-surface-container hover:bg-primary/10 hover:text-primary text-on-surface inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors shrink-0 shadow-sm"
-                        title="Ver contratos, renovar y salud del cliente"
-                      >
-                        <span className="material-symbols-outlined text-[16px]">receipt_long</span>
-                        <span>Contrato</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => onOpenRubric(t)}
-                        className="h-8 px-2.5 rounded-xl text-xs font-semibold bg-surface-container hover:bg-primary/10 hover:text-primary text-on-surface inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors shrink-0 shadow-sm"
-                        title="Personalizar rúbrica para esta empresa"
-                      >
-                        <span className="material-symbols-outlined text-[16px]">fact_check</span>
-                        <span>Rúbrica</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => onOpenUsers(t)}
-                        className="h-8 px-2.5 rounded-xl text-xs font-semibold bg-surface-container hover:bg-primary/10 hover:text-primary text-on-surface inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors shrink-0 shadow-sm"
-                        title="Ver y gestionar inspectores del tenant"
-                      >
-                        <span className="material-symbols-outlined text-[16px]">group</span>
-                        <span>Inspectores</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => onToggleStatus(t)}
-                        className={`h-8 px-2.5 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors shrink-0 shadow-sm ${
-                          t.status === "ACTIVE"
-                            ? "bg-surface-container hover:bg-alert-red-bg/25 hover:text-alert-red text-on-surface"
-                            : "bg-status-pass-bg hover:bg-status-pass/20 text-status-pass"
-                        }`}
-                        title={t.status === "ACTIVE" ? "Suspender acceso a la empresa" : "Reactivar acceso a la empresa"}
-                      >
-                        <span className="material-symbols-outlined text-[16px]">
-                          {t.status === "ACTIVE" ? "block" : "check_circle"}
-                        </span>
-                        <span>{t.status === "ACTIVE" ? "Suspender" : "Reactivar"}</span>
-                      </button>
-
-                      {onDeleteTenant && (
-                        <button
-                          type="button"
-                          onClick={() => onDeleteTenant(t)}
-                          className="h-8 px-2 rounded-xl text-xs font-semibold bg-surface-container hover:bg-alert-red-bg/30 text-slate-subtext hover:text-alert-red inline-flex items-center justify-center cursor-pointer transition-colors shrink-0 shadow-sm"
-                          title="Eliminar empresa definitivamente de la plataforma"
-                        >
-                          <span className="material-symbols-outlined text-[16px]">delete</span>
-                        </button>
-                      )}
+                    <div className="flex items-center justify-end">
+                      <ActionMenu
+                        label={`Acciones para ${t.name}`}
+                        align="right"
+                        items={[
+                          {
+                            id: "edit",
+                            label: "Editar Empresa",
+                            icon: "edit",
+                            title: "Editar datos de la empresa",
+                            onClick: () => onOpenEdit(t),
+                          },
+                          {
+                            id: "contract",
+                            label: "Contrato & Licencia",
+                            icon: "receipt_long",
+                            title: "Ver contratos, renovar y salud del cliente",
+                            onClick: () => onOpenContract(t),
+                          },
+                          {
+                            id: "rubric",
+                            label: "Personalizar Rúbrica",
+                            icon: "fact_check",
+                            title: "Personalizar rúbrica para esta empresa",
+                            onClick: () => onOpenRubric(t),
+                          },
+                          {
+                            id: "users",
+                            label: "Gestionar Inspectores",
+                            icon: "group",
+                            title: "Ver y gestionar inspectores del tenant",
+                            onClick: () => onOpenUsers(t),
+                          },
+                          {
+                            id: "toggle-status",
+                            label: t.status === "ACTIVE" ? "Suspender Empresa" : "Reactivar Empresa",
+                            icon: t.status === "ACTIVE" ? "block" : "check_circle",
+                            variant: t.status === "ACTIVE" ? "warning" : "success",
+                            title: t.status === "ACTIVE" ? "Suspender acceso a la empresa" : "Reactivar acceso a la empresa",
+                            onClick: () => onToggleStatus(t),
+                          },
+                          ...(onDeleteTenant
+                            ? [
+                                {
+                                  id: "delete",
+                                  label: "Eliminar Empresa",
+                                  icon: "delete",
+                                  variant: "danger" as const,
+                                  separator: true,
+                                  title: "Eliminar empresa definitivamente de la plataforma",
+                                  onClick: () => onDeleteTenant(t),
+                                },
+                              ]
+                            : []),
+                        ]}
+                      />
                     </div>
                   </td>
                 </tr>

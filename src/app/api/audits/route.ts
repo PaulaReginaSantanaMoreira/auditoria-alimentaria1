@@ -106,16 +106,17 @@ export async function GET(req: NextRequest) {
 
     const auditRepo = new AuditRepository(supabase);
 
-    // Se houver empresa (tenant) ativa no contexto da sessão
-    if (session.tenantId && session.role !== "PLATFORM_SUPERADMIN") {
-      let canViewAll = callerRole === "TENANT_ADMIN" || callerRole === "VIEWER";
+    // Se houver empresa (tenant) ativa no contexto da sessão (incluindo SuperAdmin impersonando tenant)
+    const effectiveTenantId = session.tenantId && session.tenantId !== "global" ? session.tenantId : null;
+    if (effectiveTenantId) {
+      let canViewAll = callerRole === "TENANT_ADMIN" || callerRole === "VIEWER" || callerRole === "PLATFORM_SUPERADMIN";
 
       if (callerRole === "AUDITOR" && session.userId) {
         const { data: member } = await supabase
           .from("tenant_users")
           .select("can_view_all_tenant_audits")
           .eq("user_id", session.userId)
-          .eq("tenant_id", session.tenantId)
+          .eq("tenant_id", effectiveTenantId)
           .maybeSingle();
 
         canViewAll = Boolean(member?.can_view_all_tenant_audits);
@@ -126,12 +127,28 @@ export async function GET(req: NextRequest) {
       // Apenas TENANT_ADMIN e SUPERADMIN podem vê-las.
       const shouldExcludeInvalidated = callerRole === "AUDITOR" || callerRole === "VIEWER";
 
-      const tenantAudits = await auditRepo.findByTenantId(session.tenantId, {
+      const tenantAudits = await auditRepo.findByTenantId(effectiveTenantId, {
         excludeInvalidated: shouldExcludeInvalidated,
         auditorId: canViewAll ? undefined : session.userId,
       });
 
       return NextResponse.json(tenantAudits, { status: 200 });
+    }
+
+    // Se for SuperAdmin operando em modo Plataforma Global (sem tenant específico)
+    if (callerRole === "PLATFORM_SUPERADMIN") {
+      const { data: globalAudits, error } = await supabase
+        .from("audits")
+        .select(
+          "id, inspection_date, status, normative_framework, compliance_score, verdict, access_scope, created_at, company:companies(name, cif)"
+        )
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        return NextResponse.json([], { status: 200 });
+      }
+
+      return NextResponse.json(globalAudits || [], { status: 200 });
     }
 
     // Fallback legado ou auditoria individual direta

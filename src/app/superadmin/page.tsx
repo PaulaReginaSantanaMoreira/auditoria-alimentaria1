@@ -31,7 +31,6 @@ import { TenantRubricModal } from "@/presentation/components/superadmin/modals/T
 
 import { SuperAdminStatsCards } from "@/presentation/components/superadmin/tabs/SuperAdminStatsCards";
 import { TenantsTable } from "@/presentation/components/superadmin/tabs/TenantsTable";
-import { ConfidentialAuditsTable } from "@/presentation/components/superadmin/tabs/ConfidentialAuditsTable";
 
 export default function SuperAdminPage() {
   const { isAuthenticated, isLoading: isAuthLoading } = useAuthGuard({ requiredRole: "PLATFORM_SUPERADMIN" });
@@ -39,9 +38,7 @@ export default function SuperAdminPage() {
   // Main Data States
   const [tenants, setTenants] = useState<TenantItem[]>([]);
   const [adminAudits, setAdminAudits] = useState<AdminAuditItem[]>([]);
-  const [activeTab, setActiveTab] = useState<"tenants" | "inspections">("tenants");
   const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingAudits, setIsLoadingAudits] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [notification, setNotification] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
@@ -126,7 +123,6 @@ export default function SuperAdminPage() {
   };
 
   const fetchAdminAudits = async () => {
-    setIsLoadingAudits(true);
     try {
       const res = await fetch("/api/audits?scope=CONFIDENTIAL");
       if (res.ok) {
@@ -167,8 +163,6 @@ export default function SuperAdminPage() {
       setAdminAudits(mappedOff);
     } catch {
       // Fallback
-    } finally {
-      setIsLoadingAudits(false);
     }
   };
 
@@ -731,6 +725,14 @@ export default function SuperAdminPage() {
 
             <div className="flex items-center gap-2.5 flex-wrap shrink-0">
               <Link
+                href="/auditorias"
+                className="inline-flex items-center gap-2 px-space-md py-3 rounded-xl bg-surface-container hover:bg-surface-container-high border border-slate-border text-on-surface font-bold text-xs uppercase tracking-wider shadow-sm transition-all cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[18px]">assignment</span>
+                <span>Ver Inspecciones</span>
+              </Link>
+
+              <Link
                 href="/auditorias/nova"
                 className="inline-flex items-center gap-2 px-space-md py-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs uppercase tracking-wider shadow-sm transition-all cursor-pointer"
               >
@@ -783,60 +785,20 @@ export default function SuperAdminPage() {
             onOpenGlobalRubric={handleOpenGlobalRubric}
           />
 
-          {/* Abas de Navegação SuperAdmin */}
-          <div className="flex items-center gap-2 border-b border-slate-border/80 pb-1">
-            <button
-              type="button"
-              onClick={() => setActiveTab("tenants")}
-              className={`px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${
-                activeTab === "tenants"
-                  ? "bg-primary text-white shadow-sm"
-                  : "bg-surface-container-lowest text-slate-subtext hover:text-slate-dark dark:hover:text-white border border-slate-border"
-              }`}
-            >
-              <span className="material-symbols-outlined text-[18px]">domain</span>
-              <span>Empresas &amp; Licenciamiento ({tenants.length})</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab("inspections");
-                fetchAdminAudits();
-              }}
-              className={`px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${
-                activeTab === "inspections"
-                  ? "bg-emerald-700 text-white shadow-sm"
-                  : "bg-surface-container-lowest text-slate-subtext hover:text-slate-dark dark:hover:text-white border border-slate-border"
-              }`}
-            >
-              <span className="material-symbols-outlined text-[18px]">lock</span>
-              <span>Mis Inspecciones Privadas ({adminAudits.length})</span>
-            </button>
-          </div>
-
-          {/* Main Tabs */}
-          {activeTab === "tenants" ? (
-            <TenantsTable
-              tenants={tenants}
-              searchTerm={searchTerm}
-              setSearchTerm={setSearchTerm}
-              isLoading={isLoading}
-              onRefresh={fetchTenants}
-              onOpenEdit={handleOpenEditModal}
-              onOpenContract={fetchContractHistory}
-              onOpenRubric={handleOpenTenantRubric}
-              onOpenUsers={fetchTenantUsers}
-              onToggleStatus={handleToggleStatus}
-              onDeleteTenant={handleDeleteTenant}
-            />
-          ) : (
-            <ConfidentialAuditsTable
-              audits={adminAudits}
-              isLoading={isLoadingAudits}
-              onRefresh={fetchAdminAudits}
-            />
-          )}
+          {/* Tabela de Empresas Clientes (Tenants) */}
+          <TenantsTable
+            tenants={tenants}
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            isLoading={isLoading}
+            onRefresh={fetchTenants}
+            onOpenEdit={handleOpenEditModal}
+            onOpenContract={fetchContractHistory}
+            onOpenRubric={handleOpenTenantRubric}
+            onOpenUsers={fetchTenantUsers}
+            onToggleStatus={handleToggleStatus}
+            onDeleteTenant={handleDeleteTenant}
+          />
         </div>
 
         {/* MODAIS MODULARES */}

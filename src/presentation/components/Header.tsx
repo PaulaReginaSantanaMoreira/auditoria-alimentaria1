@@ -184,9 +184,12 @@ export function Header({
   const isRouteActive = (route: string) => {
     if (!pathname) return false;
     if (route === "/auditorias/nova") {
-      return pathname.startsWith("/auditorias");
+      return pathname === "/auditorias/nova";
     }
-    return pathname.startsWith(route);
+    if (route === "/auditorias") {
+      return pathname === "/auditorias" || (pathname.startsWith("/auditorias/") && pathname !== "/auditorias/nova");
+    }
+    return pathname === route || pathname.startsWith(route + "/");
   };
 
   const getMenuItemClasses = (route: string) => {
@@ -374,6 +377,15 @@ export function Header({
 
                   {/* Ações */}
                   <div className="py-1">
+                    <Link
+                      href="/auditorias"
+                      onClick={() => setIsMenuOpen(false)}
+                      className={getMenuItemClasses("/auditorias")}
+                    >
+                      <span className={getMenuIconClasses("/auditorias")}>assignment</span>
+                      <span>Historial de Inspecciones</span>
+                    </Link>
+
                     <Link
                       href="/auditorias/nova"
                       onClick={() => setIsMenuOpen(false)}

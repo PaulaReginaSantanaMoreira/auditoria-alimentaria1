@@ -135,7 +135,7 @@ export async function POST(request: Request) {
     }
 
     const accessScope = isSuper ? "CONFIDENTIAL" : "TENANT";
-    const redirectTo = isSuper ? "/superadmin" : "/auditorias/nova";
+    const redirectTo = isSuper ? "/superadmin" : "/auditorias";
 
     // 3. Emissão de JWT corporativo assinado com expiração estrita de 1 dia (24h)
     const { token, expiresAt } = await signSessionToken({

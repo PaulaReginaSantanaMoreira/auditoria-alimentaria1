@@ -67,7 +67,7 @@ export default function LoginPage() {
                 ? "/superadmin"
                 : redirectParam && redirectParam.startsWith("/") && redirectParam !== "/login"
                 ? redirectParam
-                : "/auditorias/nova";
+                : "/auditorias";
               window.location.href = targetUrl;
               return;
             }
@@ -92,7 +92,7 @@ export default function LoginPage() {
               ? "/superadmin"
               : redirectParam && redirectParam.startsWith("/") && redirectParam !== "/login"
               ? redirectParam
-              : "/auditorias/nova";
+              : "/auditorias";
 
             window.location.href = targetUrl;
             return;
@@ -197,7 +197,7 @@ export default function LoginPage() {
         data.redirectTo ||
         (redirectParam && redirectParam.startsWith("/") && redirectParam !== "/login"
           ? redirectParam
-          : "/auditorias/nova");
+          : "/auditorias");
 
       setIsLoading(false);
       window.location.href = targetUrl;
@@ -216,7 +216,7 @@ export default function LoginPage() {
         );
         document.cookie = "bioaudit_token=demo-token; path=/; max-age=86400; SameSite=Lax";
         setIsLoading(false);
-        window.location.href = "/auditorias/nova";
+        window.location.href = "/auditorias";
         return;
       }
       setErrors({ general: err.message || "Error al conectar con el servidor de autenticación." });

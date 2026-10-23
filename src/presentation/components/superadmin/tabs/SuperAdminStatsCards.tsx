@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 
 interface SuperAdminStatsCardsProps {
   tenantsCount: number;
@@ -39,16 +40,22 @@ export function SuperAdminStatsCards({
         </div>
       </div>
 
-      <div className="p-space-md rounded-2xl bg-surface-container-lowest border border-slate-border shadow-sm">
+      <Link
+        href="/auditorias"
+        className="p-space-md rounded-2xl bg-surface-container-lowest border border-slate-border shadow-sm cursor-pointer hover:border-emerald-600/50 hover:shadow-md transition-all group block"
+        title="Ver todas las inspecciones sanitarias en el Centro de Inspecciones"
+      >
         <div className="flex items-center justify-between text-slate-subtext text-label-sm font-bold uppercase tracking-wider">
-          <span>Mis Inspecciones</span>
-          <span className="material-symbols-outlined text-emerald-600 text-[20px]">verified_user</span>
+          <span className="group-hover:text-emerald-600 transition-colors">Inspecciones</span>
+          <span className="material-symbols-outlined text-emerald-600 text-[20px] group-hover:scale-110 transition-transform">verified_user</span>
         </div>
-        <div className="mt-2 text-2xl font-black text-on-surface flex items-baseline gap-1">
-          {adminAuditsCount}
-          <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 ml-1">Privadas</span>
+        <div className="mt-2 text-2xl font-black text-on-surface flex items-baseline justify-between">
+          <span>{adminAuditsCount}</span>
+          <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-0.5 group-hover:underline">
+            Ver todas <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+          </span>
         </div>
-      </div>
+      </Link>
 
       <div
         onClick={onOpenGlobalRubric}
