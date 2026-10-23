@@ -12,6 +12,7 @@ export interface CreateTenantDTO {
   name: string;
   cif: string;
   slug: string;
+  planId?: string;
   planTier?: PlanTier;
   maxUserSeats?: number;
   subscriptionDays?: number;
@@ -19,6 +20,8 @@ export interface CreateTenantDTO {
   phone?: string;
   adminEmail?: string;
   adminName?: string;
+  adminPhone?: string;
+  adminDocumentNumber?: string;
   temporaryPassword?: string;
   paymentStatus?: SubscriptionPaymentStatus;
   invoiceRef?: string;

@@ -54,7 +54,7 @@ export function Header({
             setIsSuperAdmin(isSuper);
             setUserRole(
               isSuper
-                ? "SuperAdmin Master"
+                ? "Administrador de la Plataforma"
                 : parsed.role === "TENANT_ADMIN" || parsed.role === "tenant_admin"
                 ? "Administrador de Empresa"
                 : parsed.role === "VIEWER" || parsed.role === "viewer"
@@ -183,6 +183,12 @@ export function Header({
 
   const isRouteActive = (route: string) => {
     if (!pathname) return false;
+    if (route === "/superadmin") {
+      return pathname === "/superadmin";
+    }
+    if (route === "/superadmin/planos") {
+      return pathname.startsWith("/superadmin/planos");
+    }
     if (route === "/auditorias/nova") {
       return pathname === "/auditorias/nova";
     }
@@ -418,14 +424,25 @@ export function Header({
                     )}
 
                     {isSuper && (
-                      <Link
-                        href="/superadmin"
-                        onClick={() => setIsMenuOpen(false)}
-                        className={getMenuItemClasses("/superadmin")}
-                      >
-                        <span className={getMenuIconClasses("/superadmin")}>admin_panel_settings</span>
-                        <span>SuperAdmin Master</span>
-                      </Link>
+                      <>
+                        <Link
+                          href="/superadmin"
+                          onClick={() => setIsMenuOpen(false)}
+                          className={getMenuItemClasses("/superadmin")}
+                        >
+                          <span className={getMenuIconClasses("/superadmin")}>admin_panel_settings</span>
+                          <span>Gobernanza de la Plataforma</span>
+                        </Link>
+
+                        <Link
+                          href="/superadmin/planos"
+                          onClick={() => setIsMenuOpen(false)}
+                          className={getMenuItemClasses("/superadmin/planos")}
+                        >
+                          <span className={getMenuIconClasses("/superadmin/planos")}>loyalty</span>
+                          <span>Planes de Suscripción</span>
+                        </Link>
+                      </>
                     )}
 
                     <button

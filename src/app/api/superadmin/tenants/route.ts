@@ -120,27 +120,18 @@ export async function POST(request: Request) {
       }
     }
 
-    // 6. Validação de Vigência e Cupo
-    const subscriptionDays = Number(body.subscriptionDays);
-    if (isNaN(subscriptionDays) || subscriptionDays < 1 || subscriptionDays > 3650) {
-      return NextResponse.json(
-        { success: false, error: "La vigencia inicial en días debe ser un número entero entre 1 y 3650 días." },
-        { status: 400 }
-      );
-    }
+    const adminPhone = body.adminPhone ? String(body.adminPhone).trim() : phone;
+    const adminDocumentNumber = body.adminDocumentNumber ? String(body.adminDocumentNumber).trim().toUpperCase() : undefined;
 
-    const maxUserSeats = Number(body.maxUserSeats);
-    if (isNaN(maxUserSeats) || maxUserSeats < 1 || maxUserSeats > 200) {
-      return NextResponse.json(
-        { success: false, error: "El cupo de inspectores activos debe ser entre 1 y 200 puestos." },
-        { status: 400 }
-      );
-    }
+    // 6. Vigência, Cupo e Plano de Assinatura
+    const planId = body.planId ? String(body.planId).trim() : undefined;
+    const subscriptionDays = body.subscriptionDays ? Number(body.subscriptionDays) : undefined;
+    const maxUserSeats = body.maxUserSeats ? Number(body.maxUserSeats) : undefined;
 
     const validPaymentStatuses = ["PAID", "COURTESY", "PENDING_PAYMENT"];
     const paymentStatus = validPaymentStatuses.includes(body.paymentStatus)
       ? body.paymentStatus
-      : "PAID";
+      : undefined;
 
     const slug =
       body.slug ||
@@ -153,13 +144,16 @@ export async function POST(request: Request) {
       name,
       cif: rawCif,
       slug,
-      planTier: body.planTier || "PRO",
+      planId,
+      planTier: body.planTier,
       maxUserSeats,
       subscriptionDays,
       address: body.address ? String(body.address).trim() : "",
       phone,
       adminEmail,
       adminName,
+      adminPhone,
+      adminDocumentNumber,
       temporaryPassword: body.temporaryPassword,
       paymentStatus,
       invoiceRef: body.invoiceRef,

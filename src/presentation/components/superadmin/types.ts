@@ -76,6 +76,19 @@ export interface AdminAuditItem {
   isInvalidated?: boolean;
 }
 
+export interface PlanItem {
+  id: string;
+  name: string;
+  code: string;
+  description?: string;
+  durationDays: number;
+  maxUserSeats: number;
+  price: number;
+  currency: string;
+  isDefault: boolean;
+  isActive: boolean;
+}
+
 export interface NewTenantFormState {
   name: string;
   cif: string;
@@ -83,12 +96,15 @@ export interface NewTenantFormState {
   phone: string;
   adminName: string;
   adminEmail: string;
+  adminPhone?: string;
+  adminDocumentNumber?: string;
+  planId?: string;
   planTier?: string;
-  maxUserSeats: number;
-  subscriptionDays: number;
-  paymentStatus: "PAID" | "COURTESY" | "PENDING_PAYMENT";
-  invoiceRef: string;
-  notes: string;
+  maxUserSeats?: number;
+  subscriptionDays?: number;
+  paymentStatus?: "PAID" | "COURTESY" | "PENDING_PAYMENT";
+  invoiceRef?: string;
+  notes?: string;
 }
 
 export interface EditTenantFormState {

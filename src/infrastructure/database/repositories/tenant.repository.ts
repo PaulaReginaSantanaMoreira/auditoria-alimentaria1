@@ -8,6 +8,7 @@ import {
   CreateTenantDTO,
   RenewContractDTO,
 } from "@/domain/repositories/tenant-repository.interface";
+import { SubscriptionPlanRepository } from "./subscription-plan.repository";
 
 export interface TenantUserDetail {
   id: string;
@@ -233,10 +234,35 @@ export class TenantRepository implements ITenantRepository {
       }
     }
 
-    const maxSeats = dto.maxUserSeats ?? 5;
-    const days = dto.subscriptionDays ?? 365;
+    let maxSeats = dto.maxUserSeats ?? 1;
+    let days = dto.subscriptionDays ?? 7;
+    let planTier = dto.planTier ?? "TRIAL_7D";
+    let initialPaymentStatus: SubscriptionPaymentStatus = dto.paymentStatus || "COURTESY";
+
+    if (dto.planId) {
+      try {
+        const planRepo = new SubscriptionPlanRepository(this.client);
+        const plan = await planRepo.findById(dto.planId);
+        if (plan) {
+          maxSeats = plan.maxUserSeats;
+          days = plan.durationDays;
+          planTier = plan.code as any;
+          if (plan.price === 0) {
+            initialPaymentStatus = "COURTESY";
+          }
+        }
+      } catch {
+        // Fallback
+      }
+    } else if (!dto.subscriptionDays && !dto.maxUserSeats) {
+      // Usa o plano default da plataforma (1 usuário, 7 dias, R$ 0,00)
+      maxSeats = 1;
+      days = 7;
+      planTier = "TRIAL_7D" as any;
+      initialPaymentStatus = "COURTESY";
+    }
+
     const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
-    const initialPaymentStatus: SubscriptionPaymentStatus = dto.paymentStatus || "PAID";
 
     let sub: any;
     try {
@@ -244,7 +270,7 @@ export class TenantRepository implements ITenantRepository {
         .from("tenant_subscriptions")
         .insert({
           tenant_id: tenant.id,
-          plan_tier: dto.planTier ?? "PRO",
+          plan_tier: planTier,
           max_user_seats: maxSeats,
           status: "ACTIVE",
           payment_status: initialPaymentStatus,
@@ -263,7 +289,7 @@ export class TenantRepository implements ITenantRepository {
         .from("tenant_subscriptions")
         .insert({
           tenant_id: tenant.id,
-          plan_tier: dto.planTier ?? "PRO",
+          plan_tier: planTier,
           max_user_seats: maxSeats,
           status: "ACTIVE",
           expires_at: expiresAt.toISOString(),
@@ -286,7 +312,7 @@ export class TenantRepository implements ITenantRepository {
         payment_status: initialPaymentStatus,
         invoice_ref: dto.invoiceRef || null,
         notes: dto.notes || "Alta oficial de tenant e contrato inicial",
-        created_by: "SuperAdmin Master",
+        created_by: "Administrador de la Plataforma",
       });
     } catch {
       // Tabela de contratos pode não estar criada em mock
@@ -300,7 +326,10 @@ export class TenantRepository implements ITenantRepository {
           tenantId: tenant.id,
           email: dto.adminEmail,
           fullName: dto.adminName || dto.name,
+          phone: dto.adminPhone || dto.phone,
+          documentNumber: dto.adminDocumentNumber,
           role: "TENANT_ADMIN",
+          canViewAllTenantAudits: true,
           temporaryPassword: dto.temporaryPassword,
         });
         adminTempPassword = result.temporaryPassword;
@@ -537,7 +566,7 @@ export class TenantRepository implements ITenantRepository {
           amount: dto.amount || null,
           invoice_ref: dto.invoiceRef || null,
           notes: dto.notes || null,
-          created_by: dto.createdBy || "SuperAdmin Master",
+          created_by: dto.createdBy || "Administrador de la Plataforma",
         })
         .select()
         .single();
@@ -562,7 +591,7 @@ export class TenantRepository implements ITenantRepository {
       amount: dto.amount,
       invoiceRef: dto.invoiceRef,
       notes: dto.notes,
-      createdBy: dto.createdBy || "SuperAdmin Master",
+      createdBy: dto.createdBy || "Administrador de la Plataforma",
       createdAt: new Date(),
     });
 

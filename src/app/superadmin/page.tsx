@@ -80,9 +80,10 @@ export default function SuperAdminPage() {
     phone: "",
     adminName: "",
     adminEmail: "",
-    maxUserSeats: 5,
-    subscriptionDays: 365,
-    paymentStatus: "PAID",
+    adminPhone: "",
+    adminDocumentNumber: "",
+    planId: "",
+    paymentStatus: "COURTESY",
     invoiceRef: "",
     notes: "",
   });
@@ -704,16 +705,16 @@ export default function SuperAdminPage() {
 
   return (
     <>
-      <Header title="BioAudit Pro" subtitle="Gobernanza Master • SuperAdmin" planActive={false} />
+      <Header title="BioAudit Pro" subtitle="Gobernanza de la Plataforma" planActive={false} />
 
       <main className="flex-1 flex flex-col relative w-full pt-20 pb-24 bg-surface dark:bg-slate-950 min-h-screen">
         <div className="w-full max-w-5xl mx-auto px-margin-mobile space-y-space-md">
-          {/* Hero Banner SuperAdmin */}
+          {/* Hero Banner Gobernanza */}
           <div className="bg-surface-container-lowest rounded-2xl p-space-md sm:p-space-lg border border-slate-border shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-space-md">
             <div>
               <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary font-bold text-xs uppercase tracking-wider mb-2">
                 <span className="material-symbols-outlined text-[16px]">admin_panel_settings</span>
-                <span>Panel Master Multi-Tenant</span>
+                <span>Gobernanza Multi-Empresa</span>
               </div>
               <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight">
                 Gobernanza &amp; Inspecciones Sanitarias
@@ -724,6 +725,14 @@ export default function SuperAdminPage() {
             </div>
 
             <div className="flex items-center gap-2.5 flex-wrap shrink-0">
+              <Link
+                href="/superadmin/planos"
+                className="inline-flex items-center gap-2 px-space-md py-3 rounded-xl bg-surface-container hover:bg-surface-container-high border border-slate-border text-on-surface font-bold text-xs uppercase tracking-wider shadow-sm transition-all cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[18px]">loyalty</span>
+                <span>Planes de Suscripción</span>
+              </Link>
+
               <Link
                 href="/auditorias"
                 className="inline-flex items-center gap-2 px-space-md py-3 rounded-xl bg-surface-container hover:bg-surface-container-high border border-slate-border text-on-surface font-bold text-xs uppercase tracking-wider shadow-sm transition-all cursor-pointer"
