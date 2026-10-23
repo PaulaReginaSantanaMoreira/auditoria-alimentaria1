@@ -75,7 +75,10 @@ export async function POST(
       message: "Contrato / Vigencia renovada con éxito.",
       subscription: {
         id: result.subscription.id,
-        planTier: result.subscription.planTier,
+        planId: result.subscription.planId ?? null,
+        planName: result.subscription.planName,
+        planCode: result.subscription.planCode,
+        planTier: result.subscription.planName,
         maxUserSeats: result.subscription.maxUserSeats,
         status: result.subscription.status,
         paymentStatus: result.subscription.paymentStatus,

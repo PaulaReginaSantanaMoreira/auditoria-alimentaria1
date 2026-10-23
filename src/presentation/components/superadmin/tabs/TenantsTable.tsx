@@ -124,9 +124,13 @@ export function TenantsTable({
                   {/* Coluna 2: Plan & Estado */}
                   <td className="py-space-md px-space-md">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-label-sm font-bold px-2 py-0.5 rounded-md bg-surface-container text-on-surface-variant">
-                        {t.planTier}
-                      </span>
+                      {t.planName || t.planCode || t.planTier ? (
+                        <span className="text-label-sm font-bold px-2 py-0.5 rounded-md bg-surface-container text-on-surface-variant">
+                          {t.planName || t.planCode || t.planTier}
+                        </span>
+                      ) : (
+                        <span className="text-label-sm font-semibold text-slate-subtext">—</span>
+                      )}
                       <span
                         className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                           t.status === "ACTIVE"
@@ -141,7 +145,9 @@ export function TenantsTable({
 
                   {/* Coluna 3: Estado Contrato (Saúde Financeira) */}
                   <td className="py-space-md px-space-md">
-                    {t.isExpired ? (
+                    {!t.paymentStatus && !t.expiresAt ? (
+                      <span className="text-slate-subtext text-xs">—</span>
+                    ) : t.isExpired ? (
                       <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-alert-red-bg/25 text-alert-red inline-flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-alert-red" />
                         Vencido
@@ -156,29 +162,40 @@ export function TenantsTable({
                         <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
                         Bonificado
                       </span>
-                    ) : (
+                    ) : t.paymentStatus === "PAID" ? (
                       <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300 inline-flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                         Pagado / Al Día
                       </span>
+                    ) : (
+                      <span className="text-slate-subtext text-xs">—</span>
                     )}
                   </td>
 
                   {/* Coluna 4: Inspectores Habilitados */}
                   <td className="py-space-md px-space-md">
                     <div className="font-bold text-on-surface text-sm">
-                      {t.activeUsersCount} <span className="text-slate-subtext font-normal text-xs">/ {t.maxUserSeats}</span>
+                      {t.activeUsersCount}{" "}
+                      <span className="text-slate-subtext font-normal text-xs">
+                        / {t.maxUserSeats != null ? t.maxUserSeats : "—"}
+                      </span>
                     </div>
                     <div className="text-[11px] text-slate-subtext">inspectores activos</div>
                   </td>
 
                   {/* Coluna 5: Vigencia Subscripción */}
                   <td className="py-space-md px-space-md">
-                    <div className="flex items-center gap-1.5 text-body-sm font-semibold">
-                      <span className="material-symbols-outlined text-[16px] text-slate-subtext">calendar_today</span>
-                      <span>{new Date(t.expiresAt).toLocaleDateString("es-ES")}</span>
-                      <span className="text-label-sm text-slate-subtext font-normal">({t.daysRemaining}d)</span>
-                    </div>
+                    {t.expiresAt ? (
+                      <div className="flex items-center gap-1.5 text-body-sm font-semibold">
+                        <span className="material-symbols-outlined text-[16px] text-slate-subtext">calendar_today</span>
+                        <span>{new Date(t.expiresAt).toLocaleDateString("es-ES")}</span>
+                        {t.daysRemaining != null && (
+                          <span className="text-label-sm text-slate-subtext font-normal">({t.daysRemaining}d)</span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-slate-subtext text-xs">—</span>
+                    )}
                   </td>
 
                   {/* Coluna 6: Acciones (Menu 3 Pontinhos Dropdown) */}

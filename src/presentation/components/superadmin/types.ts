@@ -18,17 +18,20 @@ export interface TenantItem {
   phone?: string;
   adminEmail?: string;
   adminName?: string;
-  planTier: string;
-  maxUserSeats: number;
+  planId?: string | null;
+  planName?: string | null;
+  planCode?: string | null;
+  planTier?: string | null;
+  maxUserSeats?: number | null;
   activeUsersCount: number;
-  subscriptionStatus: string;
-  paymentStatus?: "PAID" | "COURTESY" | "PENDING_PAYMENT";
+  subscriptionStatus?: string | null;
+  paymentStatus?: "PAID" | "COURTESY" | "PENDING_PAYMENT" | null;
   invoiceRef?: string;
   notes?: string;
-  validFrom: string;
-  expiresAt: string;
-  daysRemaining: number;
-  isExpired: boolean;
+  validFrom?: string | null;
+  expiresAt?: string | null;
+  daysRemaining?: number | null;
+  isExpired?: boolean | null;
   createdAt: string;
 }
 
@@ -99,6 +102,8 @@ export interface NewTenantFormState {
   adminPhone?: string;
   adminDocumentNumber?: string;
   planId?: string;
+  planName?: string;
+  planCode?: string;
   planTier?: string;
   maxUserSeats?: number;
   subscriptionDays?: number;
@@ -112,7 +117,10 @@ export interface EditTenantFormState {
   cif: string;
   address: string;
   phone: string;
-  planTier: string;
+  planId?: string;
+  planName?: string;
+  planCode?: string;
+  planTier?: string;
   adminName: string;
   adminEmail: string;
   maxUserSeats: number;

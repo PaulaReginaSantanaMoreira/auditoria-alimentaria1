@@ -4,7 +4,7 @@ import { SubscriptionContract, ContractActionType } from "../entities/subscripti
 
 export interface TenantWithSubscription {
   tenant: Tenant;
-  subscription: TenantSubscription;
+  subscription: TenantSubscription | null;
   activeUsersCount: number;
 }
 
@@ -13,7 +13,9 @@ export interface CreateTenantDTO {
   cif: string;
   slug: string;
   planId?: string;
-  planTier?: PlanTier;
+  planName?: string;
+  planCode?: string;
+  planTier?: string;
   maxUserSeats?: number;
   subscriptionDays?: number;
   address?: string;
@@ -30,6 +32,9 @@ export interface CreateTenantDTO {
 
 export interface RenewContractDTO {
   tenantId: string;
+  planId?: string;
+  planName?: string;
+  planCode?: string;
   actionType?: ContractActionType;
   daysToAdd?: number;
   newExpiresAt?: Date;
@@ -49,7 +54,8 @@ export interface ITenantRepository {
   updateStatus(id: string, status: TenantStatus): Promise<void>;
   updateSubscriptionSeats(tenantId: string, maxSeats: number): Promise<void>;
   updateSubscriptionExpiration(tenantId: string, expiresAt: Date): Promise<void>;
-  updatePlanTier(tenantId: string, planTier: PlanTier): Promise<void>;
+  updatePlan(tenantId: string, plan: { planId?: string | null; planName?: string; planCode?: string; maxUserSeats?: number }): Promise<void>;
+  updatePlanTier(tenantId: string, planTier: string): Promise<void>;
   updateContactInfo(tenantId: string, info: { address?: string; phone?: string; adminEmail?: string; adminName?: string }): Promise<void>;
   updateTenantDetails(tenantId: string, details: { name?: string; address?: string; phone?: string; adminEmail?: string; adminName?: string }): Promise<void>;
   getSubscriptionContracts(tenantId: string): Promise<SubscriptionContract[]>;

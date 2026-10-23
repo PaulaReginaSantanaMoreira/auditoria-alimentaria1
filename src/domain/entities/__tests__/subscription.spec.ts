@@ -115,4 +115,39 @@ describe("TenantSubscription Entity", () => {
     expect(subscription.invoiceRef).toBe("BOL-2026-990");
     expect(subscription.notes).toBe("Boleto bancário emitido");
   });
+
+  it("should support direct subscription plan attributes (planId, planName, planCode)", () => {
+    const subscription = new TenantSubscription({
+      id: "sub-plan-1",
+      tenantId: "tenant-plan-1",
+      planId: "plan-uuid-promo",
+      planName: "Plano Promocional Especial",
+      planCode: "PROMO_50",
+      maxUserSeats: 10,
+      status: "ACTIVE",
+      validFrom: new Date(),
+      expiresAt: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
+      featureFlags: { customRubric: true, offlineSync: true, exportPdf: true, analytics: true },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    expect(subscription.planId).toBe("plan-uuid-promo");
+    expect(subscription.planName).toBe("Plano Promocional Especial");
+    expect(subscription.planCode).toBe("PROMO_50");
+    expect(subscription.planTier).toBe("Plano Promocional Especial");
+
+    // Atualização de plano
+    subscription.updatePlan({
+      id: "plan-uuid-annual",
+      name: "Plano Corporativo Anual",
+      code: "CORP_365",
+      maxUserSeats: 20,
+    });
+
+    expect(subscription.planId).toBe("plan-uuid-annual");
+    expect(subscription.planName).toBe("Plano Corporativo Anual");
+    expect(subscription.planCode).toBe("CORP_365");
+    expect(subscription.maxUserSeats).toBe(20);
+  });
 });

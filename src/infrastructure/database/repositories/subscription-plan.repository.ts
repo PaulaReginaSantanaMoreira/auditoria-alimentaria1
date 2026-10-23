@@ -97,6 +97,10 @@ export class SubscriptionPlanRepository {
     return defaultPlan || plans[0] || DEFAULT_INITIAL_PLANS[0];
   }
 
+  public async findDefaultPlan(): Promise<SubscriptionPlan | null> {
+    return this.getDefaultPlan();
+  }
+
   public async save(plan: SubscriptionPlan): Promise<void> {
     try {
       // Se este plano for marcado como default, remove o default dos outros

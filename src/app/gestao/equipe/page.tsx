@@ -14,7 +14,10 @@ interface TenantInfo {
   phone?: string;
   adminName?: string;
   adminEmail?: string;
-  planTier: string;
+  planId?: string;
+  planName?: string;
+  planCode?: string;
+  planTier?: string;
   maxUserSeats: number;
   activeUsersCount: number;
   subscriptionStatus: string;
@@ -497,7 +500,7 @@ export default function GestaoEquipePage() {
                 <div className="flex items-center gap-2 mt-1 text-xs text-slate-subtext flex-wrap">
                   <span>CIF: <strong className="font-mono text-on-surface">{tenantInfo.cif}</strong></span>
                   <span>•</span>
-                  <span>Plan: <strong className="text-on-surface">{tenantInfo.planTier}</strong></span>
+                  <span>Plan: <strong className="text-on-surface">{tenantInfo.planName || tenantInfo.planTier || "—"}</strong></span>
                   {tenantInfo.address && (
                     <>
                       <span>•</span>

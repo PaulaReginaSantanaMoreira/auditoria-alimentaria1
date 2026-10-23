@@ -32,13 +32,16 @@ export async function GET(
         phone: item.tenant.phone || "",
         adminEmail: item.tenant.adminEmail || "",
         adminName: item.tenant.adminName || "",
-        planTier: item.subscription.planTier,
-        maxUserSeats: item.subscription.maxUserSeats,
+        planId: item.subscription?.planId ?? null,
+        planName: item.subscription?.planName ?? null,
+        planCode: item.subscription?.planCode ?? null,
+        planTier: item.subscription?.planName ?? null,
+        maxUserSeats: item.subscription?.maxUserSeats ?? null,
         activeUsersCount: item.activeUsersCount,
-        validFrom: item.subscription.validFrom.toISOString(),
-        expiresAt: item.subscription.expiresAt.toISOString(),
-        daysRemaining: item.subscription.getDaysRemaining(),
-        isExpired: item.subscription.isExpired(),
+        validFrom: item.subscription?.validFrom ? item.subscription.validFrom.toISOString() : null,
+        expiresAt: item.subscription?.expiresAt ? item.subscription.expiresAt.toISOString() : null,
+        daysRemaining: item.subscription ? item.subscription.getDaysRemaining() : null,
+        isExpired: item.subscription ? item.subscription.isExpired() : null,
       },
     });
   } catch (error: any) {
@@ -79,7 +82,14 @@ export async function PATCH(
       await tenantRepo.updateStatus(id, body.status);
     }
 
-    if (body.planTier) {
+    if (body.planId || body.planName || body.planCode) {
+      await tenantRepo.updatePlan(id, {
+        planId: body.planId,
+        planName: body.planName,
+        planCode: body.planCode,
+        maxUserSeats: body.maxUserSeats !== undefined ? Number(body.maxUserSeats) : undefined,
+      });
+    } else if (body.planTier) {
       await tenantRepo.updatePlanTier(id, body.planTier);
     }
 
@@ -122,9 +132,9 @@ export async function PATCH(
         phone: updated.tenant.phone || "",
         adminEmail: updated.tenant.adminEmail || "",
         adminName: updated.tenant.adminName || "",
-        maxUserSeats: updated.subscription.maxUserSeats,
-        subscriptionStatus: updated.subscription.status,
-        expiresAt: updated.subscription.expiresAt.toISOString(),
+        maxUserSeats: updated.subscription?.maxUserSeats ?? null,
+        subscriptionStatus: updated.subscription?.status ?? null,
+        expiresAt: updated.subscription?.expiresAt ? updated.subscription.expiresAt.toISOString() : null,
       } : null,
     });
   } catch (error: any) {

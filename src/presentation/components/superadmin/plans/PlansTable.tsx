@@ -47,15 +47,6 @@ export function PlansTable({
             </span>
             <span>Actualizar</span>
           </button>
-
-          <button
-            type="button"
-            onClick={onOpenCreate}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-primary hover:bg-primary-hover text-white shadow-sm transition-all cursor-pointer"
-          >
-            <span className="material-symbols-outlined text-[16px]">add_box</span>
-            <span>Nuevo Plan</span>
-          </button>
         </div>
       </div>
 

@@ -1,4 +1,4 @@
-export type PlanTier = "STARTER" | "PRO" | "ENTERPRISE";
+export type PlanTier = string;
 export type SubscriptionStatus = "ACTIVE" | "EXPIRED" | "SUSPENDED";
 export type SubscriptionPaymentStatus = "PAID" | "COURTESY" | "PENDING_PAYMENT";
 
@@ -12,7 +12,10 @@ export interface SubscriptionFeatureFlags {
 export interface TenantSubscriptionProps {
   id: string;
   tenantId: string;
-  planTier: PlanTier;
+  planId?: string | null;
+  planName?: string;
+  planCode?: string;
+  planTier?: string; // Mantido para compatibilidade retroativa
   maxUserSeats: number;
   status: SubscriptionStatus;
   validFrom: Date;
@@ -28,7 +31,9 @@ export interface TenantSubscriptionProps {
 export class TenantSubscription {
   private readonly _id: string;
   private readonly _tenantId: string;
-  private _planTier: PlanTier;
+  private _planId?: string | null;
+  private _planName: string;
+  private _planCode: string;
   private _maxUserSeats: number;
   private _status: SubscriptionStatus;
   private _validFrom: Date;
@@ -47,7 +52,9 @@ export class TenantSubscription {
 
     this._id = props.id;
     this._tenantId = props.tenantId;
-    this._planTier = props.planTier;
+    this._planId = props.planId ?? null;
+    this._planName = props.planName || props.planCode || props.planTier || "Plano Padrão";
+    this._planCode = props.planCode || props.planTier || "DEFAULT";
     this._maxUserSeats = props.maxUserSeats;
     this._status = props.status;
     this._validFrom = props.validFrom;
@@ -62,7 +69,13 @@ export class TenantSubscription {
 
   get id(): string { return this._id; }
   get tenantId(): string { return this._tenantId; }
-  get planTier(): PlanTier { return this._planTier; }
+  get planId(): string | null | undefined { return this._planId; }
+  get planName(): string { return this._planName; }
+  get planCode(): string { return this._planCode; }
+  /**
+   * @deprecated Utilize `planName` ou `planCode`. Mantido como getter para compatibilidade legada.
+   */
+  get planTier(): string { return this._planName; }
   get maxUserSeats(): number { return this._maxUserSeats; }
   get status(): SubscriptionStatus { return this._status; }
   get validFrom(): Date { return this._validFrom; }
@@ -111,6 +124,16 @@ export class TenantSubscription {
     if (params.paymentStatus) this._paymentStatus = params.paymentStatus;
     if (params.invoiceRef !== undefined) this._invoiceRef = params.invoiceRef;
     if (params.notes !== undefined) this._notes = params.notes;
+    this._updatedAt = new Date();
+  }
+
+  public updatePlan(plan: { id?: string | null; name: string; code: string; maxUserSeats?: number }): void {
+    if (plan.id !== undefined) this._planId = plan.id;
+    this._planName = plan.name;
+    this._planCode = plan.code;
+    if (plan.maxUserSeats && plan.maxUserSeats >= 1) {
+      this._maxUserSeats = plan.maxUserSeats;
+    }
     this._updatedAt = new Date();
   }
 }

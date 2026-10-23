@@ -153,14 +153,6 @@ export default function SuperAdminPlanosPage() {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap shrink-0">
-            <Link
-              href="/superadmin"
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-border text-xs font-semibold text-on-surface hover:bg-surface-container transition-colors"
-            >
-              <span className="material-symbols-outlined text-[16px]">arrow_back</span>
-              <span>Volver a Empresas</span>
-            </Link>
-
             <button
               type="button"
               onClick={() => {

@@ -5,6 +5,9 @@ export interface SubscriptionContractProps {
   id: string;
   tenantId: string;
   subscriptionId?: string;
+  planId?: string | null;
+  planName?: string;
+  planCode?: string;
   actionType: ContractActionType;
   validFrom: Date;
   expiresAt: Date;
@@ -22,6 +25,9 @@ export class SubscriptionContract {
   private readonly _id: string;
   private readonly _tenantId: string;
   private readonly _subscriptionId?: string;
+  private readonly _planId?: string | null;
+  private readonly _planName?: string;
+  private readonly _planCode?: string;
   private readonly _actionType: ContractActionType;
   private readonly _validFrom: Date;
   private readonly _expiresAt: Date;
@@ -38,6 +44,9 @@ export class SubscriptionContract {
     this._id = props.id;
     this._tenantId = props.tenantId;
     this._subscriptionId = props.subscriptionId;
+    this._planId = props.planId ?? null;
+    this._planName = props.planName;
+    this._planCode = props.planCode;
     this._actionType = props.actionType;
     this._validFrom = props.validFrom;
     this._expiresAt = props.expiresAt;
@@ -54,6 +63,9 @@ export class SubscriptionContract {
   get id(): string { return this._id; }
   get tenantId(): string { return this._tenantId; }
   get subscriptionId(): string | undefined { return this._subscriptionId; }
+  get planId(): string | null | undefined { return this._planId; }
+  get planName(): string | undefined { return this._planName; }
+  get planCode(): string | undefined { return this._planCode; }
   get actionType(): ContractActionType { return this._actionType; }
   get validFrom(): Date { return this._validFrom; }
   get expiresAt(): Date { return this._expiresAt; }

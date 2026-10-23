@@ -62,18 +62,27 @@ export class TenantRepository implements ITenantRepository {
       const rawSub = Array.isArray(t.tenant_subscriptions)
         ? t.tenant_subscriptions[0]
         : t.tenant_subscriptions;
-      const sub = rawSub || {
-        id: "default-sub",
-        plan_tier: "PRO",
-        max_user_seats: 5,
-        status: "ACTIVE",
-        payment_status: "PAID",
-        valid_from: new Date().toISOString(),
-        expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-        feature_flags: { customRubric: true, offlineSync: true, exportPdf: true, analytics: true },
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
+
+      const subEntity = rawSub
+        ? new TenantSubscription({
+            id: rawSub.id,
+            tenantId: t.id,
+            planId: rawSub.plan_id,
+            planName: rawSub.plan_name || rawSub.plan_code || rawSub.plan_tier,
+            planCode: rawSub.plan_code || rawSub.plan_tier,
+            planTier: rawSub.plan_name || rawSub.plan_code || rawSub.plan_tier,
+            maxUserSeats: rawSub.max_user_seats,
+            status: rawSub.status,
+            paymentStatus: (rawSub.payment_status as SubscriptionPaymentStatus) || "PAID",
+            invoiceRef: rawSub.invoice_ref,
+            notes: rawSub.notes,
+            validFrom: new Date(rawSub.valid_from),
+            expiresAt: new Date(rawSub.expires_at),
+            featureFlags: rawSub.feature_flags,
+            createdAt: new Date(rawSub.created_at),
+            updatedAt: new Date(rawSub.updated_at),
+          })
+        : null;
 
       const activeUsersCount = (t.tenant_users || []).filter((u: any) => u.is_active).length;
 
@@ -91,21 +100,7 @@ export class TenantRepository implements ITenantRepository {
           createdAt: new Date(t.created_at),
           updatedAt: new Date(t.updated_at),
         }),
-        subscription: new TenantSubscription({
-          id: sub.id,
-          tenantId: t.id,
-          planTier: sub.plan_tier,
-          maxUserSeats: sub.max_user_seats,
-          status: sub.status,
-          paymentStatus: (sub.payment_status as SubscriptionPaymentStatus) || "PAID",
-          invoiceRef: sub.invoice_ref,
-          notes: sub.notes,
-          validFrom: new Date(sub.valid_from),
-          expiresAt: new Date(sub.expires_at),
-          featureFlags: sub.feature_flags,
-          createdAt: new Date(sub.created_at),
-          updatedAt: new Date(sub.updated_at),
-        }),
+        subscription: subEntity,
         activeUsersCount,
       };
     });
@@ -130,18 +125,27 @@ export class TenantRepository implements ITenantRepository {
     const rawSub = Array.isArray((t as any).tenant_subscriptions)
       ? (t as any).tenant_subscriptions[0]
       : (t as any).tenant_subscriptions;
-    const sub = rawSub || {
-      id: "default-sub",
-      plan_tier: "PRO",
-      max_user_seats: 5,
-      status: "ACTIVE",
-      payment_status: "PAID",
-      valid_from: new Date().toISOString(),
-      expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-      feature_flags: { customRubric: true, offlineSync: true, exportPdf: true, analytics: true },
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
+
+    const subEntity = rawSub
+      ? new TenantSubscription({
+          id: rawSub.id,
+          tenantId: (t as any).id,
+          planId: rawSub.plan_id,
+          planName: rawSub.plan_name || rawSub.plan_code || rawSub.plan_tier,
+          planCode: rawSub.plan_code || rawSub.plan_tier,
+          planTier: rawSub.plan_name || rawSub.plan_code || rawSub.plan_tier,
+          maxUserSeats: rawSub.max_user_seats,
+          status: rawSub.status,
+          paymentStatus: (rawSub.payment_status as SubscriptionPaymentStatus) || "PAID",
+          invoiceRef: rawSub.invoice_ref,
+          notes: rawSub.notes,
+          validFrom: new Date(rawSub.valid_from),
+          expiresAt: new Date(rawSub.expires_at),
+          featureFlags: rawSub.feature_flags,
+          createdAt: new Date(rawSub.created_at),
+          updatedAt: new Date(rawSub.updated_at),
+        })
+      : null;
 
     const activeUsersCount = ((t as any).tenant_users || []).filter((u: any) => u.is_active).length;
 
@@ -159,21 +163,7 @@ export class TenantRepository implements ITenantRepository {
         createdAt: new Date((t as any).created_at),
         updatedAt: new Date((t as any).updated_at),
       }),
-      subscription: new TenantSubscription({
-        id: sub.id,
-        tenantId: (t as any).id,
-        planTier: sub.plan_tier,
-        maxUserSeats: sub.max_user_seats,
-        status: sub.status,
-        paymentStatus: (sub.payment_status as SubscriptionPaymentStatus) || "PAID",
-        invoiceRef: sub.invoice_ref,
-        notes: sub.notes,
-        validFrom: new Date(sub.valid_from),
-        expiresAt: new Date(sub.expires_at),
-        featureFlags: sub.feature_flags,
-        createdAt: new Date(sub.created_at),
-        updatedAt: new Date(sub.updated_at),
-      }),
+      subscription: subEntity,
       activeUsersCount,
     };
   }
@@ -236,7 +226,9 @@ export class TenantRepository implements ITenantRepository {
 
     let maxSeats = dto.maxUserSeats ?? 1;
     let days = dto.subscriptionDays ?? 7;
-    let planTier = dto.planTier ?? "TRIAL_7D";
+    let planId: string | null = dto.planId || null;
+    let planName = dto.planName || "Plano Piloto";
+    let planCode = dto.planCode || dto.planTier || "TRIAL_7D";
     let initialPaymentStatus: SubscriptionPaymentStatus = dto.paymentStatus || "COURTESY";
 
     if (dto.planId) {
@@ -244,9 +236,11 @@ export class TenantRepository implements ITenantRepository {
         const planRepo = new SubscriptionPlanRepository(this.client);
         const plan = await planRepo.findById(dto.planId);
         if (plan) {
+          planId = plan.id;
+          planName = plan.name;
+          planCode = plan.code;
           maxSeats = plan.maxUserSeats;
           days = plan.durationDays;
-          planTier = plan.code as any;
           if (plan.price === 0) {
             initialPaymentStatus = "COURTESY";
           }
@@ -255,14 +249,34 @@ export class TenantRepository implements ITenantRepository {
         // Fallback
       }
     } else if (!dto.subscriptionDays && !dto.maxUserSeats) {
-      // Usa o plano default da plataforma (1 usuário, 7 dias, 0,00 €)
-      maxSeats = 1;
-      days = 7;
-      planTier = "TRIAL_7D" as any;
-      initialPaymentStatus = "COURTESY";
+      try {
+        const planRepo = new SubscriptionPlanRepository(this.client);
+        const defaultPlan = await planRepo.findDefaultPlan();
+        if (defaultPlan) {
+          planId = defaultPlan.id;
+          planName = defaultPlan.name;
+          planCode = defaultPlan.code;
+          maxSeats = defaultPlan.maxUserSeats;
+          days = defaultPlan.durationDays;
+          if (defaultPlan.price === 0) {
+            initialPaymentStatus = "COURTESY";
+          }
+        }
+      } catch {
+        // Fallback
+      }
     }
 
     const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+
+    const validLegacyTiers = ["STARTER", "PRO", "ENTERPRISE"];
+    const safeLegacyTier = validLegacyTiers.includes(String(planCode).toUpperCase())
+      ? String(planCode).toUpperCase()
+      : initialPaymentStatus === "COURTESY" || maxSeats <= 1
+      ? "STARTER"
+      : maxSeats > 5
+      ? "ENTERPRISE"
+      : "PRO";
 
     let sub: any;
     try {
@@ -270,12 +284,15 @@ export class TenantRepository implements ITenantRepository {
         .from("tenant_subscriptions")
         .insert({
           tenant_id: tenant.id,
-          plan_tier: planTier,
+          plan_id: planId,
+          plan_name: planName,
+          plan_code: planCode,
+          plan_tier: planCode,
           max_user_seats: maxSeats,
           status: "ACTIVE",
           payment_status: initialPaymentStatus,
           invoice_ref: dto.invoiceRef || null,
-          notes: dto.notes || "Contrato inicial de alta",
+          notes: dto.notes || `Plan contratado: ${planName}`,
           expires_at: expiresAt.toISOString(),
         })
         .select()
@@ -284,19 +301,40 @@ export class TenantRepository implements ITenantRepository {
       if (subError) throw subError;
       sub = subData;
     } catch (subErr: any) {
-      // Fallback sem colunas financeiras caso ainda não migradas
-      const { data: fbSub } = await this.client
+      console.warn("[TenantRepository.create] Retrying with legacy schema:", subErr?.message);
+      // Tenta com safeLegacyTier para contornar constraint legada
+      const { data: fbSub, error: fbErr } = await this.client
         .from("tenant_subscriptions")
         .insert({
           tenant_id: tenant.id,
-          plan_tier: planTier,
+          plan_tier: safeLegacyTier,
           max_user_seats: maxSeats,
           status: "ACTIVE",
+          payment_status: initialPaymentStatus,
+          invoice_ref: dto.invoiceRef || null,
+          notes: dto.notes || `Plan contratado: ${planName}`,
           expires_at: expiresAt.toISOString(),
         })
         .select()
         .single();
-      sub = fbSub;
+
+      if (fbErr) {
+        // Tenta fallback com campos mínimos
+        const { data: minSub } = await this.client
+          .from("tenant_subscriptions")
+          .insert({
+            tenant_id: tenant.id,
+            plan_tier: safeLegacyTier,
+            max_user_seats: maxSeats,
+            status: "ACTIVE",
+            expires_at: expiresAt.toISOString(),
+          })
+          .select()
+          .single();
+        sub = minSub;
+      } else {
+        sub = fbSub;
+      }
     }
 
     // Registra entrada de criação no histórico de contratos
@@ -304,6 +342,9 @@ export class TenantRepository implements ITenantRepository {
       await this.client.from("tenant_subscription_contracts").insert({
         tenant_id: tenant.id,
         subscription_id: sub?.id,
+        plan_id: planId,
+        plan_name: planName,
+        plan_code: planCode,
         action_type: "CREATION",
         valid_from: new Date().toISOString(),
         expires_at: expiresAt.toISOString(),
@@ -311,7 +352,7 @@ export class TenantRepository implements ITenantRepository {
         seats: maxSeats,
         payment_status: initialPaymentStatus,
         invoice_ref: dto.invoiceRef || null,
-        notes: dto.notes || "Alta oficial de tenant e contrato inicial",
+        notes: dto.notes || `Alta oficial de empresa com plano: ${planName}`,
         created_by: "Administrador de la Plataforma",
       });
     } catch {
@@ -338,21 +379,26 @@ export class TenantRepository implements ITenantRepository {
       }
     }
 
-    const subEntity = new TenantSubscription({
-      id: sub?.id || "sub-" + tenant.id,
-      tenantId: tenant.id,
-      planTier: sub?.plan_tier || dto.planTier || "PRO",
-      maxUserSeats: sub?.max_user_seats || maxSeats,
-      status: sub?.status || "ACTIVE",
-      paymentStatus: initialPaymentStatus,
-      invoiceRef: dto.invoiceRef,
-      notes: dto.notes,
-      validFrom: sub?.valid_from ? new Date(sub.valid_from) : new Date(),
-      expiresAt: sub?.expires_at ? new Date(sub.expires_at) : expiresAt,
-      featureFlags: sub?.feature_flags || { customRubric: true, offlineSync: true, exportPdf: true, analytics: true },
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
+    const subEntity = sub
+      ? new TenantSubscription({
+          id: sub.id,
+          tenantId: tenant.id,
+          planId: sub.plan_id || planId,
+          planName: sub.plan_name || planName,
+          planCode: sub.plan_code || planCode,
+          planTier: sub.plan_name || planName,
+          maxUserSeats: sub.max_user_seats ?? maxSeats,
+          status: sub.status || "ACTIVE",
+          paymentStatus: (sub.payment_status as SubscriptionPaymentStatus) || initialPaymentStatus,
+          invoiceRef: sub.invoice_ref || dto.invoiceRef,
+          notes: sub.notes || dto.notes,
+          validFrom: sub.valid_from ? new Date(sub.valid_from) : new Date(),
+          expiresAt: sub.expires_at ? new Date(sub.expires_at) : expiresAt,
+          featureFlags: sub.feature_flags || { customRubric: true, offlineSync: true, exportPdf: true, analytics: true },
+          createdAt: new Date(sub.created_at || Date.now()),
+          updatedAt: new Date(sub.updated_at || Date.now()),
+        })
+      : null;
 
     return {
       tenant: new Tenant({
@@ -410,14 +456,38 @@ export class TenantRepository implements ITenantRepository {
     if (error) throw new Error(`Falha ao alterar validade da subscrição: ${error.message}`);
   }
 
-  public async updatePlanTier(tenantId: string, planTier: PlanTier): Promise<void> {
-    const { error } = await this.client
-      .from("tenant_subscriptions")
-      .update({ plan_tier: planTier, updated_at: new Date().toISOString() })
-      .eq("tenant_id", tenantId);
+  public async updatePlanTier(tenantId: string, planTier: string): Promise<void> {
+    return this.updatePlan(tenantId, { planCode: planTier, planName: planTier });
+  }
 
-    if (error) {
-      console.warn("Aviso ao atualizar planTier:", error.message);
+  public async updatePlan(
+    tenantId: string,
+    plan: { planId?: string | null; planName?: string; planCode?: string; maxUserSeats?: number }
+  ): Promise<void> {
+    const payload: any = { updated_at: new Date().toISOString() };
+    if (plan.planId !== undefined) payload.plan_id = plan.planId;
+    if (plan.planName !== undefined) payload.plan_name = plan.planName;
+    if (plan.planCode !== undefined) {
+      payload.plan_code = plan.planCode;
+      payload.plan_tier = plan.planCode;
+    }
+    if (plan.maxUserSeats !== undefined) payload.max_user_seats = plan.maxUserSeats;
+
+    try {
+      const { error } = await this.client
+        .from("tenant_subscriptions")
+        .update(payload)
+        .eq("tenant_id", tenantId);
+
+      if (error) throw error;
+    } catch (err: any) {
+      await this.client
+        .from("tenant_subscriptions")
+        .update({
+          plan_tier: plan.planCode || plan.planName,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("tenant_id", tenantId);
     }
   }
 
@@ -501,7 +571,19 @@ export class TenantRepository implements ITenantRepository {
       throw new Error("Tenant não encontrado para renovação.");
     }
 
-    const currentSub = existing.subscription;
+    const currentSub = existing.subscription || new TenantSubscription({
+      id: crypto.randomUUID(),
+      tenantId: dto.tenantId,
+      planTier: "STARTER",
+      maxUserSeats: dto.newSeats || 1,
+      status: "ACTIVE",
+      paymentStatus: dto.paymentStatus,
+      validFrom: new Date(),
+      expiresAt: new Date(),
+      featureFlags: { customRubric: true, offlineSync: true, exportPdf: true, analytics: true },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
     const baseDate = currentSub.isExpired() ? new Date() : currentSub.expiresAt;
 
     let targetExpiration: Date;
@@ -526,6 +608,12 @@ export class TenantRepository implements ITenantRepository {
       payment_status: dto.paymentStatus,
       updated_at: new Date().toISOString(),
     };
+    if (dto.planId !== undefined) subUpdatePayload.plan_id = dto.planId;
+    if (dto.planName !== undefined) subUpdatePayload.plan_name = dto.planName;
+    if (dto.planCode !== undefined) {
+      subUpdatePayload.plan_code = dto.planCode;
+      subUpdatePayload.plan_tier = dto.planCode;
+    }
     if (dto.invoiceRef !== undefined) subUpdatePayload.invoice_ref = dto.invoiceRef.trim();
     if (dto.notes !== undefined) subUpdatePayload.notes = dto.notes.trim();
 
@@ -557,6 +645,9 @@ export class TenantRepository implements ITenantRepository {
         .insert({
           tenant_id: dto.tenantId,
           subscription_id: currentSub.id,
+          plan_id: dto.planId || currentSub.planId || null,
+          plan_name: dto.planName || currentSub.planName || null,
+          plan_code: dto.planCode || currentSub.planCode || null,
           action_type: dto.actionType || "RENEWAL",
           valid_from: baseDate.toISOString(),
           expires_at: targetExpiration.toISOString(),
@@ -582,6 +673,9 @@ export class TenantRepository implements ITenantRepository {
       id: contractId,
       tenantId: dto.tenantId,
       subscriptionId: currentSub.id,
+      planId: dto.planId || currentSub.planId,
+      planName: dto.planName || currentSub.planName,
+      planCode: dto.planCode || currentSub.planCode,
       actionType: dto.actionType || "RENEWAL",
       validFrom: baseDate,
       expiresAt: targetExpiration,

@@ -19,8 +19,7 @@ import {
   GeneratedCredentialsState,
 } from "@/presentation/components/superadmin/types";
 
-import { CreateTenantModal } from "@/presentation/components/superadmin/modals/CreateTenantModal";
-import { EditTenantModal } from "@/presentation/components/superadmin/modals/EditTenantModal";
+import { TenantModal } from "@/presentation/components/superadmin/modals/TenantModal";
 import { QuickSeatsModal } from "@/presentation/components/superadmin/modals/QuickSeatsModal";
 import { TenantUsersModal } from "@/presentation/components/superadmin/modals/TenantUsersModal";
 import { CredentialsModal } from "@/presentation/components/superadmin/modals/CredentialsModal";
@@ -247,8 +246,11 @@ export default function SuperAdminPage() {
       phone: tenant.phone || "",
       adminName: tenant.adminName || "",
       adminEmail: tenant.adminEmail || "",
-      planTier: tenant.planTier || "PRO",
-      maxUserSeats: tenant.maxUserSeats || 5,
+      planId: tenant.planId || undefined,
+      planName: tenant.planName || tenant.planTier || "",
+      planCode: tenant.planCode || "",
+      planTier: tenant.planName || tenant.planTier || "",
+      maxUserSeats: tenant.maxUserSeats || 1,
     });
   };
 
@@ -267,7 +269,10 @@ export default function SuperAdminPage() {
           phone: editTenantForm.phone,
           adminName: editTenantForm.adminName,
           adminEmail: editTenantForm.adminEmail,
-          planTier: editTenantForm.planTier,
+          planId: editTenantForm.planId,
+          planName: editTenantForm.planName,
+          planCode: editTenantForm.planCode,
+          planTier: editTenantForm.planName || editTenantForm.planTier,
           maxUserSeats: Number(editTenantForm.maxUserSeats),
         }),
       });
@@ -793,7 +798,9 @@ export default function SuperAdminPage() {
         </div>
 
         {/* MODAIS MODULARES */}
-        <CreateTenantModal
+        {/* MODAL UNIFICADO DE EMPRESA (ALTA & EDICIÓN) */}
+        <TenantModal
+          mode="create"
           isOpen={showCreateModal}
           onClose={() => setShowCreateModal(false)}
           form={newTenant}
@@ -810,7 +817,8 @@ export default function SuperAdminPage() {
           onSave={handleSaveSeats}
         />
 
-        <EditTenantModal
+        <TenantModal
+          mode="edit"
           tenant={selectedTenantForEdit}
           onClose={() => setSelectedTenantForEdit(null)}
           form={editTenantForm}

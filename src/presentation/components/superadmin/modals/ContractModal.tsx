@@ -39,7 +39,7 @@ export function ContractModal({
   }>({
     durationOption: "365",
     customDate: "",
-    newSeats: tenant?.maxUserSeats || 5,
+    newSeats: tenant?.maxUserSeats || 1,
     paymentStatus: "PAID",
     amount: 0,
     invoiceRef: "",
@@ -70,11 +70,17 @@ export function ContractModal({
               <span>CIF: <strong className="font-mono text-on-surface">{tenant.cif}</strong></span>
               <span>•</span>
               <span>
-                Vencimiento Actual: <strong className="text-on-surface">{new Date(tenant.expiresAt).toLocaleDateString("es-ES")}</strong> ({tenant.daysRemaining} días)
+                Vencimiento Actual:{" "}
+                <strong className="text-on-surface">
+                  {tenant.expiresAt ? new Date(tenant.expiresAt).toLocaleDateString("es-ES") : "—"}
+                </strong>{" "}
+                {tenant.daysRemaining != null ? `(${tenant.daysRemaining} días)` : ""}
               </span>
               <span>•</span>
               <span>Estado: </span>
-              {tenant.isExpired ? (
+              {!tenant.paymentStatus && !tenant.expiresAt ? (
+                <span className="font-semibold text-slate-subtext">—</span>
+              ) : tenant.isExpired ? (
                 <span className="font-bold text-alert-red bg-alert-red-bg/25 px-2 py-0.5 rounded-full">Vencido</span>
               ) : tenant.paymentStatus === "PENDING_PAYMENT" ? (
                 <span className="font-bold text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/70 px-2 py-0.5 rounded-full">Boleto Pendiente</span>
