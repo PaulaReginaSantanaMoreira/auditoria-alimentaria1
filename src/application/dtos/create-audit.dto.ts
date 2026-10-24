@@ -11,6 +11,7 @@ export const CreateAuditInputSchema = z.object({
   normativeFramework: z.string().optional(),
   accessScope: z.enum(["TENANT", "CONFIDENTIAL", "PRIVATE"]).optional(),
   tenantId: z.string().nullable().optional(),
+  controlPoints: z.array(z.any()).optional(),
 });
 
 export type CreateAuditInput = z.infer<typeof CreateAuditInputSchema>;

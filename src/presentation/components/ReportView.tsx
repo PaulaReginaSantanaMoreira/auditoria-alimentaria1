@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Audit } from "@/domain/entities/audit";
 import { AuditComplianceReport } from "@/domain/services/compliance-calculator.service";
+import { ControlPointSorterService } from "@/domain/services/control-point-sorter.service";
 
 interface ReportViewProps {
   audit: Audit;
@@ -92,17 +93,8 @@ export function ReportView({ audit, report }: ReportViewProps) {
     }
   };
 
-  // Ordenar los 30 puntos normativos para garantizar secuencia correlativa (1.1 a 3.10)
-  const sortedEvaluations = [...audit.evaluations].sort((a, b) => {
-    const parseCode = (c: string) => {
-      const parts = c.replace(/^q/, "").split("_");
-      return [parseInt(parts[0], 10) || 0, parseInt(parts[1], 10) || 0];
-    };
-    const [secA, itemA] = parseCode(a.code);
-    const [secB, itemB] = parseCode(b.code);
-    if (secA !== secB) return secA - secB;
-    return itemA - itemB;
-  });
+  // Ordenar los puntos normativos para garantizar secuencia correlativa natural (1.1 a 3.10)
+  const sortedEvaluations = ControlPointSorterService.sortNaturally(audit.evaluations);
 
   const getSectionTitle = (code: string) => {
     if (code.startsWith("q1_")) return "Área 1 · Infraestructura, Instalaciones y Equipos (RD 852/2004, ISO 22000)";

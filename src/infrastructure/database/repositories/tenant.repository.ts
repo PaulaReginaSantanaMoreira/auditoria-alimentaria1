@@ -1776,13 +1776,37 @@ export class TenantRepository implements ITenantRepository {
       // ignore
     }
 
+    const existingDoc = (authUserMeta.document_number || "").trim();
+    const isDocAlreadyRegistered = Boolean(
+      existingDoc &&
+      existingDoc !== "No registrado" &&
+      existingDoc !== "No asignado"
+    );
+
+    // REGRA DE INTEGRIDADE JURÍDICA:
+    // Documento não pode ser editado após ter sido cadastrado. Caso não tenha sido informado, tudo bem.
+    let finalDocumentNumber = existingDoc;
+    if (isDocAlreadyRegistered) {
+      if (
+        params.documentNumber !== undefined &&
+        params.documentNumber.trim() &&
+        params.documentNumber.trim().toUpperCase() !== existingDoc.toUpperCase()
+      ) {
+        throw new Error(
+          "RESTRICCIÓN DE SEGURIDAD: El documento oficial (DNI/NIE/NIF) ya está registrado y no puede modificarse por motivos de trazabilidad jurídica sanitaria."
+        );
+      }
+      finalDocumentNumber = existingDoc;
+    } else if (params.documentNumber !== undefined && params.documentNumber.trim()) {
+      finalDocumentNumber = params.documentNumber.trim().toUpperCase();
+    }
+
     const authUpdatePayload: any = {
       user_metadata: {
         ...authUserMeta,
         full_name: params.fullName !== undefined ? params.fullName.trim() : (authUserMeta.full_name || ""),
         phone: params.phone !== undefined ? params.phone.trim() : (authUserMeta.phone || ""),
-        document_number:
-          params.documentNumber !== undefined ? params.documentNumber.trim() : (authUserMeta.document_number || ""),
+        document_number: finalDocumentNumber,
         role: params.role || authUserMeta.role || member.role,
         tenant_id: params.tenantId,
       },
@@ -1790,7 +1814,7 @@ export class TenantRepository implements ITenantRepository {
 
     let fullName = params.fullName || authUserMeta.full_name || "Inspector";
     let phone = params.phone !== undefined ? params.phone.trim() : authUserMeta.phone;
-    let documentNumber = params.documentNumber !== undefined ? params.documentNumber.trim() : authUserMeta.document_number;
+    let documentNumber = finalDocumentNumber;
 
     try {
       const { data: authUser, error: authError } = await this.client.auth.admin.updateUserById(

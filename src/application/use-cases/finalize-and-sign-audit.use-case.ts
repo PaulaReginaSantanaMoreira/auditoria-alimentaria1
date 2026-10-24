@@ -27,7 +27,8 @@ export class FinalizeAndSignAuditUseCase {
     });
 
     audit.sign(auditorSignature, auditedSignature);
-    audit.finalize(30);
+    const requiredPoints = audit.evaluations.length > 0 ? audit.evaluations.length : 30;
+    audit.finalize(requiredPoints);
 
     await this.auditRepository.update(audit);
 

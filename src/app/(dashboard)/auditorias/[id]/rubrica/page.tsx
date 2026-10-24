@@ -5,12 +5,13 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ProgressTracker } from "@/presentation/components/ProgressTracker";
 import { RubricControlCard } from "@/presentation/components/RubricControlCard";
 import { SignatureModal } from "@/presentation/components/SignatureModal";
-import { DEFAULT_CONTROL_POINTS } from "@/domain/constants/default-control-points";
+import { DEFAULT_CONTROL_POINTS, ControlPointTemplate } from "@/domain/constants/default-control-points";
 import { EvaluationPointScore } from "@/domain/value-objects/score";
 import { ControlPointCategory } from "@/domain/entities/control-point";
 import { offlineDb } from "@/infrastructure/offline/offline-audit.db";
 import { useAuthGuard } from "@/presentation/hooks/useAuthGuard";
 import { AuthLoadingScreen } from "@/presentation/components/AuthGuard";
+import { ControlPointSorterService } from "@/domain/services/control-point-sorter.service";
 
 export default function RubricaPage() {
   const { session, isAuthenticated, isLoading: isAuthLoading } = useAuthGuard();
@@ -43,13 +44,31 @@ export default function RubricaPage() {
     return init;
   });
 
+  const [controlPoints, setControlPoints] = useState<ControlPointTemplate[]>(DEFAULT_CONTROL_POINTS);
   const [selectedCategory, setSelectedCategory] = useState<"ALL" | ControlPointCategory | "CRITICAL">("ALL");
   const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Carrega ou salva réplica no IndexedDB para suporte offline
+  // Carrega ou salva réplica no IndexedDB para suporte offline e sincroniza rúbricas ativas do tenant
   useEffect(() => {
-    async function initOffline() {
+    async function initOfflineAndRubric() {
+      let dynamicPoints: ControlPointTemplate[] = DEFAULT_CONTROL_POINTS;
+      try {
+        const res = await fetch(`/api/tenant/rubrica?auditId=${encodeURIComponent(auditId)}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.rubric?.templates?.length > 0) {
+            dynamicPoints = json.rubric.templates;
+            setControlPoints(json.rubric.templates);
+            if (json.evaluations) {
+              setEvaluations((prev) => ({ ...json.evaluations, ...prev }));
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Could not load dynamic rubric from API:", err);
+      }
+
       try {
         const existing = await offlineDb.audits.get(auditId);
         if (existing) {
@@ -66,25 +85,51 @@ export default function RubricaPage() {
               photoUrl: val.evidencePhotoBase64,
             };
           }
-          setEvaluations((prev) => ({ ...prev, ...loaded }));
+          setEvaluations((prev) => ({ ...loaded, ...prev }));
+        } else {
+          setEvaluations((prev) => {
+            const next = { ...prev };
+            for (const p of dynamicPoints) {
+              if (!next[p.code]) {
+                next[p.code] = { score: 0, observations: "" };
+              }
+            }
+            return next;
+          });
         }
       } catch {
         // Ignora caso erro no indexeddb
       }
     }
-    initOffline();
+    initOfflineAndRubric();
   }, [auditId]);
+
+  // Contadores por categoría dinámica
+  const categoryCounts = useMemo(() => {
+    let infra = 0;
+    let higiene = 0;
+    let appcc = 0;
+    for (const p of controlPoints) {
+      if (p.category === "INFRAESTRUCTURA") infra++;
+      else if (p.category === "HIGIENE_PERSONAL") higiene++;
+      else if (p.category === "APPCC_FRIO_PROCESOS") appcc++;
+    }
+    return { infra, higiene, appcc };
+  }, [controlPoints]);
 
   // Métricas calculadas
   const metrics = useMemo(() => {
-    const list = Object.values(evaluations);
     let totalScore = 0;
     let totalMaxScore = 0;
     let parcialCount = 0;
     let noCumpleCount = 0;
     let naCount = 0;
+    let evaluatedCount = 0;
 
-    for (const item of list) {
+    for (const p of controlPoints) {
+      const item = evaluations[p.code];
+      if (!item) continue;
+      evaluatedCount++;
       if (item.score === "na") {
         naCount++;
       } else {
@@ -98,23 +143,26 @@ export default function RubricaPage() {
     const conformePercentage =
       totalMaxScore > 0 ? Number(((totalScore / totalMaxScore) * 100).toFixed(1)) : 100;
 
+    const criticalCcpCount = controlPoints.filter((p) => p.isCriticalCcp).length;
+
     return {
-      totalPoints: DEFAULT_CONTROL_POINTS.length,
-      evaluatedCount: list.length,
+      totalPoints: controlPoints.length,
+      evaluatedCount,
       conformePercentage,
       parcialCount,
       noCumpleCount,
       naCount,
-      criticalCcpCount: 3,
+      criticalCcpCount,
     };
-  }, [evaluations]);
+  }, [evaluations, controlPoints]);
 
-  // Lista filtrada por abas/chips
+  // Lista filtrada por abas/chips com ordenação numérica natural (1.1, 1.2, ..., 1.10)
   const filteredPoints = useMemo(() => {
-    if (selectedCategory === "ALL") return DEFAULT_CONTROL_POINTS;
-    if (selectedCategory === "CRITICAL") return DEFAULT_CONTROL_POINTS.filter((p) => p.isCriticalCcp);
-    return DEFAULT_CONTROL_POINTS.filter((p) => p.category === selectedCategory);
-  }, [selectedCategory]);
+    let list = controlPoints;
+    if (selectedCategory === "CRITICAL") list = controlPoints.filter((p) => p.isCriticalCcp);
+    else if (selectedCategory !== "ALL") list = controlPoints.filter((p) => p.category === selectedCategory);
+    return ControlPointSorterService.sortNaturally(list);
+  }, [selectedCategory, controlPoints]);
 
   const handleScoreChange = (code: string, score: EvaluationPointScore) => {
     setEvaluations((prev) => {
@@ -358,6 +406,7 @@ export default function RubricaPage() {
             noCumpleCount={metrics.noCumpleCount}
             naCount={metrics.naCount}
             criticalCcpCount={metrics.criticalCcpCount}
+            categoryCounts={categoryCounts}
             selectedCategory={selectedCategory}
             onSelectCategory={setSelectedCategory}
           />

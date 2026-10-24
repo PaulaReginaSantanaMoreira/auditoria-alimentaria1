@@ -10,6 +10,7 @@ import { Company } from "@/domain/entities/company";
 import { Auditor } from "@/domain/entities/auditor";
 import { ControlPointEvaluation } from "@/domain/entities/control-point";
 import { EvidencePhoto } from "@/domain/value-objects/evidence-photo";
+import { RubricRepository } from "@/infrastructure/database/repositories/rubric.repository";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 function isUuid(str?: string | null): boolean {
@@ -87,8 +88,31 @@ export async function POST(req: NextRequest) {
       console.warn("[sync] Error al asegurar auditor en Supabase:", e);
     }
 
-    // 3. Cálculo de laudo e conformidade
-    const evaluations: ControlPointEvaluation[] = DEFAULT_CONTROL_POINTS.map((p) => {
+    // 3. Obter pontos normativos (da auditoria/tenant dinâmico ou padrão)
+    const effectiveTenantId =
+      body.tenantId && body.tenantId !== "global"
+        ? body.tenantId
+        : session.tenantId && session.tenantId !== "global"
+        ? session.tenantId
+        : null;
+
+    let templateList: any[] = DEFAULT_CONTROL_POINTS;
+    if (body.controlPoints && Array.isArray(body.controlPoints) && body.controlPoints.length > 0) {
+      templateList = body.controlPoints;
+    } else {
+      try {
+        const rubricRepo = new RubricRepository();
+        const rubricInfo = await rubricRepo.getRubricForTenant(effectiveTenantId, false);
+        if (rubricInfo?.templates && rubricInfo.templates.length > 0) {
+          templateList = rubricInfo.templates;
+        }
+      } catch {
+        templateList = DEFAULT_CONTROL_POINTS;
+      }
+    }
+
+    // 4. Cálculo de laudo e conformidade
+    const evaluations: ControlPointEvaluation[] = templateList.map((p: any) => {
       const ev = body.evaluations?.[p.code];
       const score = ev?.score !== undefined ? ev.score : 0;
       return new ControlPointEvaluation({
@@ -127,14 +151,7 @@ export async function POST(req: NextRequest) {
       body.status === "FINALIZED" ||
       Boolean(body.auditorSignatureBase64 && body.auditedSignatureBase64);
 
-    const effectiveTenantId =
-      body.tenantId && body.tenantId !== "global"
-        ? body.tenantId
-        : session.tenantId && session.tenantId !== "global"
-        ? session.tenantId
-        : null;
-
-    // 4. Upsert da auditoria
+    // 5. Upsert da auditoria
     const auditPayload: Record<string, any> = {
       id: body.id,
       company_id: companyId,

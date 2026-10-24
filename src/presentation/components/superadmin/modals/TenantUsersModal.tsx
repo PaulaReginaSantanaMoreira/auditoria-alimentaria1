@@ -50,6 +50,13 @@ export function TenantUsersModal({
 
   if (!tenant) return null;
 
+  const isDocumentRegistered = Boolean(
+    editingUser?.documentNumber &&
+    editingUser.documentNumber.trim().length > 0 &&
+    editingUser.documentNumber !== "No registrado" &&
+    editingUser.documentNumber !== "No asignado"
+  );
+
   const handleStartEdit = (u: TenantUserItem) => {
     setValidationError(null);
     setEditingUser(u);
@@ -74,7 +81,7 @@ export function TenantUsersModal({
       return;
     }
 
-    if (editUserForm.documentNumber) {
+    if (!isDocumentRegistered && editUserForm.documentNumber) {
       const docVal = FormValidatorService.validatePersonalDocument(editUserForm.documentNumber, false);
       if (!docVal.isValid) {
         setValidationError(docVal.error || "Documento no válido.");
@@ -90,7 +97,10 @@ export function TenantUsersModal({
       }
     }
 
-    await onEditUser(editingUser, editUserForm);
+    await onEditUser(editingUser, {
+      ...editUserForm,
+      documentNumber: isDocumentRegistered ? (editingUser.documentNumber || "") : editUserForm.documentNumber.trim().toUpperCase(),
+    });
     setEditingUser(null);
   };
 
@@ -363,15 +373,39 @@ export function TenantUsersModal({
               </div>
 
               <div className="flex flex-col gap-1 sm:col-span-1">
-                <label className="text-[10px] font-bold text-slate-subtext uppercase">
-                  Documento Oficial (DNI / NIE / NIF)
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-bold text-slate-subtext uppercase">
+                    Documento Oficial (DNI / NIE / NIF)
+                  </label>
+                  {isDocumentRegistered ? (
+                    <span className="text-[9px] text-amber-600 dark:text-amber-400 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 inline-flex items-center gap-0.5">
+                      <span className="material-symbols-outlined text-[10px]">lock</span>
+                      Inmutable
+                    </span>
+                  ) : (
+                    <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 inline-flex items-center gap-0.5">
+                      <span className="material-symbols-outlined text-[10px]">edit</span>
+                      Pendiente
+                    </span>
+                  )}
+                </div>
                 <input
                   type="text"
                   placeholder="Ej. 12345678Z"
+                  disabled={isDocumentRegistered}
+                  readOnly={isDocumentRegistered}
                   value={editUserForm.documentNumber}
                   onChange={(e) => setEditUserForm({ ...editUserForm, documentNumber: e.target.value })}
-                  className="h-10 px-3 rounded-xl bg-surface-container-lowest border border-slate-border text-xs text-on-surface focus:outline-none focus:ring-1 focus:ring-primary font-mono"
+                  className={`h-10 px-3 rounded-xl border text-xs font-mono transition-colors ${
+                    isDocumentRegistered
+                      ? "bg-surface-container/60 border-slate-border text-slate-subtext cursor-not-allowed select-none opacity-80"
+                      : "bg-surface-container-lowest border-slate-border text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+                  }`}
+                  title={
+                    isDocumentRegistered
+                      ? "Documento oficial ya registrado e inmutable por trazabilidad jurídica sanitaria."
+                      : "Puede registrar el documento oficial por primera vez."
+                  }
                 />
               </div>
 

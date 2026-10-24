@@ -1,6 +1,7 @@
 import { CreateAuditInput, CreateAuditInputSchema, CreateAuditOutput } from "../dtos/create-audit.dto";
 import { IAuditRepository } from "../../domain/repositories/audit-repository.interface";
 import { ICompanyRepository } from "../../domain/repositories/company-repository.interface";
+import { IRubricTemplateRepository } from "../../domain/repositories/rubric-template-repository.interface";
 import { Audit } from "../../domain/entities/audit";
 import { Company } from "../../domain/entities/company";
 import { Auditor } from "../../domain/entities/auditor";
@@ -11,7 +12,8 @@ import { DEFAULT_CONTROL_POINTS } from "../../domain/constants/default-control-p
 export class CreateAuditUseCase {
   constructor(
     private readonly auditRepository: IAuditRepository,
-    private readonly companyRepository: ICompanyRepository
+    private readonly companyRepository: ICompanyRepository,
+    private readonly rubricRepository?: IRubricTemplateRepository
   ) {}
 
   public async execute(rawInput: CreateAuditInput): Promise<CreateAuditOutput> {
@@ -64,8 +66,23 @@ export class CreateAuditUseCase {
       accessScope,
     });
 
-    // Inicializa os 30 pontos de controle oficiais na auditoria (padrão 0 - Não Cumpre como precaução)
-    for (const template of DEFAULT_CONTROL_POINTS) {
+    // Determina os pontos de controle (personalizados do tenant ou padrão de 30 pontos)
+    let templatesToUse: any[] = DEFAULT_CONTROL_POINTS;
+    if (input.controlPoints && input.controlPoints.length > 0) {
+      templatesToUse = input.controlPoints;
+    } else if (this.rubricRepository) {
+      try {
+        const rubricInfo = await this.rubricRepository.getRubricForTenant(input.tenantId, false);
+        if (rubricInfo?.templates && rubricInfo.templates.length > 0) {
+          templatesToUse = rubricInfo.templates;
+        }
+      } catch {
+        templatesToUse = DEFAULT_CONTROL_POINTS;
+      }
+    }
+
+    // Inicializa os pontos de controle na auditoria (padrão 0 - Não Cumpre como precaução)
+    for (const template of templatesToUse) {
       audit.addOrUpdateEvaluation(
         new ControlPointEvaluation({
           code: template.code,
@@ -77,7 +94,7 @@ export class CreateAuditUseCase {
       );
     }
 
-    // Persiste auditoria completa com seus 30 pontos
+    // Persiste auditoria completa com seus pontos
     await this.auditRepository.save(audit, { tenantId: input.tenantId });
 
     return {

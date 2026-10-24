@@ -244,9 +244,10 @@ export class Audit {
     this._updatedAt = new Date();
   }
 
-  public finalize(requiredTotalPoints = 30): void {
-    if (this._evaluations.size < requiredTotalPoints) {
-      throw new IncompleteAuditError(this._evaluations.size, requiredTotalPoints);
+  public finalize(requiredTotalPoints?: number): void {
+    const required = requiredTotalPoints !== undefined ? requiredTotalPoints : (this._evaluations.size || 30);
+    if (this._evaluations.size < required) {
+      throw new IncompleteAuditError(this._evaluations.size, required);
     }
 
     if (!this._auditorSignature) throw new MissingSignatureError("Auditor");

@@ -11,6 +11,11 @@ interface ProgressTrackerProps {
   noCumpleCount: number;
   naCount?: number;
   criticalCcpCount: number;
+  categoryCounts?: {
+    infra: number;
+    higiene: number;
+    appcc: number;
+  };
   selectedCategory: "ALL" | ControlPointCategory | "CRITICAL";
   onSelectCategory: (category: "ALL" | ControlPointCategory | "CRITICAL") => void;
 }
@@ -23,6 +28,7 @@ export function ProgressTracker({
   noCumpleCount,
   naCount = 0,
   criticalCcpCount = 3,
+  categoryCounts,
   selectedCategory,
   onSelectCategory,
 }: ProgressTrackerProps) {
@@ -157,7 +163,7 @@ export function ProgressTracker({
                 : "bg-slate-surface text-slate-subtext dark:bg-slate-800 dark:text-slate-400"
             }`}
           >
-            10
+            {categoryCounts?.infra ?? 10}
           </span>
         </button>
 
@@ -178,7 +184,7 @@ export function ProgressTracker({
                 : "bg-slate-surface text-slate-subtext dark:bg-slate-800 dark:text-slate-400"
             }`}
           >
-            10
+            {categoryCounts?.higiene ?? 10}
           </span>
         </button>
 
@@ -199,7 +205,7 @@ export function ProgressTracker({
                 : "bg-slate-surface text-slate-subtext dark:bg-slate-800 dark:text-slate-400"
             }`}
           >
-            10
+            {categoryCounts?.appcc ?? 10}
           </span>
         </button>
 

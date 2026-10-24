@@ -14,7 +14,7 @@ export interface IRubricTemplateRepository {
    * Se o tenant possuir pontos personalizados, retorna eles.
    * Caso contrário, retorna o modelo sanitário padrão (30 pontos).
    */
-  getRubricForTenant(tenantId?: string | null): Promise<TenantRubricInfo>;
+  getRubricForTenant(tenantId?: string | null, includeInactive?: boolean): Promise<TenantRubricInfo>;
 
   /**
    * Personaliza a rubrica para um tenant específico (Ação exclusiva do Superusuário).

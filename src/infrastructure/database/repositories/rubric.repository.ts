@@ -7,6 +7,7 @@ import {
   IRubricTemplateRepository,
   TenantRubricInfo,
 } from "@/domain/repositories/rubric-template-repository.interface";
+import { ControlPointSorterService } from "@/domain/services/control-point-sorter.service";
 
 /**
  * Repositório relacional de catálogo e modelos de rúbricas sanitárias.
@@ -48,12 +49,14 @@ export class RubricRepository implements IRubricTemplateRepository {
           isActive: p.is_active !== false,
         }));
 
+        const sortedTemplates = ControlPointSorterService.sortNaturally(templates);
+
         return {
           tenantId,
           isCustomized: true,
-          totalPoints: templates.length,
-          criticalCcpCount: templates.filter((p) => p.isCriticalCcp).length,
-          templates,
+          totalPoints: sortedTemplates.length,
+          criticalCcpCount: sortedTemplates.filter((p) => p.isCriticalCcp).length,
+          templates: sortedTemplates,
         };
       }
     }
@@ -82,12 +85,14 @@ export class RubricRepository implements IRubricTemplateRepository {
         isActive: p.is_active !== false,
       }));
 
+      const sortedTemplates = ControlPointSorterService.sortNaturally(templates);
+
       return {
         tenantId: null,
         isCustomized: false,
-        totalPoints: templates.length,
-        criticalCcpCount: templates.filter((p) => p.isCriticalCcp).length,
-        templates,
+        totalPoints: sortedTemplates.length,
+        criticalCcpCount: sortedTemplates.filter((p) => p.isCriticalCcp).length,
+        templates: sortedTemplates,
       };
     }
 

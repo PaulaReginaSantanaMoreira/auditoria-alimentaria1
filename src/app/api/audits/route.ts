@@ -4,6 +4,7 @@ import { createServerSupabaseClient } from "@/infrastructure/database/supabase/s
 import { createAdminClient } from "@/infrastructure/database/supabase/supabase-admin";
 import { AuditRepository } from "@/infrastructure/database/repositories/audit.repository";
 import { CompanyRepository } from "@/infrastructure/database/repositories/company.repository";
+import { RubricRepository } from "@/infrastructure/database/repositories/rubric.repository";
 import {
   AuditAccessScope,
   hasPermission,
@@ -37,7 +38,8 @@ export async function POST(req: NextRequest) {
 
     const auditRepo = new AuditRepository(supabase);
     const companyRepo = new CompanyRepository(supabase);
-    const useCase = new CreateAuditUseCase(auditRepo, companyRepo);
+    const rubricRepo = new RubricRepository();
+    const useCase = new CreateAuditUseCase(auditRepo, companyRepo, rubricRepo);
 
     const result = await useCase.execute({
       ...body,
