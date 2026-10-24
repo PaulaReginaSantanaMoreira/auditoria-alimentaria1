@@ -104,7 +104,7 @@ export async function POST(request: Request) {
     }
 
     let role = isSuper ? "PLATFORM_SUPERADMIN" : "AUDITOR";
-    let tenantId: string | undefined = undefined;
+    let tenantId: string | undefined = isSuper ? "global" : undefined;
     let availableTenants: Array<{ id: string; name: string; cif: string; role: string }> = [];
 
     // Se não for superadmin, busca perfil de tenant e papel atribuído no Supabase
@@ -188,8 +188,9 @@ export async function POST(request: Request) {
       redirectTo,
     });
 
-    if (tenantId) {
-      response.cookies.set("bioaudit_active_tenant", tenantId, {
+    const activeTenantCookie = isSuper ? "global" : tenantId;
+    if (activeTenantCookie) {
+      response.cookies.set("bioaudit_active_tenant", activeTenantCookie, {
         httpOnly: false, // Permite leitura do client para UI e headers
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",

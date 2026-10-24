@@ -73,10 +73,10 @@ export async function resolveSessionAndRole(req: NextRequest): Promise<ResolvedS
 
       let effectiveTenantId = payload.tenantId;
 
-      // Se for SuperAdmin, pode assumir qualquer tenant solicitado via x-tenant-id ou operar em Modo Global (Sin Tenant)
+      // Se for SuperAdmin, o default é SEMPRE Plataforma Global (Sin Tenant)
       if (role === "PLATFORM_SUPERADMIN") {
         if (!requestedTenantId || requestedTenantId === "global" || requestedTenantId === "none") {
-          effectiveTenantId = undefined;
+          effectiveTenantId = "global";
         } else {
           effectiveTenantId = requestedTenantId;
         }
@@ -146,9 +146,9 @@ export async function resolveSessionAndRole(req: NextRequest): Promise<ResolvedS
 
     if (superuser) {
       const effTenantId =
-        requestedTenantId === "global" || requestedTenantId === "none" || !requestedTenantId
-          ? undefined
-          : requestedTenantId;
+        requestedTenantId && requestedTenantId !== "global" && requestedTenantId !== "none"
+          ? requestedTenantId
+          : "global";
 
       return {
         userId: user.id,

@@ -231,6 +231,9 @@ ALTER TABLE public.audits ALTER COLUMN auditor_id DROP NOT NULL;
 ALTER TABLE public.audits ADD COLUMN IF NOT EXISTS invalidated_at TIMESTAMPTZ;
 ALTER TABLE public.audits ADD COLUMN IF NOT EXISTS invalidated_by TEXT;
 ALTER TABLE public.audits ADD COLUMN IF NOT EXISTS invalidation_reason TEXT;
+ALTER TABLE public.audits DROP CONSTRAINT IF EXISTS audits_status_check;
+ALTER TABLE public.audits ADD CONSTRAINT audits_status_check 
+  CHECK (status IN ('DRAFT', 'IN_PROGRESS', 'EVALUATED', 'SIGNED', 'FINALIZED', 'INVALIDATED'));
 
 -- 13. Tabela de Avaliações dos Pontos de Controle
 CREATE TABLE IF NOT EXISTS public.audit_evaluations (

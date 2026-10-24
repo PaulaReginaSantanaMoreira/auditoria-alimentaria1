@@ -11,9 +11,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, error: "No autenticado" }, { status: 401 });
     }
 
-    const adminClient = createAdminClient();
+    let adminClient: any;
+    try {
+      adminClient = createAdminClient();
+    } catch {
+      adminClient = await createServerSupabaseClient();
+    }
 
-    // Se for SuperAdmin, tem acesso a todas as empresas cadastradas + Modo Plataforma Global
+    // Se for SuperAdmin, tem acesso a todas as empresas cadastradas + Modo Plataforma Global (DEFAULT)
     if (session.role === "PLATFORM_SUPERADMIN") {
       const { data: allTenants } = await adminClient
         .from("tenants")
@@ -37,8 +42,9 @@ export async function GET(req: NextRequest) {
         })),
       ];
 
+      // O default do SuperAdmin é SEMPRE Plataforma Global ("global")
       const activeTenantId =
-        session.tenantId && session.tenantId !== "global"
+        session.tenantId && session.tenantId !== "global" && session.tenantId !== "none"
           ? session.tenantId
           : "global";
 
@@ -94,47 +100,55 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "ID de la empresa requerido" }, { status: 400 });
     }
 
-    const adminClient = createAdminClient();
+    // 1. Caso especial: SuperAdmin alternando para o modo padrão "Plataforma Global"
+    if (session.role === "PLATFORM_SUPERADMIN" && (tenantId === "global" || tenantId === "none")) {
+      const { token, expiresAt } = await signSessionToken({
+        sub: session.userId,
+        email: session.email || "superadmin@bioauditpro.com",
+        role: "PLATFORM_SUPERADMIN",
+        scope: "CONFIDENTIAL",
+        tenantId: "global",
+      });
+
+      const response = NextResponse.json({
+        success: true,
+        message: "Modo Plataforma Global (Sin Tenant) activado con éxito.",
+        activeTenantId: "global",
+        role: "PLATFORM_SUPERADMIN",
+        token,
+        expiresAt,
+      });
+
+      response.cookies.set("bioaudit_active_tenant", "global", {
+        path: "/",
+        httpOnly: false,
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24 * 30,
+      });
+
+      response.cookies.set("bioaudit_token", token, {
+        path: "/",
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24 * 7,
+      });
+
+      return response;
+    }
+
+    // 2. Alternando para um Tenant específico
+    let adminClient: any;
+    try {
+      adminClient = createAdminClient();
+    } catch {
+      adminClient = await createServerSupabaseClient();
+    }
+
     let newRole = session.role;
     let tenantName = "";
 
     if (session.role === "PLATFORM_SUPERADMIN") {
-      if (tenantId === "global" || !tenantId || tenantId === "none") {
-        // SuperAdmin desvinculado de qualquer tenant (Master Global)
-        const { token, expiresAt } = await signSessionToken({
-          sub: session.userId,
-          email: session.email || "superadmin@bioauditpro.com",
-          role: "PLATFORM_SUPERADMIN",
-          scope: "CONFIDENTIAL",
-        });
-
-        const response = NextResponse.json({
-          success: true,
-          message: "Modo Plataforma Global (Sin Tenant) activado con éxito.",
-          activeTenantId: "global",
-          role: "PLATFORM_SUPERADMIN",
-          token,
-          expiresAt,
-        });
-
-        response.cookies.set("bioaudit_active_tenant", "global", {
-          path: "/",
-          httpOnly: false,
-          sameSite: "lax",
-          maxAge: 60 * 60 * 24 * 30,
-        });
-
-        response.cookies.set("bioaudit_token", token, {
-          path: "/",
-          httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "lax",
-          maxAge: 60 * 60 * 24 * 7,
-        });
-
-        return response;
-      }
-
       const { data: t } = await adminClient.from("tenants").select("name").eq("id", tenantId).maybeSingle();
       tenantName = t?.name || "Empresa";
     } else {
@@ -194,6 +208,6 @@ export async function POST(req: NextRequest) {
 
     return response;
   } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: err.message || "Error al cambiar de empresa activa." }, { status: 500 });
   }
 }

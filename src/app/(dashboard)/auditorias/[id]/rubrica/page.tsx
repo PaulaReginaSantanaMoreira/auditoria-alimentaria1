@@ -13,7 +13,7 @@ import { useAuthGuard } from "@/presentation/hooks/useAuthGuard";
 import { AuthLoadingScreen } from "@/presentation/components/AuthGuard";
 
 export default function RubricaPage() {
-  const { isAuthenticated, isLoading: isAuthLoading } = useAuthGuard();
+  const { session, isAuthenticated, isLoading: isAuthLoading } = useAuthGuard();
   const params = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();

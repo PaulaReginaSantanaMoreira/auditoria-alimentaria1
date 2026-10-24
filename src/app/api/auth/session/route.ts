@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
             email: payload.email,
             role: isSuper ? "superadmin" : "auditor",
             scope,
-            tenantId: payload.tenantId,
+            tenantId: isSuper ? (payload.tenantId || "global") : payload.tenantId,
           },
           redirectTo: isSuper ? "/superadmin" : "/auditorias/nova",
         });
@@ -162,7 +162,7 @@ export async function GET(request: NextRequest) {
             email: user.email,
             role: isSuper ? "superadmin" : "auditor",
             scope,
-            tenantId,
+            tenantId: isSuper ? "global" : tenantId,
           },
           redirectTo: isSuper ? "/superadmin" : "/auditorias/nova",
         });

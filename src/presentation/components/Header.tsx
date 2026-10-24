@@ -9,6 +9,7 @@ import { EditProfileModal } from "./EditProfileModal";
 import { useTheme } from "@/presentation/hooks/useTheme";
 import { UserRole, hasPermission } from "@/domain/security/roles-and-permissions";
 import { useOfflineSyncManager } from "@/presentation/hooks/useOfflineSyncManager";
+import { apiFetch } from "@/infrastructure/http/api-client";
 
 interface HeaderProps {
   title?: string;
@@ -89,12 +90,20 @@ export function Header({
                 ? "Auditor Consulta (Viewer)"
                 : "Inspector Sanitario Oficial"
             );
-          }
-          if (parsed.tenantId) {
+            if (isSuper) {
+              setActiveTenantId(
+                parsed.tenantId && parsed.tenantId !== "global" && parsed.tenantId !== "none"
+                  ? parsed.tenantId
+                  : "global"
+              );
+            } else if (parsed.tenantId) {
+              setActiveTenantId(parsed.tenantId);
+            }
+          } else if (parsed.tenantId) {
             setActiveTenantId(parsed.tenantId);
           }
           // Validação assíncrona remota com Supabase / API para detectar revogação de sessão
-          fetch("/api/auth/session")
+          apiFetch("/api/auth/session")
             .then((res) => {
               if (!res.ok) {
                 // Sessão foi invalidada ou revogada no Supabase!
@@ -120,7 +129,7 @@ export function Header({
   // Buscar lista de organizações vinculadas ao usuário logado
   useEffect(() => {
     if (isLoggedIn) {
-      fetch("/api/auth/tenants")
+      apiFetch("/api/auth/tenants")
         .then((res) => res.json())
         .then((data) => {
           if (data.success && data.tenants) {
@@ -154,19 +163,19 @@ export function Header({
 
   const handleSwitchTenant = async (tenantId: string) => {
     try {
-      const res = await fetch("/api/auth/tenants", {
+      setTenantSwitchError(null);
+      const res = await apiFetch("/api/auth/tenants", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tenantId }),
       });
-      const data = await res.json();
-      if (data.success) {
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
         setActiveTenantId(tenantId);
         setIsTenantSwitchOpen(false);
         const session = localStorage.getItem("bioaudit_session");
         if (session) {
           const parsed = JSON.parse(session);
-          parsed.role = data.role;
+          if (data.role) parsed.role = data.role;
           parsed.tenantId = tenantId;
           localStorage.setItem("bioaudit_session", JSON.stringify(parsed));
         }
@@ -174,8 +183,8 @@ export function Header({
       } else {
         setTenantSwitchError(data.error || "Error al cambiar de empresa activa.");
       }
-    } catch {
-      setTenantSwitchError("Error de conexión al cambiar de empresa activa.");
+    } catch (err: any) {
+      setTenantSwitchError(err?.message || "Error de conexión al cambiar de empresa activa.");
     }
   };
 
@@ -183,9 +192,8 @@ export function Header({
     try {
       localStorage.removeItem("bioaudit_session");
       // 1. Invalida a sessão no servidor Supabase com escopo global e limpa os cookies HTTP-only
-      await fetch("/api/auth/logout", {
+      await apiFetch("/api/auth/logout", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ scope: "global" }),
       });
     } catch {
