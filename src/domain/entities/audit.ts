@@ -25,6 +25,8 @@ export class Audit {
   private _auditorSignature?: Signature;
   private _auditedSignature?: Signature;
   private _accessScope: AuditAccessScope;
+  private _tenantId?: string;
+  private _tenantName?: string;
   private _invalidatedAt?: Date;
   private _invalidatedBy?: string;
   private _invalidationReason?: string;
@@ -44,6 +46,8 @@ export class Audit {
     auditorSignature?: Signature;
     auditedSignature?: Signature;
     accessScope?: AuditAccessScope;
+    tenantId?: string;
+    tenantName?: string;
     invalidatedAt?: Date;
     invalidatedBy?: string;
     invalidationReason?: string;
@@ -67,6 +71,8 @@ export class Audit {
     this._auditorSignature = params.auditorSignature;
     this._auditedSignature = params.auditedSignature;
     this._accessScope = params.accessScope ?? "TENANT";
+    this._tenantId = params.tenantId;
+    this._tenantName = params.tenantName;
     this._invalidatedAt = params.invalidatedAt;
     this._invalidatedBy = params.invalidatedBy;
     this._invalidationReason = params.invalidationReason;
@@ -76,6 +82,14 @@ export class Audit {
 
   public get id(): string {
     return this._id;
+  }
+
+  public get tenantId(): string | undefined {
+    return this._tenantId;
+  }
+
+  public get tenantName(): string | undefined {
+    return this._tenantName;
   }
 
   public get accessScope(): AuditAccessScope {
@@ -291,6 +305,8 @@ export class Audit {
         signedAt: typeof this._auditedSignature.signedAt === "object" ? this._auditedSignature.signedAt.toISOString() : this._auditedSignature.signedAt,
       } : undefined,
       accessScope: this._accessScope,
+      tenantId: this._tenantId,
+      tenantName: this._tenantName,
       invalidatedAt: this._invalidatedAt?.toISOString(),
       invalidatedBy: this._invalidatedBy,
       invalidationReason: this._invalidationReason,

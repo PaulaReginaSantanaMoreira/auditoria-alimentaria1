@@ -69,4 +69,43 @@ describe("RBAC & Permissions Domain System", () => {
     expect(undefinedResult).toBe(false);
     expect(invalidResult).toBe(false);
   });
+
+  it("should enforce that only SuperAdmin can deactivate the main administrator", () => {
+    // Regra de segurança: Apenas o SuperAdmin da plataforma pode desativar o Administrador Principal
+    const canDeactivateAdmin = (actorRole: UserRole, targetRole: UserRole, isSuperAdmin: boolean): boolean => {
+      if (targetRole === "TENANT_ADMIN") {
+        return isSuperAdmin || actorRole === "PLATFORM_SUPERADMIN";
+      }
+      return true;
+    };
+
+    expect(canDeactivateAdmin("PLATFORM_SUPERADMIN", "TENANT_ADMIN", true)).toBe(true);
+    expect(canDeactivateAdmin("TENANT_ADMIN", "TENANT_ADMIN", false)).toBe(false);
+    expect(canDeactivateAdmin("AUDITOR", "TENANT_ADMIN", false)).toBe(false);
+    expect(canDeactivateAdmin("TENANT_ADMIN", "AUDITOR", false)).toBe(true);
+  });
+
+  it("should prioritize keeping TENANT_ADMIN active when plan expires or seats are reduced", () => {
+    // Simulação da lógica de desativação de assentos excedentes (ex: 4 para 1)
+    const users = [
+      { id: "1", role: "TENANT_ADMIN", isActive: true },
+      { id: "2", role: "AUDITOR", isActive: true },
+      { id: "3", role: "AUDITOR", isActive: true },
+      { id: "4", role: "VIEWER", isActive: true },
+    ];
+    const allowedSeats = 1;
+
+    // Quando o plano vence ou o novo permite 1, inativa todos que não são TENANT_ADMIN
+    const toDeactivate = users.filter((u) => u.isActive && u.role !== "TENANT_ADMIN").map((u) => u.id);
+    const updatedUsers = users.map((u) => ({
+      ...u,
+      isActive: toDeactivate.includes(u.id) ? false : u.isActive,
+    }));
+
+    const activeUsers = updatedUsers.filter((u) => u.isActive);
+    expect(activeUsers.length).toBe(1);
+    expect(activeUsers[0].role).toBe("TENANT_ADMIN");
+    expect(activeUsers[0].id).toBe("1");
+    expect(toDeactivate).toEqual(["2", "3", "4"]);
+  });
 });

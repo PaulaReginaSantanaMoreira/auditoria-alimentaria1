@@ -78,14 +78,16 @@ export function PlansTable({
           </div>
         ) : (
           <table className="w-full text-left text-sm">
-            <thead className="bg-surface-container text-xs font-bold text-slate-subtext uppercase tracking-wider border-b border-slate-border">
+            <thead className="bg-surface-container dark:bg-slate-800/90 text-xs font-bold text-slate-subtext dark:text-slate-300 uppercase tracking-wider border-b border-slate-border dark:border-slate-800">
               <tr>
-                <th className="py-3 px-space-md">Plan / Código</th>
-                <th className="py-3 px-space-md">Vigencia (Días)</th>
-                <th className="py-3 px-space-md">Cupo Inspectores</th>
-                <th className="py-3 px-space-md">Precio Comercial</th>
-                <th className="py-3 px-space-md">Estado</th>
-                <th className="py-3 px-space-md text-right">Acciones</th>
+                <th className="py-3 px-space-md min-w-[240px]">Plan / Código</th>
+                <th className="hidden sm:table-cell py-3 px-space-md min-w-[130px]">Vigencia (Días)</th>
+                <th className="hidden md:table-cell py-3 px-space-md min-w-[140px]">Cupo Inspectores</th>
+                <th className="hidden sm:table-cell py-3 px-space-md min-w-[140px]">Precio Comercial</th>
+                <th className="hidden md:table-cell py-3 px-space-md min-w-[110px]">Estado</th>
+                <th className="py-3 px-3 sm:px-space-md text-right sticky right-0 bg-surface-container dark:bg-slate-800/95 z-10 shadow-[-4px_0_8px_rgba(0,0,0,0.06)] dark:shadow-[-4px_0_12px_rgba(0,0,0,0.3)] min-w-[70px]">
+                  Acciones
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-border/60 text-on-surface font-body-sm">
@@ -125,11 +127,11 @@ export function PlansTable({
                 return (
                   <tr
                     key={p.id}
-                    className="hover:bg-surface-container-low dark:hover:bg-slate-800/60 transition-colors"
+                    className="hover:bg-surface-container-low dark:hover:bg-slate-800/60 transition-colors group"
                   >
                     <td className="py-space-md px-space-md">
-                      <div className="flex items-center gap-2">
-                        <div className="font-bold text-on-surface text-sm">{p.name}</div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <div className="font-bold text-slate-900 dark:text-slate-100 text-sm">{p.name}</div>
                         {p.isDefault && (
                           <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
                             <span className="material-symbols-outlined text-[12px]">star</span>
@@ -137,40 +139,61 @@ export function PlansTable({
                           </span>
                         )}
                       </div>
-                      <div className="text-label-sm text-slate-subtext font-mono mt-0.5">
+                      <div className="text-label-sm text-slate-500 dark:text-slate-400 font-mono mt-0.5">
                         {p.code}
                       </div>
                       {p.description && (
-                        <p className="text-[11px] text-slate-subtext mt-1 max-w-sm line-clamp-1">
+                        <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-1 max-w-sm line-clamp-1">
                           {p.description}
                         </p>
                       )}
+
+                      {/* Resumo Mobile */}
+                      <div className="sm:hidden mt-2 pt-2 border-t border-slate-border/50 dark:border-slate-800 flex flex-wrap gap-1.5 items-center">
+                        <span className="text-[10px] font-medium text-slate-600 dark:text-slate-300 inline-flex items-center gap-0.5">
+                          <span className="material-symbols-outlined text-[13px] text-slate-400">calendar_month</span>
+                          {p.durationDays}d
+                        </span>
+                        <span className="text-[10px] font-medium text-slate-600 dark:text-slate-300 inline-flex items-center gap-0.5">
+                          <span className="material-symbols-outlined text-[13px] text-primary dark:text-emerald-400">group</span>
+                          {p.maxUserSeats} insp.
+                        </span>
+                        <span
+                          className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
+                            p.isActive
+                              ? "bg-status-pass-bg text-status-pass"
+                              : "bg-surface-container dark:bg-slate-800 text-slate-subtext dark:text-slate-400 border border-slate-border/50 dark:border-slate-700"
+                          }`}
+                        >
+                          {p.isActive ? "Activo" : "Inactivo"}
+                        </span>
+                      </div>
                     </td>
 
-                    <td className="py-space-md px-space-md">
-                      <div className="font-bold text-on-surface flex items-center gap-1">
-                        <span className="material-symbols-outlined text-[16px] text-slate-subtext">calendar_month</span>
+                    <td className="hidden sm:table-cell py-space-md px-space-md">
+                      <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[16px] text-slate-400">calendar_month</span>
                         <span>{p.durationDays} días</span>
                       </div>
                     </td>
 
-                    <td className="py-space-md px-space-md">
-                      <div className="font-bold text-on-surface flex items-center gap-1">
-                        <span className="material-symbols-outlined text-[16px] text-primary">group</span>
+                    <td className="hidden md:table-cell py-space-md px-space-md">
+                      <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[16px] text-primary dark:text-emerald-400">group</span>
                         <span>
                           {p.maxUserSeats} {p.maxUserSeats === 1 ? "inspector" : "inspectores"}
                         </span>
                       </div>
                     </td>
 
-                    <td className="py-space-md px-space-md">
+                    <td className="hidden sm:table-cell py-space-md px-space-md">
                       {isFree ? (
                         <span className="text-xs font-bold text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-950/70 px-2.5 py-1 rounded-full inline-flex items-center gap-1">
                           <span className="material-symbols-outlined text-[14px]">card_giftcard</span>
                           Bonificado (0,00 €)
                         </span>
                       ) : (
-                        <span className="font-bold text-on-surface text-sm">
+                        <span className="font-bold text-slate-900 dark:text-slate-100 text-sm">
                           {new Intl.NumberFormat("es-ES", { style: "currency", currency: p.currency || "EUR" }).format(
                             p.price
                           )}
@@ -178,12 +201,12 @@ export function PlansTable({
                       )}
                     </td>
 
-                    <td className="py-space-md px-space-md">
+                    <td className="hidden md:table-cell py-space-md px-space-md">
                       <span
                         className={`text-[10px] font-bold px-2.5 py-1 rounded-full inline-flex items-center gap-1 ${
                           p.isActive
                             ? "bg-status-pass-bg text-status-pass"
-                            : "bg-surface-container text-slate-subtext"
+                            : "bg-surface-container dark:bg-slate-800 text-slate-subtext dark:text-slate-400 border border-slate-border/50 dark:border-slate-700"
                         }`}
                       >
                         <span className={`w-1.5 h-1.5 rounded-full ${p.isActive ? "bg-status-pass" : "bg-slate-400"}`} />
@@ -191,7 +214,7 @@ export function PlansTable({
                       </span>
                     </td>
 
-                    <td className="py-space-md px-space-md text-right">
+                    <td className="py-space-md px-3 sm:px-space-md text-right sticky right-0 bg-surface-container-lowest dark:bg-slate-900 group-hover:bg-surface-container-low dark:group-hover:bg-slate-800/90 z-10 shadow-[-4px_0_8px_rgba(0,0,0,0.06)] dark:shadow-[-4px_0_12px_rgba(0,0,0,0.3)] transition-colors">
                       <div className="flex items-center justify-end">
                         <ActionMenu
                           label={`Acciones para plan ${p.name}`}

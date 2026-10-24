@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Audit } from "@/domain/entities/audit";
 import { AuditComplianceReport } from "@/domain/services/compliance-calculator.service";
 
@@ -10,8 +10,86 @@ interface ReportViewProps {
 }
 
 export function ReportView({ audit, report }: ReportViewProps) {
+  const [copiedToast, setCopiedToast] = useState(false);
+
+  useEffect(() => {
+    // Listener de segurança para garantir modo claro durante Ctrl+P / Cmd+P
+    const handleBeforePrint = () => {
+      if (document.documentElement.classList.contains("dark")) {
+        document.documentElement.classList.remove("dark");
+        document.documentElement.setAttribute("data-was-dark", "true");
+      }
+    };
+
+    const handleAfterPrint = () => {
+      if (document.documentElement.getAttribute("data-was-dark") === "true") {
+        document.documentElement.classList.add("dark");
+        document.documentElement.removeAttribute("data-was-dark");
+      }
+    };
+
+    window.addEventListener("beforeprint", handleBeforePrint);
+    window.addEventListener("afterprint", handleAfterPrint);
+
+    return () => {
+      window.removeEventListener("beforeprint", handleBeforePrint);
+      window.removeEventListener("afterprint", handleAfterPrint);
+    };
+  }, []);
+
   const handlePrint = () => {
-    window.print();
+    // 1. Desativa temporariamente o dark mode para que a engine de impressão calcule 100% em modo claro
+    const wasDark = document.documentElement.classList.contains("dark");
+    if (wasDark) {
+      document.documentElement.classList.remove("dark");
+      document.documentElement.setAttribute("data-was-dark", "true");
+    }
+
+    // Pequeno atraso para re-renderização síncrona do layout antes de invocar o diálogo nativo
+    setTimeout(() => {
+      window.print();
+
+      // Restaura o dark mode após a conclusão ou fechamento da caixa de diálogo
+      setTimeout(() => {
+        if (document.documentElement.getAttribute("data-was-dark") === "true") {
+          document.documentElement.classList.add("dark");
+          document.documentElement.removeAttribute("data-was-dark");
+        }
+      }, 500);
+    }, 50);
+  };
+
+  const handleShare = async () => {
+    try {
+      // O link compartilhado é SEMPRE forçado com parâmetro ?theme=light para garantir visualização oficial limpa
+      const shareUrl = new URL(window.location.href);
+      shareUrl.searchParams.set("theme", "light");
+
+      const companyName = audit.company?.name || "Empresa";
+      const verdict = report?.verdict || "Dictamen Oficial";
+      const score = report?.globalPercentage !== undefined ? `${report.globalPercentage}%` : "";
+
+      const shareData = {
+        title: `Acta Oficial de Inspección - ${companyName}`,
+        text: `Acta Oficial de Inspección Higiénico-Sanitaria (BioAudit Pro) para ${companyName}. Dictamen: ${verdict} (${score} de cumplimiento).`,
+        url: shareUrl.toString(),
+      };
+
+      if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+        await navigator.share(shareData);
+        return;
+      }
+
+      // Fallback para área de transferência caso Web Share não seja suportado
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(shareUrl.toString());
+        setCopiedToast(true);
+        setTimeout(() => setCopiedToast(false), 3500);
+      }
+    } catch (err: any) {
+      if (err?.name === "AbortError") return; // Usuário cancelou o share nativo
+      console.warn("Share fallback warning:", err);
+    }
   };
 
   // Ordenar los 30 puntos normativos para garantizar secuencia correlativa (1.1 a 3.10)
@@ -36,25 +114,43 @@ export function ReportView({ audit, report }: ReportViewProps) {
   return (
     <div className="flex flex-col max-w-4xl mx-auto w-full p-4 sm:p-8">
       {/* Botões Superiores no-print */}
-      <div className="no-print flex items-center justify-between pb-4 mb-6 border-b border-slate-border">
+      <div className="no-print flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-6 border-b border-slate-border">
         <button
           onClick={() => window.history.back()}
-          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-surface text-slate-dark text-sm font-semibold hover:bg-slate-border transition-colors"
+          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-surface text-slate-dark text-sm font-semibold hover:bg-slate-border transition-colors self-start"
         >
           <span className="material-symbols-outlined text-[18px]">arrow_back</span>
           Volver a la Rúbrica
         </button>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          <button
+            onClick={handleShare}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-surface text-slate-dark border border-slate-border font-semibold text-sm shadow-sm hover:bg-slate-border/70 transition-all cursor-pointer"
+            title="Compartir enlace oficial en modo claro"
+          >
+            <span className="material-symbols-outlined text-[18px] text-primary">share</span>
+            <span>Compartir</span>
+          </button>
+
           <button
             onClick={handlePrint}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-white font-semibold text-sm shadow hover:bg-primary-container transition-all"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-white font-semibold text-sm shadow hover:bg-primary-container transition-all cursor-pointer"
+            title="Imprimir o guardar como PDF oficial en formato claro"
           >
             <span className="material-symbols-outlined text-[18px]">print</span>
-            Imprimir / Guardar PDF Oficial
+            <span>Imprimir / Guardar PDF</span>
           </button>
         </div>
       </div>
+
+      {/* Toast Feedback de Compartilhamento */}
+      {copiedToast && (
+        <div className="no-print fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-slate-900 text-white text-xs px-4 py-2.5 rounded-xl shadow-xl border border-slate-700 animate-fade-in">
+          <span className="material-symbols-outlined text-status-pass text-[18px]">check_circle</span>
+          <span>Enlace oficial copiado en <strong>modo claro</strong> listo para compartir.</span>
+        </div>
+      )}
 
       {/* Documento Oficial A4 (Printable & Screen) */}
       <div className="bg-white p-6 sm:p-10 rounded-2xl shadow-sm border border-slate-border text-slate-dark print:p-0 print:border-none print:shadow-none print-doc">

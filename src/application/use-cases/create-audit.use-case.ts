@@ -35,13 +35,21 @@ export class CreateAuditUseCase {
     const accessScope = input.accessScope ?? "TENANT";
     const isConfidential = accessScope === "CONFIDENTIAL";
 
+    const isUuid = (str?: string) =>
+      typeof str === "string" &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
+
+    const safeAuditorId = isUuid(input.auditorId)
+      ? (input.auditorId as string)
+      : crypto.randomUUID();
+
     // Instancia o Auditor atribuído
     const auditor = new Auditor({
-      id: input.auditorId,
-      authUserId: input.auditorId,
+      id: safeAuditorId,
+      authUserId: safeAuditorId,
       fullName: isConfidential ? "Administrador Master BioAudit" : "Auditor Oficial BioAudit",
-      officialId: isConfidential ? "B-SUPERADMIN" : "B-SANIDAD",
-      email: input.auditorId.includes("@") ? input.auditorId : "auditor@sanidad.es",
+      officialId: isConfidential ? "B-SUPERADMIN" : `B-${safeAuditorId.slice(0, 8).toUpperCase()}`,
+      email: input.auditorId && input.auditorId.includes("@") ? input.auditorId : "auditor@sanidad.es",
     });
 
     const auditId = input.id || crypto.randomUUID();

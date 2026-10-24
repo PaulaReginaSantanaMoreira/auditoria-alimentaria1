@@ -39,14 +39,42 @@ export default function RootLayout({
             __html: `
               (function() {
                 try {
+                  // 1. Prioridade para parâmetro de URL (ex: links compartilhados em modo claro)
+                  var searchParams = new URLSearchParams(window.location.search);
+                  var urlTheme = searchParams.get('theme') || searchParams.get('mode');
+                  if (urlTheme === 'light') {
+                    document.documentElement.classList.remove('dark');
+                    return;
+                  }
+                  if (urlTheme === 'dark') {
+                    document.documentElement.classList.add('dark');
+                    return;
+                  }
+
+                  // 2. Leitura do tema armazenado no localStorage (o padrão oficial é sempre Claro/Light)
                   var stored = localStorage.getItem('bioaudit_theme');
-                  // O tema normal (claro) é o padrão oficial. O modo escuro é opcional por escolha ativa.
                   if (stored === 'dark') {
                     document.documentElement.classList.add('dark');
                   } else {
                     document.documentElement.classList.remove('dark');
                   }
                 } catch (e) {}
+
+                // 3. Listener global para garantir que impressão/PDF sempre renderize 100% em Modo Claro
+                if (typeof window !== 'undefined') {
+                  window.addEventListener('beforeprint', function() {
+                    if (document.documentElement.classList.contains('dark')) {
+                      document.documentElement.classList.remove('dark');
+                      document.documentElement.setAttribute('data-was-dark', 'true');
+                    }
+                  });
+                  window.addEventListener('afterprint', function() {
+                    if (document.documentElement.getAttribute('data-was-dark') === 'true') {
+                      document.documentElement.classList.add('dark');
+                      document.documentElement.removeAttribute('data-was-dark');
+                    }
+                  });
+                }
               })();
             `,
           }}

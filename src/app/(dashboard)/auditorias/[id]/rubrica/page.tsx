@@ -251,18 +251,27 @@ export default function RubricaPage() {
         console.warn("IndexedDB update warning:", err);
       }
 
-      // 3. Salva no banco via API
+      // 3. Salva no banco via API (sincronização de campo completa)
       try {
-        await fetch(`/api/audits/${auditId}/finalize`, {
+        const syncRes = await fetch("/api/audits/sync", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            id: auditId,
+            companyName,
+            companyCif,
+            companyAddress,
+            evaluations,
             auditorSignatureName: sigData.auditorName,
-            auditorSignatureDataUrl: sigData.auditorSignature,
+            auditorSignatureBase64: sigData.auditorSignature,
             auditedSignatureName: sigData.auditedName,
-            auditedSignatureDataUrl: sigData.auditedSignature,
+            auditedSignatureBase64: sigData.auditedSignature,
+            status: "FINALIZED",
           }),
         });
+        if (syncRes.ok) {
+          await offlineDb.audits.update(auditId, { isSynced: true });
+        }
       } catch {
         // Continua offline
       }
@@ -278,6 +287,11 @@ export default function RubricaPage() {
 
   if (isAuthLoading || !isAuthenticated) {
     return <AuthLoadingScreen />;
+  }
+
+  if (session?.role === "VIEWER") {
+    router.replace(`/auditorias/${auditId}/relatorio?company=${encodeURIComponent(companyName)}&cif=${encodeURIComponent(companyCif)}&address=${encodeURIComponent(companyAddress)}`);
+    return <AuthLoadingScreen message="Redirigiendo a consulta de laudo oficial..." />;
   }
 
   return (

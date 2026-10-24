@@ -36,8 +36,16 @@ export async function GET(request: NextRequest) {
     const maxSeats = sub?.max_user_seats ?? 5;
 
     // 2. Obter usuários detalhados do tenant (com nome e e-mail)
-    const users = await tenantRepo.getTenantUsers(effectiveTenantId);
-    const activeCount = users.filter((u) => u.isActive).length;
+    let users = await tenantRepo.getTenantUsers(effectiveTenantId);
+    let activeCount = users.filter((u) => u.isActive).length;
+
+    // Regra de Negócio: Se o plano venceu ou reduziu o cupo (ex: de 4 para 1),
+    // inativar automaticamente os inspetores que não são o Administrador Principal
+    if (activeCount > maxSeats) {
+      await tenantRepo.enforceSeatLimitDeactivation(effectiveTenantId, maxSeats);
+      users = await tenantRepo.getTenantUsers(effectiveTenantId);
+      activeCount = users.filter((u) => u.isActive).length;
+    }
 
     return NextResponse.json({
       success: true,
@@ -197,7 +205,7 @@ export async function PATCH(request: NextRequest) {
     // 1. Verificar se o registro pertence ao tenant ativo
     const { data: currentMember, error: findError } = await client
       .from("tenant_users")
-      .select("id, user_id, is_active, tenant_id")
+      .select("id, user_id, role, is_active, tenant_id")
       .eq("id", id)
       .eq("tenant_id", session.tenantId)
       .maybeSingle();
@@ -206,6 +214,19 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: "Miembro no encontrado o no pertenece a su empresa." },
         { status: 404 }
+      );
+    }
+
+    // REGRA DE SEGURANÇA MANDATÓRIA:
+    // Apenas o SuperAdmin pode inativar a conta do Administrador Principal
+    if (isActive === false && currentMember.role === "TENANT_ADMIN" && session.role !== "PLATFORM_SUPERADMIN") {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "RESTRICCIÓN DE SEGURIDAD: Solo un SuperAdministrador de la plataforma puede desactivar la cuenta del Administrador Principal de la empresa.",
+        },
+        { status: 403 }
       );
     }
 

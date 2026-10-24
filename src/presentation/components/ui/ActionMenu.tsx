@@ -151,9 +151,14 @@ export function ActionMenu({
         aria-haspopup="true"
         aria-expanded={isOpen}
         aria-label={label}
-        className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-subtext dark:text-slate-400 hover:text-on-surface hover:bg-surface-container dark:hover:bg-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer"
+        title={label}
+        className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/40 ${
+          isOpen
+            ? "bg-primary/10 dark:bg-emerald-950/70 text-primary dark:text-emerald-300 border border-primary/30 dark:border-emerald-500/50 shadow-xs ring-2 ring-primary/20"
+            : "bg-surface-container/70 dark:bg-slate-800/90 hover:bg-surface-container-high dark:hover:bg-slate-700 text-slate-700 dark:text-slate-100 border border-slate-border dark:border-slate-700 hover:text-primary dark:hover:text-emerald-300 hover:border-primary/40 dark:hover:border-emerald-500/40 shadow-xs"
+        }`}
       >
-        <span className="material-symbols-outlined text-[20px] select-none">{iconName}</span>
+        <span className="material-symbols-outlined text-[20px] select-none font-medium">{iconName}</span>
       </button>
 
       {isOpen &&

@@ -209,8 +209,18 @@
 }
 
 .dark .text-on-surface,
+.dark .text-on-surface\/95,
+.dark .text-on-surface\/90,
+.dark .text-on-surface\/85,
+.dark .text-on-surface\/80,
+.dark .text-on-surface\/75,
 .dark .text-slate-dark {
   color: #f8fafc !important;
+}
+
+.dark .text-slate-900:not([class*="dark:text-"]),
+.dark .text-slate-800:not([class*="dark:text-"]) {
+  color: #f1f5f9 !important;
 }
 
 .dark .text-slate-subtext,
@@ -250,13 +260,34 @@
   box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.6) !important;
 }
 
-/* Ocultar barra de desplazamiento por defecto */
+/* Ocultar barra de desplazamiento por defecto en elementos comunes */
 ::-webkit-scrollbar {
   display: none;
 }
 * {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* Barra de desplazamiento ergonómica para tablas y contenedores horizontais */
+.overflow-x-auto {
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(148, 163, 184, 0.4) transparent !important;
+  -webkit-overflow-scrolling: touch;
+}
+.overflow-x-auto::-webkit-scrollbar {
+  display: block !important;
+  height: 6px !important;
+}
+.overflow-x-auto::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+.overflow-x-auto::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.4) !important;
+  border-radius: 9999px !important;
+}
+.dark .overflow-x-auto::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.5) !important;
 }
 
 /* Símbolos Material */
@@ -276,17 +307,18 @@
   -webkit-font-smoothing: antialiased;
 }
 
-/* Estilos de Impresión Oficial A4 */
+/* Estilos de Impresión Oficial A4 — Sempre em Modo Claro (Light Mode) */
 @media print {
   /* Ocultar elementos desnecessários na impressão */
-  .no-print, header, nav, .sticky, button {
+  .no-print, header, nav, .sticky, button, [role="banner"], [role="navigation"] {
     display: none !important;
   }
 
-  /* Reset de layout e fundo para A4 limpo */
-  html, body {
+  /* Reset absoluto de layout e fundo para A4 limpo (sempre Light Mode) */
+  html, body, .dark, .dark html, .dark body {
+    background-color: #ffffff !important;
     background: #ffffff !important;
-    color: #000000 !important;
+    color: #0f172a !important;
     width: 100% !important;
     height: auto !important;
     margin: 0 !important;
@@ -298,6 +330,99 @@
     margin: 0 !important;
     min-height: auto !important;
     background: transparent !important;
+  }
+
+  /* GARANTIA DE IMPRESSÃO EM MODO CLARO INDEPENDENTE DO TEMA DO USUÁRIO */
+  .dark .print-doc,
+  .print-doc {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+
+  .dark .bg-surface,
+  .dark .bg-surface-dim,
+  .dark .bg-surface-bright,
+  .dark .bg-surface-variant,
+  .dark .bg-surface-container,
+  .dark .bg-surface-container-low,
+  .dark .bg-surface-container-high,
+  .dark .bg-surface-container-highest,
+  .dark .bg-surface-container-lowest,
+  .dark .bg-white {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  .dark .bg-slate-surface,
+  .dark .bg-slate-surface\/90,
+  .dark .bg-slate-surface\/80,
+  .dark .bg-slate-surface\/70,
+  .dark .bg-slate-surface\/60,
+  .dark .bg-slate-surface\/50,
+  .dark .bg-slate-surface\/40,
+  .dark .bg-slate-surface\/30 {
+    background-color: #f8fafc !important;
+    color: #0f172a !important;
+  }
+
+  .dark .text-slate-dark,
+  .dark .text-on-surface,
+  .dark .text-slate-900,
+  .dark .text-slate-800 {
+    color: #0f172a !important;
+  }
+
+  .dark .text-slate-subtext,
+  .dark .text-on-surface-variant {
+    color: #475569 !important;
+  }
+
+  .dark .border-slate-border,
+  .dark .border-slate-border\/50,
+  .dark .border-slate-border\/60,
+  .dark .border-slate-border\/70,
+  .dark .divide-slate-border > :not([hidden]) ~ :not([hidden]),
+  .dark .divide-slate-border\/60 > :not([hidden]) ~ :not([hidden]) {
+    border-color: #e2e8f0 !important;
+  }
+
+  /* Badges de conformidade e status sempre fiéis em Light Mode */
+  .dark .bg-status-pass-bg {
+    background-color: #ecfdf5 !important;
+    color: #059669 !important;
+  }
+
+  .dark .text-status-pass {
+    color: #059669 !important;
+  }
+
+  .dark .bg-alert-red-bg,
+  .dark .bg-alert-red-bg\/15 {
+    background-color: #fef2f2 !important;
+    color: #dc2626 !important;
+  }
+
+  .dark .text-alert-red {
+    color: #dc2626 !important;
+  }
+
+  .dark .bg-alert-amber-bg,
+  .dark .bg-alert-amber-bg\/15 {
+    background-color: #fffbeb !important;
+    color: #d97706 !important;
+  }
+
+  .dark .text-alert-amber {
+    color: #d97706 !important;
+  }
+
+  /* Fundo dos quadros de assinatura sempre branco na impressão */
+  .dark canvas[data-signature-pad],
+  .dark canvas.signature-canvas {
+    background-color: #ffffff !important;
   }
 
   .avoid-break {

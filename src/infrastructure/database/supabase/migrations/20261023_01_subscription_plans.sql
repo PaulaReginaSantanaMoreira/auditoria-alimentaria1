@@ -27,6 +27,8 @@ ALTER TABLE public.tenant_subscriptions ADD COLUMN IF NOT EXISTS plan_code TEXT;
 ALTER TABLE public.tenant_subscription_contracts ADD COLUMN IF NOT EXISTS plan_id UUID REFERENCES public.subscription_plans(id) ON DELETE SET NULL;
 ALTER TABLE public.tenant_subscription_contracts ADD COLUMN IF NOT EXISTS plan_name TEXT;
 ALTER TABLE public.tenant_subscription_contracts ADD COLUMN IF NOT EXISTS plan_code TEXT;
+ALTER TABLE public.tenant_subscription_contracts ADD COLUMN IF NOT EXISTS payment_due_date TIMESTAMPTZ;
+ALTER TABLE public.tenant_subscriptions ADD COLUMN IF NOT EXISTS payment_due_date TIMESTAMPTZ;
 
 -- Remover coluna e restrição estática legada de tiers ('STARTER', 'PRO', 'ENTERPRISE') definitivamente
 ALTER TABLE public.tenant_subscriptions DROP CONSTRAINT IF EXISTS tenant_subscriptions_plan_tier_check;

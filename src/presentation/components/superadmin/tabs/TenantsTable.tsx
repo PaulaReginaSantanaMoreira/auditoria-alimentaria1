@@ -83,25 +83,27 @@ export function TenantsTable({
           </div>
         ) : (
           <table className="w-full text-left text-sm">
-            <thead className="bg-surface-container text-xs font-bold text-slate-subtext uppercase tracking-wider border-b border-slate-border">
+            <thead className="bg-surface-container dark:bg-slate-800/90 text-xs font-bold text-slate-subtext dark:text-slate-300 uppercase tracking-wider border-b border-slate-border dark:border-slate-800">
               <tr>
-                <th className="py-3 px-space-md min-w-[320px]">Empresa / Contacto</th>
-                <th className="py-3 px-space-md min-w-[140px]">Plan &amp; Estado</th>
-                <th className="py-3 px-space-md min-w-[150px]">Estado Contrato</th>
-                <th className="py-3 px-space-md min-w-[150px]">Inspectores Habilitados</th>
-                <th className="py-3 px-space-md min-w-[160px]">Vigencia Subscripción</th>
-                <th className="py-3 px-space-md text-right min-w-[90px]">Acciones</th>
+                <th className="py-3 px-space-md min-w-[280px]">Empresa / Contacto</th>
+                <th className="hidden sm:table-cell py-3 px-space-md min-w-[130px]">Plan &amp; Estado</th>
+                <th className="hidden md:table-cell py-3 px-space-md min-w-[140px]">Estado Contrato</th>
+                <th className="hidden lg:table-cell py-3 px-space-md min-w-[130px]">Inspectores Habilitados</th>
+                <th className="hidden sm:table-cell py-3 px-space-md min-w-[150px]">Vigencia Subscripción</th>
+                <th className="py-3 px-3 sm:px-space-md text-right sticky right-0 bg-surface-container dark:bg-slate-800/95 z-10 shadow-[-4px_0_8px_rgba(0,0,0,0.06)] dark:shadow-[-4px_0_12px_rgba(0,0,0,0.3)] min-w-[70px]">
+                  Acciones
+                </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-border/60 text-on-surface font-body-sm">
+            <tbody className="divide-y divide-slate-border/60 dark:divide-slate-800/60 font-body-sm">
               {filtered.map((t) => (
-                <tr key={t.id} className="hover:bg-surface-container-low dark:hover:bg-slate-800/60 transition-colors">
+                <tr key={t.id} className="hover:bg-surface-container-low dark:hover:bg-slate-800/60 transition-colors group">
                   {/* Coluna 1: Empresa & Contacto */}
                   <td className="py-space-md px-space-md">
                     <div className="flex items-start gap-3">
                       {/* Avatar / Monograma com Badge de Status */}
                       <div className="relative shrink-0 mt-0.5">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/15 to-primary/5 dark:from-primary/25 dark:to-primary/10 text-primary flex items-center justify-center font-bold text-sm border border-primary/20 shadow-xs">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/15 to-primary/5 dark:from-primary/25 dark:to-primary/10 text-primary dark:text-emerald-400 flex items-center justify-center font-bold text-sm border border-primary/20 shadow-xs">
                           {t.name ? t.name.slice(0, 2).toUpperCase() : "EM"}
                         </div>
                         <span
@@ -115,17 +117,17 @@ export function TenantsTable({
                       <div className="flex-1 min-w-0 space-y-1">
                         {/* Linha 1: Nome da Empresa e Badge CIF */}
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-bold text-on-surface text-sm truncate max-w-[200px]" title={t.name}>
+                          <span className="font-bold text-slate-900 dark:text-slate-100 text-sm truncate max-w-[220px]" title={t.name}>
                             {t.name}
                           </span>
-                          <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-md bg-surface-container dark:bg-slate-800 text-slate-subtext border border-slate-border/60 shrink-0">
+                          <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-md bg-surface-container dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-border/80 dark:border-slate-700 shrink-0">
                             CIF: {t.cif}
                           </span>
                         </div>
 
                         {/* Linha 2: Endereço com ícone de localização */}
                         {t.address && (
-                          <div className="text-xs text-slate-subtext flex items-center gap-1.5" title={t.address}>
+                          <div className="text-xs text-slate-600 dark:text-slate-300 flex items-center gap-1.5" title={t.address}>
                             <span className="material-symbols-outlined text-[14px] text-slate-400 shrink-0">
                               location_on
                             </span>
@@ -133,61 +135,117 @@ export function TenantsTable({
                           </div>
                         )}
 
-                        {/* Linha 3: Contato & Administrador com links rápidos */}
+                        {/* Linha 3: Contato & Administrador com links rápidos (um abaixo do outro) */}
                         {(t.adminName || t.adminEmail || t.phone) && (
-                          <div className="pt-1 flex flex-col gap-1">
+                          <div className="pt-1 flex flex-col gap-1 text-[11px] text-slate-600 dark:text-slate-300">
                             {t.adminName && (
-                              <div className="flex items-center gap-1.5 text-xs font-medium text-on-surface/90">
-                                <span className="material-symbols-outlined text-[14px] text-slate-400 shrink-0">
+                              <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-800 dark:text-slate-100">
+                                <span className="material-symbols-outlined text-[15px] text-slate-400 shrink-0">
                                   person
                                 </span>
                                 <span className="truncate">{t.adminName}</span>
-                                <span className="text-[10px] text-slate-subtext font-normal">(Admin)</span>
+                                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal shrink-0">(Admin)</span>
                               </div>
                             )}
 
-                            <div className="flex items-center gap-x-3 gap-y-1 text-[11px] text-slate-subtext flex-wrap">
-                              {t.adminEmail && (
-                                <a
-                                  href={`mailto:${t.adminEmail}`}
-                                  className="inline-flex items-center gap-1 hover:text-primary transition-colors whitespace-nowrap group"
-                                  title={`Enviar email para ${t.adminEmail}`}
-                                >
-                                  <span className="material-symbols-outlined text-[14px] text-slate-400 group-hover:text-primary transition-colors shrink-0">
-                                    mail
-                                  </span>
-                                  <span className="group-hover:underline">{t.adminEmail}</span>
-                                </a>
-                              )}
+                            {t.adminEmail && (
+                              <a
+                                href={`mailto:${t.adminEmail}`}
+                                className="inline-flex items-center gap-1.5 hover:text-primary dark:hover:text-emerald-400 transition-colors whitespace-nowrap group/link w-fit"
+                                title={`Enviar email para ${t.adminEmail}`}
+                              >
+                                <span className="material-symbols-outlined text-[14px] text-slate-400 group-hover/link:text-primary dark:group-hover/link:text-emerald-400 transition-colors shrink-0">
+                                  mail
+                                </span>
+                                <span className="group-hover/link:underline">{t.adminEmail}</span>
+                              </a>
+                            )}
 
-                              {t.phone && (
-                                <a
-                                  href={`tel:${t.phone}`}
-                                  className="inline-flex items-center gap-1 hover:text-primary transition-colors whitespace-nowrap group"
-                                  title={`Llamar a ${t.phone}`}
-                                >
-                                  <span className="material-symbols-outlined text-[14px] text-slate-400 group-hover:text-primary transition-colors shrink-0">
-                                    phone
-                                  </span>
-                                  <span className="group-hover:underline font-mono">{t.phone}</span>
-                                </a>
-                              )}
-                            </div>
+                            {t.phone && (
+                              <a
+                                href={`tel:${t.phone}`}
+                                className="inline-flex items-center gap-1.5 hover:text-primary dark:hover:text-emerald-400 transition-colors whitespace-nowrap group/link w-fit"
+                                title={`Llamar a ${t.phone}`}
+                              >
+                                <span className="material-symbols-outlined text-[14px] text-slate-400 group-hover/link:text-primary dark:group-hover/link:text-emerald-400 transition-colors shrink-0">
+                                  phone
+                                </span>
+                                <span className="group-hover/link:underline font-mono">{t.phone}</span>
+                              </a>
+                            )}
                           </div>
                         )}
+
+                        {/* Linha 4 (Mobile Compact Badges - visível apenas em telas pequenas) */}
+                        <div className="sm:hidden pt-2 mt-1.5 border-t border-slate-border/50 dark:border-slate-800/80 flex flex-wrap gap-1.5 items-center">
+                          {t.planName || t.planCode ? (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-surface-container dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-border/70 dark:border-slate-700">
+                              {t.planName || t.planCode}
+                            </span>
+                          ) : null}
+
+                          <span
+                            className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
+                              t.status === "ACTIVE"
+                                ? "bg-status-pass-bg text-status-pass"
+                                : "bg-alert-red-bg/25 text-alert-red"
+                            }`}
+                          >
+                            {t.status === "ACTIVE" ? "Activa" : "Suspendida"}
+                          </span>
+
+                          {t.isExpired ? (
+                            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-alert-red-bg/25 text-alert-red">
+                              Vencido
+                            </span>
+                          ) : t.paymentStatus === "PENDING_PAYMENT" ? (
+                            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300">
+                              Boleto Pendiente
+                            </span>
+                          ) : t.paymentStatus === "COURTESY" ? (
+                            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-950/70 dark:text-purple-300">
+                              Bonificado
+                            </span>
+                          ) : t.paymentStatus === "PAID" ? (
+                            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300">
+                              Pagado
+                            </span>
+                          ) : null}
+
+                          <span className="text-[10px] text-slate-600 dark:text-slate-300 inline-flex items-center gap-0.5">
+                            <span className="material-symbols-outlined text-[13px] text-slate-400">group</span>
+                            {t.activeUsersCount}/{t.maxUserSeats != null ? t.maxUserSeats : "—"}
+                          </span>
+
+                          {t.expiresAt && (
+                            <span className="text-[10px] text-slate-600 dark:text-slate-300 inline-flex items-center gap-0.5">
+                              <span className="material-symbols-outlined text-[13px] text-slate-400">calendar_today</span>
+                              {new Date(t.expiresAt).toLocaleDateString("es-ES")}
+                              {t.daysRemaining != null && ` (${t.daysRemaining}d)`}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Em telas sm a lg, detalhe resumido de inspectores */}
+                        <div className="hidden sm:flex lg:hidden pt-1 items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+                          <span className="inline-flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[13px]">group</span>
+                            Inspectores: <strong className="text-slate-700 dark:text-slate-200">{t.activeUsersCount}/{t.maxUserSeats != null ? t.maxUserSeats : "—"}</strong>
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </td>
 
-                  {/* Coluna 2: Plan & Estado */}
-                  <td className="py-space-md px-space-md">
+                  {/* Coluna 2: Plan & Estado (visível a partir de sm) */}
+                  <td className="hidden sm:table-cell py-space-md px-space-md">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {t.planName || t.planCode || t.planTier ? (
-                        <span className="text-label-sm font-bold px-2 py-0.5 rounded-md bg-surface-container text-on-surface-variant">
+                        <span className="text-label-sm font-bold px-2 py-0.5 rounded-md bg-surface-container dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-border/70 dark:border-slate-700">
                           {t.planName || t.planCode || t.planTier}
                         </span>
                       ) : (
-                        <span className="text-label-sm font-semibold text-slate-subtext">—</span>
+                        <span className="text-label-sm font-semibold text-slate-subtext dark:text-slate-400">—</span>
                       )}
                       <span
                         className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
@@ -201,10 +259,10 @@ export function TenantsTable({
                     </div>
                   </td>
 
-                  {/* Coluna 3: Estado Contrato (Saúde Financeira) */}
-                  <td className="py-space-md px-space-md">
+                  {/* Coluna 3: Estado Contrato (visível a partir de md) */}
+                  <td className="hidden md:table-cell py-space-md px-space-md">
                     {!t.paymentStatus && !t.expiresAt ? (
-                      <span className="text-slate-subtext text-xs">—</span>
+                      <span className="text-slate-subtext dark:text-slate-400 text-xs">—</span>
                     ) : t.isExpired ? (
                       <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-alert-red-bg/25 text-alert-red inline-flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-alert-red" />
@@ -226,38 +284,38 @@ export function TenantsTable({
                         Pagado / Al Día
                       </span>
                     ) : (
-                      <span className="text-slate-subtext text-xs">—</span>
+                      <span className="text-slate-subtext dark:text-slate-400 text-xs">—</span>
                     )}
                   </td>
 
-                  {/* Coluna 4: Inspectores Habilitados */}
-                  <td className="py-space-md px-space-md">
-                    <div className="font-bold text-on-surface text-sm">
+                  {/* Coluna 4: Inspectores Habilitados (visível a partir de lg) */}
+                  <td className="hidden lg:table-cell py-space-md px-space-md">
+                    <div className="font-bold text-slate-900 dark:text-slate-100 text-sm">
                       {t.activeUsersCount}{" "}
-                      <span className="text-slate-subtext font-normal text-xs">
+                      <span className="text-slate-500 dark:text-slate-400 font-normal text-xs">
                         / {t.maxUserSeats != null ? t.maxUserSeats : "—"}
                       </span>
                     </div>
-                    <div className="text-[11px] text-slate-subtext">inspectores activos</div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400">inspectores activos</div>
                   </td>
 
-                  {/* Coluna 5: Vigencia Subscripción */}
-                  <td className="py-space-md px-space-md">
+                  {/* Coluna 5: Vigencia Subscripción (visível a partir de sm) */}
+                  <td className="hidden sm:table-cell py-space-md px-space-md">
                     {t.expiresAt ? (
-                      <div className="flex items-center gap-1.5 text-body-sm font-semibold">
-                        <span className="material-symbols-outlined text-[16px] text-slate-subtext">calendar_today</span>
+                      <div className="flex items-center gap-1.5 text-body-sm font-semibold text-slate-900 dark:text-slate-100">
+                        <span className="material-symbols-outlined text-[16px] text-slate-400 shrink-0">calendar_today</span>
                         <span>{new Date(t.expiresAt).toLocaleDateString("es-ES")}</span>
                         {t.daysRemaining != null && (
-                          <span className="text-label-sm text-slate-subtext font-normal">({t.daysRemaining}d)</span>
+                          <span className="text-label-sm text-slate-500 dark:text-slate-400 font-normal">({t.daysRemaining}d)</span>
                         )}
                       </div>
                     ) : (
-                      <span className="text-slate-subtext text-xs">—</span>
+                      <span className="text-slate-subtext dark:text-slate-400 text-xs">—</span>
                     )}
                   </td>
 
-                  {/* Coluna 6: Acciones (Menu 3 Pontinhos Dropdown) */}
-                  <td className="py-space-md px-space-md text-right">
+                  {/* Coluna 6: Acciones (Menu 3 Pontinhos Sticky Right) */}
+                  <td className="py-space-md px-3 sm:px-space-md text-right sticky right-0 bg-surface-container-lowest dark:bg-slate-900 group-hover:bg-surface-container-low dark:group-hover:bg-slate-800/90 z-10 shadow-[-4px_0_8px_rgba(0,0,0,0.06)] dark:shadow-[-4px_0_12px_rgba(0,0,0,0.3)] transition-colors">
                     <div className="flex items-center justify-end">
                       <ActionMenu
                         label={`Acciones para ${t.name}`}

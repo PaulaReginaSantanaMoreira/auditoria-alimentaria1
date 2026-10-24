@@ -55,18 +55,14 @@ export class TenantRepository implements ITenantRepository {
         new Date(b.created_at || b.expires_at || 0).getTime() -
         new Date(a.created_at || a.expires_at || 0).getTime()
     );
-    // Filtrar e ordenar contratos exatamente como a regra LATERAL da governança:
-    // WHERE t.id = tsc.tenant_id AND tsc.payment_status IN ('COURTESY', 'PAID')
-    // ORDER BY tsc.expires_at DESC LIMIT 1
+    // Filtrar e ordenar contratos válidos que computam vigência ativa:
+    // Apenas contratos pagos, bonificados ou com reembolso parcial ativo computam vigência!
     const validContracts = contracts.filter((c) =>
-      ["COURTESY", "PAID"].includes(c.payment_status)
+      ["COURTESY", "PAID", "PARTIALLY_REFUNDED"].includes(c.payment_status)
     );
-    const targetContracts =
-      validContracts.length > 0
-        ? validContracts
-        : contracts.filter((c) => c.payment_status === "PENDING_PAYMENT").length > 0
-        ? contracts.filter((c) => c.payment_status === "PENDING_PAYMENT")
-        : contracts;
+    const pendingContracts = contracts.filter((c) => c.payment_status === "PENDING_PAYMENT");
+
+    const targetContracts = validContracts.length > 0 ? validContracts : pendingContracts;
 
     targetContracts.sort((a, b) => {
       const expA = new Date(a.expires_at || 0).getTime();
@@ -76,7 +72,7 @@ export class TenantRepository implements ITenantRepository {
     });
 
     const latestSub = subs[0];
-    const latestContract = targetContracts[0];
+    const latestContract = targetContracts.length > 0 ? targetContracts[0] : null;
 
     if (!latestSub && !latestContract) {
       return null;
@@ -159,40 +155,45 @@ export class TenantRepository implements ITenantRepository {
     }
 
     if (latestSub && !latestContract) {
-      return latestSub;
-    }
-
-    // Ambos existem: a regra de negócio da governança é exibir a última contratada vigente
-    const subDate = new Date(latestSub.updated_at || latestSub.created_at || 0).getTime();
-    const contractDate = new Date(latestContract.created_at || 0).getTime();
-
-    if (
-      contractDate >= subDate ||
-      !latestSub.expires_at ||
-      new Date(latestContract.expires_at).getTime() > new Date(latestSub.expires_at || 0).getTime()
-    ) {
-      const planName = resolvePlanName(latestContract, latestSub);
-
+      // Nenhum contrato válido ou pendente: a vigência é determinada por latestSub.
+      // Se latestSub não tem contratos válidos ou está no passado, marcar como expirado.
+      const isExpired = !latestSub.expires_at || new Date(latestSub.expires_at) <= new Date();
       return {
-        id: latestSub.id || latestContract.subscription_id || latestContract.id,
-        tenant_id: tenantId,
-        plan_id: latestContract.plan_id || latestSub.plan_id || null,
-        plan_name: planName,
-        plan_code: latestContract.plan_code || latestSub.plan_code,
-        max_user_seats: latestContract.seats ?? latestSub.max_user_seats,
-        status: new Date(latestContract.expires_at) > new Date() ? "ACTIVE" : "EXPIRED",
-        payment_status: latestContract.payment_status || latestSub.payment_status,
-        invoice_ref: latestContract.invoice_ref || latestSub.invoice_ref,
-        notes: latestContract.notes || latestSub.notes,
-        valid_from: latestContract.valid_from || latestSub.valid_from,
-        expires_at: latestContract.expires_at || latestSub.expires_at,
-        feature_flags: latestSub.feature_flags || { customRubric: true, offlineSync: true, exportPdf: true, analytics: true },
-        created_at: latestSub.created_at || latestContract.created_at,
-        updated_at: latestContract.created_at || latestSub.updated_at,
+        ...latestSub,
+        status: isExpired ? "EXPIRED" : latestSub.status,
       };
     }
 
-    return latestSub;
+    // Ambos existem e latestContract é um contrato válido ou pendente
+    const subDate = new Date(latestSub.updated_at || latestSub.created_at || 0).getTime();
+    const contractDate = new Date(latestContract.created_at || 0).getTime();
+
+    // Se latestSub foi recalculado recentemente e possui data válida, respeitá-la
+    const planName = resolvePlanName(latestContract, latestSub);
+    const chosenExpiresAt =
+      subDate > contractDate && latestSub.expires_at
+        ? latestSub.expires_at
+        : latestContract.expires_at;
+
+    const isExpired = !chosenExpiresAt || new Date(chosenExpiresAt) <= new Date();
+
+    return {
+      id: latestSub.id || latestContract.subscription_id || latestContract.id,
+      tenant_id: tenantId,
+      plan_id: latestContract.plan_id || latestSub.plan_id || null,
+      plan_name: planName,
+      plan_code: latestContract.plan_code || latestSub.plan_code,
+      max_user_seats: latestContract.seats ?? latestSub.max_user_seats,
+      status: isExpired ? "EXPIRED" : "ACTIVE",
+      payment_status: latestContract.payment_status || latestSub.payment_status,
+      invoice_ref: latestContract.invoice_ref || latestSub.invoice_ref,
+      notes: latestContract.notes || latestSub.notes,
+      valid_from: latestContract.valid_from || latestSub.valid_from,
+      expires_at: chosenExpiresAt,
+      feature_flags: latestSub.feature_flags || { customRubric: true, offlineSync: true, exportPdf: true, analytics: true },
+      created_at: latestSub.created_at || latestContract.created_at,
+      updated_at: latestSub.updated_at || latestContract.created_at,
+    };
   }
 
   public async findAll(): Promise<TenantWithSubscription[]> {
@@ -783,13 +784,21 @@ export class TenantRepository implements ITenantRepository {
           id: r.id,
           tenantId: r.tenant_id,
           subscriptionId: r.subscription_id,
+          planId: r.plan_id,
+          planName: r.plan_name,
+          planCode: r.plan_code,
           actionType: r.action_type,
           validFrom: new Date(r.valid_from),
           expiresAt: new Date(r.expires_at),
+          paymentDueDate: r.payment_due_date ? new Date(r.payment_due_date) : undefined,
           daysAdded: r.days_added,
           seats: r.seats,
           paymentStatus: r.payment_status as SubscriptionPaymentStatus,
           amount: r.amount ? Number(r.amount) : undefined,
+          refundAmount: r.refund_amount ? Number(r.refund_amount) : undefined,
+          refundType: r.refund_type,
+          refundReason: r.refund_reason,
+          refundedAt: r.refunded_at ? new Date(r.refunded_at) : undefined,
           invoiceRef: r.invoice_ref,
           notes: r.notes,
           createdBy: r.created_by,
@@ -836,13 +845,34 @@ export class TenantRepository implements ITenantRepository {
     }
 
     const seatsToSet = dto.newSeats || currentSub.maxUserSeats;
+    const isPending = dto.paymentStatus === "PENDING_PAYMENT";
+    const paymentDueDate = dto.paymentDueDate || (isPending ? new Date(Date.now() + 5 * 24 * 60 * 60 * 1000) : undefined);
 
     // 1. Atualizar a tabela de subscrições ativas
+    // REGRA DE GOVERNANÇA: Se a subscrição atual já estiver vencida e a renovação for PENDING_PAYMENT,
+    // o usuário NÃO tem acesso liberado (permanece EXPIRED) até que o pagamento seja efetivado!
+    const isCurrentlyExpired = currentSub.isExpired();
+    let subStatus: "ACTIVE" | "EXPIRED" = "ACTIVE";
+    let subExpiresAt = targetExpiration;
+
+    if (isPending) {
+      if (isCurrentlyExpired) {
+        subStatus = "EXPIRED";
+        subExpiresAt = currentSub.expiresAt;
+      } else {
+        subStatus = "ACTIVE";
+        subExpiresAt = currentSub.expiresAt; // Mantém vigência já paga até o pagamento ser confirmado
+      }
+    } else {
+      subStatus = targetExpiration > new Date() ? "ACTIVE" : "EXPIRED";
+    }
+
     const subUpdatePayload: any = {
-      expires_at: targetExpiration.toISOString(),
-      max_user_seats: seatsToSet,
-      status: targetExpiration > new Date() ? "ACTIVE" : "EXPIRED",
+      expires_at: subExpiresAt.toISOString(),
+      max_user_seats: isPending && isCurrentlyExpired ? currentSub.maxUserSeats : seatsToSet,
+      status: subStatus,
       payment_status: dto.paymentStatus,
+      payment_due_date: paymentDueDate ? paymentDueDate.toISOString() : null,
       updated_at: new Date().toISOString(),
     };
     if (dto.planId !== undefined) subUpdatePayload.plan_id = dto.planId;
@@ -879,6 +909,7 @@ export class TenantRepository implements ITenantRepository {
           action_type: dto.actionType || "RENEWAL",
           valid_from: baseDate.toISOString(),
           expires_at: targetExpiration.toISOString(),
+          payment_due_date: paymentDueDate ? paymentDueDate.toISOString() : null,
           days_added: daysCalculated,
           seats: seatsToSet,
           payment_status: dto.paymentStatus,
@@ -907,6 +938,7 @@ export class TenantRepository implements ITenantRepository {
       actionType: dto.actionType || "RENEWAL",
       validFrom: baseDate,
       expiresAt: targetExpiration,
+      paymentDueDate,
       daysAdded: daysCalculated,
       seats: seatsToSet,
       paymentStatus: dto.paymentStatus,
@@ -917,7 +949,17 @@ export class TenantRepository implements ITenantRepository {
       createdAt: new Date(),
     });
 
-    currentSub.extendValidity(targetExpiration, dto.paymentStatus);
+    if (!isPending || !isCurrentlyExpired) {
+      currentSub.extendValidity(subExpiresAt, dto.paymentStatus);
+    }
+    if (dto.planId) {
+      currentSub.updatePlan({
+        id: dto.planId,
+        name: dto.planName || currentSub.planName,
+        code: dto.planCode || currentSub.planCode,
+        maxUserSeats: seatsToSet,
+      });
+    }
     currentSub.updateSeats(seatsToSet);
     currentSub.updateBilling({
       paymentStatus: dto.paymentStatus,
@@ -925,9 +967,553 @@ export class TenantRepository implements ITenantRepository {
       notes: dto.notes,
     });
 
+    await this.recalculateTenantTimeline(dto.tenantId);
+
     return {
       subscription: currentSub,
       contract: contractEntity,
+    };
+  }
+
+  public async confirmContractPayment(
+    tenantId: string,
+    contractId: string
+  ): Promise<{ subscription: TenantSubscription; contract: SubscriptionContract }> {
+    const { data: contractRecord, error: contractErr } = await this.client
+      .from("tenant_subscription_contracts")
+      .select("*")
+      .eq("id", contractId)
+      .eq("tenant_id", tenantId)
+      .maybeSingle();
+
+    if (contractErr || !contractRecord) {
+      throw new Error("Contrato não encontrado para confirmação de pagamento.");
+    }
+
+    // 1. Atualizar o contrato para PAID
+    const { error: updateContractErr } = await this.client
+      .from("tenant_subscription_contracts")
+      .update({
+        payment_status: "PAID",
+        payment_due_date: null,
+      })
+      .eq("id", contractId);
+
+    if (updateContractErr) {
+      throw new Error(`Erro ao atualizar contrato: ${updateContractErr.message}`);
+    }
+
+    // 2. Recalcular toda a cadeia sequencial da timeline
+    await this.recalculateTenantTimeline(tenantId);
+
+    const updatedTenant = await this.findById(tenantId);
+    if (!updatedTenant || !updatedTenant.subscription) {
+      throw new Error("Erro ao carregar dados pós-confirmação.");
+    }
+
+    const updatedContract = new SubscriptionContract({
+      id: contractRecord.id,
+      tenantId: contractRecord.tenant_id,
+      subscriptionId: contractRecord.subscription_id,
+      planId: contractRecord.plan_id,
+      planName: contractRecord.plan_name,
+      planCode: contractRecord.plan_code,
+      actionType: contractRecord.action_type,
+      validFrom: new Date(contractRecord.valid_from),
+      expiresAt: updatedTenant.subscription.expiresAt,
+      daysAdded: contractRecord.days_added,
+      seats: contractRecord.seats,
+      paymentStatus: "PAID",
+      amount: contractRecord.amount ? Number(contractRecord.amount) : undefined,
+      invoiceRef: contractRecord.invoice_ref,
+      notes: contractRecord.notes,
+      createdBy: contractRecord.created_by,
+      createdAt: new Date(contractRecord.created_at),
+    });
+
+    return {
+      subscription: updatedTenant.subscription,
+      contract: updatedContract,
+    };
+  }
+
+  public async recalculateTenantTimeline(tenantId: string): Promise<void> {
+    const now = new Date();
+
+    // 1. Buscar todos os contratos do tenant ordenados cronologicamente
+    const { data: rawContracts, error: fetchErr } = await this.client
+      .from("tenant_subscription_contracts")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true });
+
+    if (fetchErr) {
+      console.error(`[recalculateTenantTimeline] Error fetching contracts for ${tenantId}:`, fetchErr);
+      return;
+    }
+
+    const contracts = rawContracts || [];
+    if (contracts.length === 0) {
+      await this.client
+        .from("tenant_subscriptions")
+        .upsert(
+          {
+            tenant_id: tenantId,
+            status: "EXPIRED",
+            payment_status: "CANCELLED",
+            notes: "Sin contratos registrados.",
+            updated_at: now.toISOString(),
+          },
+          { onConflict: "tenant_id" }
+        );
+      return;
+    }
+
+    // 2. A data base inicial do encadeamento começa no primeiro contrato
+    let timelineCursor = new Date(contracts[0].valid_from || contracts[0].created_at || now);
+    let latestValidContract: any = null;
+
+    // 3. Iterar sequencialmente "do ponto que modificamos para frente"
+    for (const c of contracts) {
+      const status = c.payment_status;
+
+      if (status === "CANCELLED" || status === "REFUNDED") {
+        // Se cancelado ou totalmente reembolsado:
+        // Mantém apenas os dias utilizados (já transcorridos) registrados em days_added
+        const daysUsed = Math.max(0, Number(c.days_added || 0));
+        const newValidFrom = new Date(timelineCursor.getTime());
+        const newExpiresAt = new Date(timelineCursor.getTime() + daysUsed * 24 * 60 * 60 * 1000);
+
+        if (
+          new Date(c.valid_from).toISOString() !== newValidFrom.toISOString() ||
+          new Date(c.expires_at).toISOString() !== newExpiresAt.toISOString()
+        ) {
+          await this.client
+            .from("tenant_subscription_contracts")
+            .update({
+              valid_from: newValidFrom.toISOString(),
+              expires_at: newExpiresAt.toISOString(),
+            })
+            .eq("id", c.id);
+        }
+
+        if (daysUsed > 0) {
+          timelineCursor = newExpiresAt;
+        }
+      } else if (status === "PAID" || status === "COURTESY" || status === "PARTIALLY_REFUNDED") {
+        const daysToAdd = Math.max(0, Number(c.days_added || 0));
+        const newValidFrom = new Date(timelineCursor.getTime());
+        const newExpiresAt = new Date(timelineCursor.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
+
+        if (
+          new Date(c.valid_from).toISOString() !== newValidFrom.toISOString() ||
+          new Date(c.expires_at).toISOString() !== newExpiresAt.toISOString()
+        ) {
+          await this.client
+            .from("tenant_subscription_contracts")
+            .update({
+              valid_from: newValidFrom.toISOString(),
+              expires_at: newExpiresAt.toISOString(),
+            })
+            .eq("id", c.id);
+        }
+
+        timelineCursor = newExpiresAt;
+        latestValidContract = {
+          ...c,
+          valid_from: newValidFrom.toISOString(),
+          expires_at: newExpiresAt.toISOString(),
+        };
+      } else if (status === "PENDING_PAYMENT") {
+        // Oferta pendente não avança a vigência ativa do timelineCursor,
+        // mas suas datas projetadas se alinham ao cursor atual
+        const daysToAdd = Math.max(0, Number(c.days_added || 0));
+        const newValidFrom = new Date(timelineCursor.getTime());
+        const newExpiresAt = new Date(timelineCursor.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
+
+        if (
+          new Date(c.valid_from).toISOString() !== newValidFrom.toISOString() ||
+          new Date(c.expires_at).toISOString() !== newExpiresAt.toISOString()
+        ) {
+          await this.client
+            .from("tenant_subscription_contracts")
+            .update({
+              valid_from: newValidFrom.toISOString(),
+              expires_at: newExpiresAt.toISOString(),
+            })
+            .eq("id", c.id);
+        }
+      }
+    }
+
+    // 4. Atualizar a tabela tenant_subscriptions com a data final resultante do encadeamento
+    if (latestValidContract) {
+      const isExpired = timelineCursor.getTime() <= now.getTime();
+      const { error: upsertErr } = await this.client
+        .from("tenant_subscriptions")
+        .upsert(
+          {
+            tenant_id: tenantId,
+            plan_id: latestValidContract.plan_id || null,
+            plan_name: latestValidContract.plan_name || "Plano Contratado",
+            plan_code: latestValidContract.plan_code || "PAID",
+            max_user_seats: latestValidContract.seats || 1,
+            status: isExpired ? "EXPIRED" : "ACTIVE",
+            payment_status: latestValidContract.payment_status,
+            expires_at: timelineCursor.toISOString(),
+            notes: `Vigencia recalculada automáticamente según contratos válidos activos.`,
+            updated_at: now.toISOString(),
+          },
+          { onConflict: "tenant_id" }
+        );
+
+      if (upsertErr) {
+        console.error(`[recalculateTenantTimeline] Error updating tenant_subscriptions:`, upsertErr);
+      }
+    } else {
+      // Sem contratos válidos ativos
+      const { error: upsertErr } = await this.client
+        .from("tenant_subscriptions")
+        .upsert(
+          {
+            tenant_id: tenantId,
+            status: "EXPIRED",
+            payment_status: "CANCELLED",
+            expires_at: timelineCursor.toISOString(),
+            notes: "Sin contratos pagados o bonificados vigentes.",
+            updated_at: now.toISOString(),
+          },
+          { onConflict: "tenant_id" }
+        );
+
+      if (upsertErr) {
+        console.error(`[recalculateTenantTimeline] Error updating expired tenant_subscriptions:`, upsertErr);
+      }
+    }
+
+    // 5. Gobernanza de Cupo: Si el plan activo permite menos inspectores (ej: el plan anterior permitía 4 y el nuevo permite 1, o venció),
+    // inactivar automáticamente a todos los inspectores que NO sean el Administrador Principal
+    const allowedSeats = latestValidContract && timelineCursor.getTime() > now.getTime()
+      ? Math.max(1, latestValidContract.seats || 1)
+      : 1;
+
+    await this.enforceSeatLimitDeactivation(tenantId, allowedSeats);
+  }
+
+  public async enforceSeatLimitDeactivation(
+    tenantId: string,
+    allowedSeats: number
+  ): Promise<{ deactivatedCount: number }> {
+    const safeLimit = Math.max(1, allowedSeats);
+
+    // Buscar usuarios activos del tenant
+    const { data: users, error: fetchErr } = await this.client
+      .from("tenant_users")
+      .select("id, role, is_active")
+      .eq("tenant_id", tenantId)
+      .eq("is_active", true);
+
+    if (fetchErr || !users || users.length <= safeLimit) {
+      return { deactivatedCount: 0 };
+    }
+
+    // Identificar a todos los usuarios activos que NO son TENANT_ADMIN
+    const nonAdminUserIds = users
+      .filter((u) => u.role !== "TENANT_ADMIN")
+      .map((u) => u.id);
+
+    if (nonAdminUserIds.length === 0) {
+      return { deactivatedCount: 0 };
+    }
+
+    const { data: deactivated, error: updateErr } = await this.client
+      .from("tenant_users")
+      .update({
+        is_active: false,
+        updated_at: new Date().toISOString(),
+      })
+      .in("id", nonAdminUserIds)
+      .select("id");
+
+    if (updateErr) {
+      console.error(`[enforceSeatLimitDeactivation] Error updating tenant_users for ${tenantId}:`, updateErr);
+      return { deactivatedCount: 0 };
+    }
+
+    return { deactivatedCount: deactivated ? deactivated.length : nonAdminUserIds.length };
+  }
+
+  // Alias para manter compatibilidade interna
+  private async recalculateTenantSubscription(tenantId: string): Promise<void> {
+    await this.recalculateTenantTimeline(tenantId);
+  }
+
+  public async cancelContractOffer(tenantId: string, contractId: string): Promise<void> {
+    await this.cancelContract({
+      tenantId,
+      contractId,
+      reason: "Oferta comercial caducada anulada",
+    });
+  }
+
+  public async cancelContract(params: {
+    tenantId: string;
+    contractId: string;
+    reason?: string;
+  }): Promise<{ subscription: TenantSubscription; contract: SubscriptionContract }> {
+    const { data: contractRecord, error: contractErr } = await this.client
+      .from("tenant_subscription_contracts")
+      .select("*")
+      .eq("id", params.contractId)
+      .eq("tenant_id", params.tenantId)
+      .maybeSingle();
+
+    if (contractErr || !contractRecord) {
+      throw new Error("Contrato no encontrado para anulación.");
+    }
+
+    if (contractRecord.payment_status === "PAID" && Number(contractRecord.amount || 0) > 0) {
+      throw new Error(
+        "Los contratos pagados deben gestionarse mediante reembolso (total o parcial), no mediante anulación directa."
+      );
+    }
+
+    const now = new Date();
+    const expiresAt = new Date(contractRecord.expires_at);
+    const validFrom = new Date(contractRecord.valid_from);
+
+    // REGRA DE NEGÓCIO: Não podemos cancelar o que já passou por completo
+    if (expiresAt.getTime() <= now.getTime()) {
+      throw new Error("No es posible anular un contrato o bonificación cuyo período de vigencia ya ha finalizado.");
+    }
+
+    let daysUsed = 0;
+    let daysRemaining = contractRecord.days_added;
+
+    if (now.getTime() > validFrom.getTime()) {
+      // Fração de jornada conta como dia completo utilizado (Math.ceil)
+      const elapsedMs = now.getTime() - validFrom.getTime();
+      daysUsed = Math.min(contractRecord.days_added, Math.ceil(elapsedMs / (24 * 60 * 60 * 1000)));
+      daysRemaining = Math.max(0, contractRecord.days_added - daysUsed);
+
+      if (daysRemaining <= 0) {
+        throw new Error(
+          "No es posible anular la bonificación: todos los días contratados ya han transcurrido y han sido consumidos."
+        );
+      }
+    } else {
+      daysUsed = 0;
+      daysRemaining = contractRecord.days_added;
+    }
+
+    const dateStr = now.toLocaleDateString("es-ES");
+    const cancelReason = params.reason?.trim() || "Anulado por el Administrador";
+    const cancelNote = `[ANULACIÓN DE CONTRATO / BONIFICACIÓN el ${dateStr}. Motivo: ${cancelReason}. Días consumidos mantenidos: ${daysUsed}d, Días cancelados: ${daysRemaining}d]`;
+    const updatedNotes = contractRecord.notes ? `${contractRecord.notes}\n${cancelNote}` : cancelNote;
+
+    // 1. Marcar contrato como CANCELLED e ajustar days_added para dias efetivamente consumidos
+    const { error: cancelErr } = await this.client
+      .from("tenant_subscription_contracts")
+      .update({
+        payment_status: "CANCELLED",
+        days_added: daysUsed,
+        notes: updatedNotes,
+      })
+      .eq("id", params.contractId)
+      .eq("tenant_id", params.tenantId);
+
+    if (cancelErr) {
+      throw new Error(`Error al cancelar contrato: ${cancelErr.message}`);
+    }
+
+    // 2. Recalcular a vigência em cascata do ponto modificado para frente
+    await this.recalculateTenantTimeline(params.tenantId);
+
+    const updatedTenant = await this.findById(params.tenantId);
+    if (!updatedTenant || !updatedTenant.subscription) {
+      throw new Error("Error al cargar los datos de la empresa tras anular el contrato.");
+    }
+
+    const updatedContract = new SubscriptionContract({
+      id: contractRecord.id,
+      tenantId: contractRecord.tenant_id,
+      subscriptionId: contractRecord.subscription_id,
+      planId: contractRecord.plan_id,
+      planName: contractRecord.plan_name,
+      planCode: contractRecord.plan_code,
+      actionType: contractRecord.action_type,
+      validFrom: new Date(contractRecord.valid_from),
+      expiresAt: new Date(validFrom.getTime() + daysUsed * 24 * 60 * 60 * 1000),
+      daysAdded: daysUsed,
+      seats: contractRecord.seats,
+      paymentStatus: "CANCELLED",
+      paymentDueDate: contractRecord.payment_due_date ? new Date(contractRecord.payment_due_date) : undefined,
+      amount: contractRecord.amount ? Number(contractRecord.amount) : undefined,
+      invoiceRef: contractRecord.invoice_ref,
+      notes: updatedNotes,
+      createdBy: contractRecord.created_by,
+      createdAt: new Date(contractRecord.created_at),
+    });
+
+    return {
+      subscription: updatedTenant.subscription,
+      contract: updatedContract,
+    };
+  }
+
+  public async refundContract(params: {
+    tenantId: string;
+    contractId: string;
+    refundType: "TOTAL" | "PARTIAL";
+    refundAmount: number;
+    refundReason: string;
+    revokeAccess?: boolean;
+  }): Promise<{ subscription: TenantSubscription; contract: SubscriptionContract }> {
+    const { data: contractRecord, error: contractErr } = await this.client
+      .from("tenant_subscription_contracts")
+      .select("*")
+      .eq("id", params.contractId)
+      .eq("tenant_id", params.tenantId)
+      .maybeSingle();
+
+    if (contractErr || !contractRecord) {
+      throw new Error("Contrato no encontrado para procesar el reembolso.");
+    }
+
+    const originalAmount = Number(contractRecord.amount || 0);
+    if (originalAmount <= 0) {
+      throw new Error("No es posible reembolsar un contrato bonificado o sin valor financiero registrado.");
+    }
+
+    const previousRefund = Number(contractRecord.refund_amount || 0);
+    const now = new Date();
+    const expiresAt = new Date(contractRecord.expires_at);
+
+    // REGRA DE NEGÓCIO: Não podemos reembolsar o que já passou
+    if (expiresAt.getTime() <= now.getTime()) {
+      throw new Error("No es posible reembolsar un contrato cuya vigencia ya ha transcurrido por completo.");
+    }
+
+    // Crear entidad para cálculo proporcional estricto (fracción de jornada cuenta como día completo)
+    const entityForCalc = new SubscriptionContract({
+      id: contractRecord.id,
+      tenantId: contractRecord.tenant_id,
+      actionType: contractRecord.action_type,
+      validFrom: new Date(contractRecord.valid_from),
+      expiresAt: new Date(contractRecord.expires_at),
+      daysAdded: contractRecord.days_added,
+      seats: contractRecord.seats,
+      paymentStatus: contractRecord.payment_status,
+      amount: originalAmount,
+      refundAmount: previousRefund,
+      createdAt: new Date(contractRecord.created_at),
+    });
+
+    const prop = entityForCalc.calculateProportionalRefund(now);
+
+    if (params.refundAmount <= 0) {
+      throw new Error("El importe a reembolsar debe ser mayor a cero.");
+    }
+
+    if (params.refundAmount > prop.maxProportionalRefund) {
+      throw new Error(
+        `El importe solicitado (${params.refundAmount} €) supera el máximo proporcional reembolsable (${prop.maxProportionalRefund} €) correspondiente a los ${prop.daysRemaining} días restantes (de ${prop.daysTotal} días contratados, habiendo utilizado ${prop.daysUsed} días).`
+      );
+    }
+
+    const newTotalRefunded = Number((previousRefund + params.refundAmount).toFixed(2));
+    const isTotal = params.refundType === "TOTAL" || newTotalRefunded >= originalAmount || prop.daysRemaining === 0;
+    const newStatus: SubscriptionPaymentStatus = isTotal ? "REFUNDED" : "PARTIALLY_REFUNDED";
+
+    // Calcular cuántos días de vigencia se reducen
+    const daysToDeduct = Math.min(
+      prop.daysRemaining,
+      Math.round((params.refundAmount / originalAmount) * prop.daysTotal)
+    );
+    const oldExpiresAt = new Date(contractRecord.expires_at);
+    const newContractExpiresAt = isTotal
+      ? new Date(new Date(contractRecord.valid_from).getTime() + prop.daysUsed * 24 * 60 * 60 * 1000)
+      : new Date(oldExpiresAt.getTime() - daysToDeduct * 24 * 60 * 60 * 1000);
+
+    const dateStr = now.toLocaleDateString("es-ES");
+    const noteEntry = `[REEMBOLSO ${isTotal ? "TOTAL" : "PARCIAL"}: -${params.refundAmount} € el ${dateStr}. Días devueltos: ${daysToDeduct}. Motivo: ${params.refundReason.trim()}]`;
+    const updatedNotes = contractRecord.notes
+      ? `${contractRecord.notes}\n${noteEntry}`
+      : noteEntry;
+
+    // 1. Actualizar registro del contrato con los nuevos días y vigencia reducida
+    const { error: updateContractErr } = await this.client
+      .from("tenant_subscription_contracts")
+      .update({
+        payment_status: newStatus,
+        refund_amount: newTotalRefunded,
+        refund_type: isTotal ? "TOTAL" : "PARTIAL",
+        refund_reason: params.refundReason.trim(),
+        refunded_at: now.toISOString(),
+        expires_at: newContractExpiresAt.toISOString(),
+        days_added: Math.max(0, contractRecord.days_added - daysToDeduct),
+        notes: updatedNotes,
+      })
+      .eq("id", params.contractId)
+      .eq("tenant_id", params.tenantId);
+
+    if (updateContractErr) {
+      throw new Error(`Error al actualizar el contrato con los datos de reembolso: ${updateContractErr.message}`);
+    }
+
+    // 2. Si es reembolso TOTAL y se solicitó revocación inmediata de acceso
+    if (isTotal && params.revokeAccess) {
+      const { error: subErr } = await this.client
+        .from("tenant_subscriptions")
+        .update({
+          status: "EXPIRED",
+          payment_status: "REFUNDED",
+          notes: `Reembolso total efectuado el ${dateStr}. Acceso a la plataforma revocado/bloqueado.`,
+          updated_at: now.toISOString(),
+        })
+        .eq("tenant_id", params.tenantId);
+
+      if (subErr) {
+        console.warn("Aviso al revocar suscripción en reembolso total:", subErr.message);
+      }
+    } else {
+      // 3. Recalcular la vigencia activa de la suscripción según contratos válidos
+      await this.recalculateTenantSubscription(params.tenantId);
+    }
+
+    const updatedTenant = await this.findById(params.tenantId);
+    if (!updatedTenant || !updatedTenant.subscription) {
+      throw new Error("Error al cargar los datos de la empresa tras el reembolso.");
+    }
+
+    const updatedContract = new SubscriptionContract({
+      id: contractRecord.id,
+      tenantId: contractRecord.tenant_id,
+      subscriptionId: contractRecord.subscription_id,
+      planId: contractRecord.plan_id,
+      planName: contractRecord.plan_name,
+      planCode: contractRecord.plan_code,
+      actionType: contractRecord.action_type,
+      validFrom: new Date(contractRecord.valid_from),
+      expiresAt: new Date(contractRecord.expires_at),
+      daysAdded: contractRecord.days_added,
+      seats: contractRecord.seats,
+      paymentStatus: newStatus,
+      amount: originalAmount,
+      refundAmount: newTotalRefunded,
+      refundType: isTotal ? "TOTAL" : "PARTIAL",
+      refundReason: params.refundReason.trim(),
+      refundedAt: now,
+      invoiceRef: contractRecord.invoice_ref,
+      notes: updatedNotes,
+      createdBy: contractRecord.created_by,
+      createdAt: new Date(contractRecord.created_at),
+    });
+
+    return {
+      subscription: updatedTenant.subscription,
+      contract: updatedContract,
     };
   }
 
@@ -1128,6 +1714,7 @@ export class TenantRepository implements ITenantRepository {
     role?: "TENANT_ADMIN" | "AUDITOR" | "INSPECTOR" | "VIEWER";
     isActive?: boolean;
     canViewAllTenantAudits?: boolean;
+    isSuperAdmin?: boolean;
   }): Promise<TenantUserDetail> {
     if (params.role && String(params.role).toUpperCase().includes("SUPERADMIN")) {
       throw new Error("VIOLAÇÃO DE SEGURANÇA: Nenhum usuário vinculado a tenant pode possuir perfil de SuperAdmin.");
@@ -1142,6 +1729,14 @@ export class TenantRepository implements ITenantRepository {
 
     if (memberError || !member) {
       throw new Error("Usuário não encontrado no tenant.");
+    }
+
+    // REGRA DE SEGURANÇA MANDATÓRIA:
+    // Apenas o SuperAdmin da plataforma pode desativar o Administrador Principal
+    if (params.isActive === false && member.role === "TENANT_ADMIN" && !params.isSuperAdmin) {
+      throw new Error(
+        "RESTRICCIÓN DE SEGURIDAD: Solo un SuperAdministrador de la plataforma puede desactivar la cuenta del Administrador Principal."
+      );
     }
 
     const updatePayload: any = { updated_at: new Date().toISOString() };

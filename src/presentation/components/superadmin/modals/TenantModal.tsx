@@ -188,8 +188,14 @@ export function TenantModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="w-full max-w-xl bg-surface-container-lowest rounded-2xl p-space-lg shadow-xl border border-slate-border animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150 cursor-default"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div
+        className="w-full max-w-xl bg-surface-container-lowest dark:bg-slate-900 rounded-2xl p-space-lg shadow-xl border border-slate-border dark:border-slate-800 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Cabeçalho Unificado */}
         <div className="flex items-center justify-between mb-space-sm border-b border-slate-border/70 pb-3">
           <div>

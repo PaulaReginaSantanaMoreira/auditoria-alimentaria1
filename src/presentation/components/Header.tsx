@@ -8,6 +8,7 @@ import { ChangePasswordModal } from "./ChangePasswordModal";
 import { EditProfileModal } from "./EditProfileModal";
 import { useTheme } from "@/presentation/hooks/useTheme";
 import { UserRole, hasPermission } from "@/domain/security/roles-and-permissions";
+import { useOfflineSyncManager } from "@/presentation/hooks/useOfflineSyncManager";
 
 interface HeaderProps {
   title?: string;
@@ -58,9 +59,11 @@ export function Header({
   const [tenants, setTenants] = useState<Array<{ id: string; name: string; cif: string; role: string }>>([]);
   const [activeTenantId, setActiveTenantId] = useState<string | null>(null);
   const [isTenantSwitchOpen, setIsTenantSwitchOpen] = useState(false);
+  const [tenantSwitchError, setTenantSwitchError] = useState<string | null>(null);
 
   const menuRef = useRef<HTMLDivElement>(null);
   const tenantSwitchRef = useRef<HTMLDivElement>(null);
+  const { isOnline, isSyncing, pendingCount, triggerSync } = useOfflineSyncManager();
 
   useEffect(() => {
     try {
@@ -169,10 +172,10 @@ export function Header({
         }
         window.location.reload();
       } else {
-        alert(data.error || "Error al cambiar de empresa activa.");
+        setTenantSwitchError(data.error || "Error al cambiar de empresa activa.");
       }
     } catch {
-      alert("Error de conexión al cambiar de empresa activa.");
+      setTenantSwitchError("Error de conexión al cambiar de empresa activa.");
     }
   };
 
@@ -275,6 +278,47 @@ export function Header({
         </Link>
 
         <div className="flex items-center gap-1.5 shrink-0">
+          {/* Indicador de Sincronización Offline-First en la Nube (montado únicamente en cliente para evitar hydration mismatch) */}
+          {mounted && (
+            <button
+              type="button"
+              onClick={() => triggerSync()}
+              suppressHydrationWarning
+              className="h-8 px-2.5 rounded-xl border border-slate-border/80 bg-surface-container-low hover:bg-surface-container text-[11px] font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+              title={
+                !isOnline
+                  ? "Modo sin conexión: las auditorías se guardan localmente y se sincronizarán al recuperar la red."
+                  : isSyncing
+                  ? `Sincronizando ${pendingCount} auditoría(s) con la base de datos oficial...`
+                  : pendingCount > 0
+                  ? `${pendingCount} auditoría(s) pendiente(s) de sincronizar con el servidor. Clic para forzar sincronización.`
+                  : "Base de datos sincronizada: todos los registros locales están respaldados en la nube."
+              }
+            >
+              {!isOnline ? (
+                <span className="inline-flex items-center gap-1 text-slate-500">
+                  <span className="material-symbols-outlined text-[15px]">cloud_off</span>
+                  <span className="hidden md:inline">Sin red</span>
+                </span>
+              ) : isSyncing ? (
+                <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                  <span className="material-symbols-outlined text-[15px] animate-spin">sync</span>
+                  <span className="hidden md:inline">Sincronizando...</span>
+                </span>
+              ) : pendingCount > 0 ? (
+                <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                  <span className="material-symbols-outlined text-[15px]">cloud_upload</span>
+                  <span className="hidden md:inline">Pendiente ({pendingCount})</span>
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                  <span className="material-symbols-outlined text-[15px]">cloud_done</span>
+                  <span className="hidden md:inline">Sincronizado</span>
+                </span>
+              )}
+            </button>
+          )}
+
           {/* SELETOR DE ORGANIZAÇÃO (TENANT SWITCHER) */}
           {isLoggedIn && tenants.length > 0 && (
             <div className="relative hidden sm:block" ref={tenantSwitchRef}>
@@ -306,6 +350,11 @@ export function Header({
                   <div className="px-3.5 py-1.5 text-[10px] font-bold text-slate-subtext uppercase tracking-wider border-b border-slate-border/60">
                     {isSuperAdmin ? "Ámbito Operativo / Empresas" : `Mis Organizaciones (${tenants.length})`}
                   </div>
+                  {tenantSwitchError && (
+                    <div className="p-2 mx-2 my-1 text-[11px] font-semibold text-alert-red bg-alert-red-bg/20 border border-alert-red/30 rounded-lg">
+                      {tenantSwitchError}
+                    </div>
+                  )}
                   <div className="max-h-64 overflow-y-auto py-1">
                     {tenants.map((t) => {
                       const isSelected =

@@ -40,6 +40,7 @@ export interface RenewContractDTO {
   newExpiresAt?: Date;
   newSeats?: number;
   paymentStatus: SubscriptionPaymentStatus;
+  paymentDueDate?: Date;
   amount?: number;
   invoiceRef?: string;
   notes?: string;
@@ -60,11 +61,31 @@ export interface ITenantRepository {
   updateTenantDetails(tenantId: string, details: { name?: string; address?: string; phone?: string; adminEmail?: string; adminName?: string }): Promise<void>;
   getSubscriptionContracts(tenantId: string): Promise<SubscriptionContract[]>;
   renewContract(dto: RenewContractDTO): Promise<{ subscription: TenantSubscription; contract: SubscriptionContract }>;
+  confirmContractPayment(tenantId: string, contractId: string): Promise<{ subscription: TenantSubscription; contract: SubscriptionContract }>;
+  cancelContractOffer(tenantId: string, contractId: string): Promise<void>;
+  cancelContract(params: {
+    tenantId: string;
+    contractId: string;
+    reason?: string;
+  }): Promise<{ subscription: TenantSubscription; contract: SubscriptionContract }>;
+  refundContract(params: {
+    tenantId: string;
+    contractId: string;
+    refundType: "TOTAL" | "PARTIAL";
+    refundAmount: number;
+    refundReason: string;
+    revokeAccess?: boolean;
+  }): Promise<{ subscription: TenantSubscription; contract: SubscriptionContract }>;
   updateTenantUser(params: {
     tenantId: string;
     userId: string;
     fullName?: string;
     role?: "TENANT_ADMIN" | "AUDITOR" | "INSPECTOR" | "VIEWER";
     isActive?: boolean;
+    isSuperAdmin?: boolean;
   }): Promise<any>;
+  enforceSeatLimitDeactivation(
+    tenantId: string,
+    allowedSeats: number
+  ): Promise<{ deactivatedCount: number }>;
 }

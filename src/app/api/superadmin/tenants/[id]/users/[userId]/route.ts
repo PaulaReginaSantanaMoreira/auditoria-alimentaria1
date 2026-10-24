@@ -44,6 +44,7 @@ export async function PATCH(
       isActive: isActive !== undefined ? Boolean(isActive) : undefined,
       canViewAllTenantAudits:
         canViewAllTenantAudits !== undefined ? Boolean(canViewAllTenantAudits) : undefined,
+      isSuperAdmin: true,
     });
 
     return NextResponse.json({

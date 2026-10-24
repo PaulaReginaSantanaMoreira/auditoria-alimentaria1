@@ -55,11 +55,12 @@ CREATE TABLE IF NOT EXISTS public.tenant_subscriptions (
     plan_code TEXT,
     max_user_seats INT NOT NULL DEFAULT 1 CHECK (max_user_seats >= 1),
     status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'EXPIRED', 'SUSPENDED')),
-    payment_status TEXT NOT NULL DEFAULT 'PAID' CHECK (payment_status IN ('PAID', 'COURTESY', 'PENDING_PAYMENT')),
+    payment_status TEXT NOT NULL DEFAULT 'PAID' CHECK (payment_status IN ('PAID', 'COURTESY', 'PENDING_PAYMENT', 'CANCELLED', 'REFUNDED', 'PARTIALLY_REFUNDED')),
     invoice_ref TEXT,
     notes TEXT,
     valid_from TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '30 days'),
+    payment_due_date TIMESTAMPTZ,
     feature_flags JSONB NOT NULL DEFAULT '{"custom_rubric": true, "offline_sync": true, "export_pdf": true, "analytics": true}'::jsonb,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -68,6 +69,7 @@ CREATE TABLE IF NOT EXISTS public.tenant_subscriptions (
 -- Garantir remoção definitiva de plan_tier e restrições legadas
 ALTER TABLE public.tenant_subscriptions DROP CONSTRAINT IF EXISTS tenant_subscriptions_plan_tier_check;
 ALTER TABLE public.tenant_subscriptions DROP COLUMN IF EXISTS plan_tier;
+ALTER TABLE public.tenant_subscriptions ADD COLUMN IF NOT EXISTS payment_due_date TIMESTAMPTZ;
 
 -- 5. Tabela de Histórico de Contratos e Renovações
 CREATE TABLE IF NOT EXISTS public.tenant_subscription_contracts (
@@ -82,13 +84,24 @@ CREATE TABLE IF NOT EXISTS public.tenant_subscription_contracts (
     expires_at TIMESTAMPTZ NOT NULL,
     days_added INT NOT NULL DEFAULT 0,
     seats INT NOT NULL DEFAULT 1,
-    payment_status TEXT NOT NULL DEFAULT 'PAID' CHECK (payment_status IN ('PAID', 'COURTESY', 'PENDING_PAYMENT')),
+    payment_status TEXT NOT NULL DEFAULT 'PAID' CHECK (payment_status IN ('PAID', 'COURTESY', 'PENDING_PAYMENT', 'CANCELLED', 'REFUNDED', 'PARTIALLY_REFUNDED')),
+    payment_due_date TIMESTAMPTZ,
     amount NUMERIC(10, 2),
+    refund_amount NUMERIC(10, 2) DEFAULT 0.00,
+    refund_type TEXT CHECK (refund_type IS NULL OR refund_type IN ('TOTAL', 'PARTIAL')),
+    refund_reason TEXT,
+    refunded_at TIMESTAMPTZ,
     invoice_ref TEXT,
     notes TEXT,
     created_by TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+ALTER TABLE public.tenant_subscription_contracts ADD COLUMN IF NOT EXISTS payment_due_date TIMESTAMPTZ;
+ALTER TABLE public.tenant_subscription_contracts ADD COLUMN IF NOT EXISTS refund_amount NUMERIC(10, 2) DEFAULT 0.00;
+ALTER TABLE public.tenant_subscription_contracts ADD COLUMN IF NOT EXISTS refund_type TEXT;
+ALTER TABLE public.tenant_subscription_contracts ADD COLUMN IF NOT EXISTS refund_reason TEXT;
+ALTER TABLE public.tenant_subscription_contracts ADD COLUMN IF NOT EXISTS refunded_at TIMESTAMPTZ;
 
 CREATE INDEX IF NOT EXISTS idx_tenant_sub_contracts_tenant ON public.tenant_subscription_contracts(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_tenant_sub_contracts_created_at ON public.tenant_subscription_contracts(created_at DESC);
@@ -195,10 +208,10 @@ ON public.control_point_templates (COALESCE(tenant_id, '00000000-0000-0000-0000-
 CREATE TABLE IF NOT EXISTS public.audits (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID REFERENCES public.tenants(id) ON DELETE CASCADE,
-    auditor_id UUID NOT NULL REFERENCES public.auditors(id),
+    auditor_id UUID REFERENCES public.auditors(id) ON DELETE SET NULL,
     company_id UUID NOT NULL REFERENCES public.companies(id),
     inspection_date DATE NOT NULL,
-    status TEXT NOT NULL CHECK (status IN ('DRAFT', 'IN_PROGRESS', 'EVALUATED', 'SIGNED', 'FINALIZED')),
+    status TEXT NOT NULL CHECK (status IN ('DRAFT', 'IN_PROGRESS', 'EVALUATED', 'SIGNED', 'FINALIZED', 'INVALIDATED')),
     normative_framework TEXT NOT NULL DEFAULT 'Reglamento (CE) 852/2004 · APPCC',
     compliance_score NUMERIC(5,2),
     verdict TEXT CHECK (verdict IN ('FAVORABLE', 'FAVORABLE_CONDICIONAL', 'DESFAVORABLE')),
@@ -207,9 +220,17 @@ CREATE TABLE IF NOT EXISTS public.audits (
     audited_signature_name TEXT,
     audited_signature_url TEXT,
     access_scope TEXT NOT NULL DEFAULT 'TENANT' CHECK (access_scope IN ('TENANT', 'CONFIDENTIAL', 'PRIVATE')),
+    invalidated_at TIMESTAMPTZ,
+    invalidated_by TEXT,
+    invalidation_reason TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+ALTER TABLE public.audits ALTER COLUMN auditor_id DROP NOT NULL;
+ALTER TABLE public.audits ADD COLUMN IF NOT EXISTS invalidated_at TIMESTAMPTZ;
+ALTER TABLE public.audits ADD COLUMN IF NOT EXISTS invalidated_by TEXT;
+ALTER TABLE public.audits ADD COLUMN IF NOT EXISTS invalidation_reason TEXT;
 
 -- 13. Tabela de Avaliações dos Pontos de Controle
 CREATE TABLE IF NOT EXISTS public.audit_evaluations (

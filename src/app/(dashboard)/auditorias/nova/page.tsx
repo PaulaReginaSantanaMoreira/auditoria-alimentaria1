@@ -8,6 +8,7 @@ import { AuditAccessScope } from "@/domain/security/roles-and-permissions";
 import { useAuthGuard } from "@/presentation/hooks/useAuthGuard";
 import { Cif } from "@/domain/value-objects/cif";
 import { FormValidatorService } from "@/domain/services/form-validator.service";
+import { useConfirm } from "@/presentation/components/ui/ConfirmDialog";
 
 interface ActiveDraft {
   id: string;
@@ -25,6 +26,7 @@ interface ActiveDraft {
 export default function NovaAuditoriaPage() {
   const router = useRouter();
   const { isAuthenticated, session, isLoading: isAuthLoading } = useAuthGuard();
+  const { confirm, ConfirmDialogComponent } = useConfirm();
 
   // Active Draft on Device State
   const [activeDraft, setActiveDraft] = useState<ActiveDraft | null>(null);
@@ -113,9 +115,18 @@ export default function NovaAuditoriaPage() {
   // Handler para Anular / Descartar a Auditoria em Andamento
   const handleDiscardDraft = async () => {
     if (!activeDraft) return;
-    const confirmCancel = window.confirm(
-      `¿Está seguro de que desea anular el formulario en curso de "${activeDraft.companyName}"?\nSe cancelará el borrador actual en este dispositivo.`
-    );
+    const confirmCancel = await confirm({
+      title: "¿Anular Formulario en Curso?",
+      message: (
+        <span>
+          ¿Está seguro de que desea anular el formulario en curso de <strong>{activeDraft.companyName}</strong>? Se cancelará el borrador actual en este dispositivo.
+        </span>
+      ),
+      confirmLabel: "Sí, Anular Borrador",
+      cancelLabel: "Continuar Borrador",
+      variant: "danger",
+      icon: "delete_sweep",
+    });
     if (!confirmCancel) return;
 
     try {
@@ -202,12 +213,21 @@ export default function NovaAuditoriaPage() {
 
       // Notificar API (con fallback offline transparente)
       try {
+        const isUuid = (str?: string) =>
+          typeof str === "string" &&
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
+
+        const safeAuditorId = isUuid(session?.userId)
+          ? session!.userId
+          : crypto.randomUUID();
+
         await fetch("/api/audits", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             id: newAuditId,
-            auditorId: auditorName,
+            auditorId: safeAuditorId,
+            auditorName: session?.identifier || auditorName || "Auditor Oficial BioAudit",
             companyName: companyName.trim(),
             companyCif: cif.trim(),
             companyAddress: address.trim(),
@@ -227,13 +247,34 @@ export default function NovaAuditoriaPage() {
         )}&cif=${encodeURIComponent(cif.trim())}&address=${encodeURIComponent(address.trim())}`
       );
     } catch (err: any) {
-      alert("Error al inicializar la auditoría: " + err.message);
+      setDraftAlertMessage("Error al inicializar la auditoría: " + (err.message || "Fallo inesperado"));
       setIsSubmitting(false);
     }
   };
 
   if (isAuthLoading || !isAuthenticated) {
     return <AuthLoadingScreen />;
+  }
+
+  if (session?.role === "VIEWER") {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-surface-container-low text-on-surface">
+        <div className="max-w-md p-6 bg-surface-container-lowest rounded-2xl border border-slate-border text-center shadow-lg">
+          <span className="material-symbols-outlined text-amber-500 text-[48px] mb-2">visibility_lock</span>
+          <h2 className="text-base font-bold text-on-surface">Perfil de Solo Lectura (Viewer)</h2>
+          <p className="text-xs text-slate-subtext mt-1 leading-relaxed">
+            Su perfil de acceso dispone únicamente de permisos de consulta y no está autorizado para crear o evaluar inspecciones sanitarias.
+          </p>
+          <button
+            type="button"
+            onClick={() => router.push("/auditorias")}
+            className="mt-4 px-4 py-2 bg-primary text-white text-xs font-bold rounded-xl cursor-pointer hover:bg-primary-hover transition-colors"
+          >
+            Volver al Historial
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -517,6 +558,7 @@ export default function NovaAuditoriaPage() {
             </div>
           </form>
         </div>
+        {ConfirmDialogComponent}
       </main>
     </>
   );

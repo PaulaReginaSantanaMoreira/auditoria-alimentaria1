@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useAuthGuard } from "@/presentation/hooks/useAuthGuard";
 import { AuthLoadingScreen } from "@/presentation/components/AuthGuard";
 import { FormValidatorService } from "@/domain/services/form-validator.service";
+import { useConfirm } from "@/presentation/components/ui/ConfirmDialog";
 
 interface TenantInfo {
   id: string;
@@ -54,6 +55,7 @@ interface TeamAudit {
 
 export default function GestaoEquipePage() {
   const { isAuthenticated, isLoading: isAuthLoading } = useAuthGuard();
+  const { confirm, ConfirmDialogComponent } = useConfirm();
   const [activeTab, setActiveTab] = useState<"team" | "audits">("team");
 
   const [tenantInfo, setTenantInfo] = useState<TenantInfo | null>(null);
@@ -177,7 +179,7 @@ export default function GestaoEquipePage() {
         setShowMyProfileModal(true);
       }
     } catch {
-      alert("Error al cargar perfil de usuario.");
+      setFeedback({ type: "error", message: "Error al cargar perfil de usuario." });
     }
   };
 
@@ -220,10 +222,10 @@ export default function GestaoEquipePage() {
         setShowEditCompanyModal(false);
         fetchTenantData();
       } else {
-        alert(json.error || "Error al actualizar datos de la empresa.");
+        setFeedback({ type: "error", message: json.error || "Error al actualizar datos de la empresa." });
       }
     } catch (err: any) {
-      alert(err.message || "Error al guardar cambios de la empresa.");
+      setFeedback({ type: "error", message: err.message || "Error al guardar cambios de la empresa." });
     } finally {
       setIsUpdatingCompany(false);
     }
@@ -265,10 +267,10 @@ export default function GestaoEquipePage() {
         setFeedback({ type: "success", message: "Su perfil personal ha sido actualizado con éxito." });
         setShowMyProfileModal(false);
       } else {
-        alert(json.error || "Error al actualizar su perfil.");
+        setFeedback({ type: "error", message: json.error || "Error al actualizar su perfil." });
       }
     } catch (err: any) {
-      alert(err.message || "Error al guardar perfil.");
+      setFeedback({ type: "error", message: err.message || "Error al guardar perfil." });
     } finally {
       setIsUpdatingProfile(false);
     }
@@ -319,10 +321,10 @@ export default function GestaoEquipePage() {
           tempPass: json.temporaryPassword,
         });
       } else {
-        alert(json.error || "Error al registrar inspector.");
+        setFeedback({ type: "error", message: json.error || "Error al registrar inspector." });
       }
     } catch (err: any) {
-      alert(err.message || "Error al registrar inspector.");
+      setFeedback({ type: "error", message: err.message || "Error al registrar inspector." });
     } finally {
       setIsAddingMember(false);
     }
@@ -347,10 +349,10 @@ export default function GestaoEquipePage() {
         });
         fetchTenantData();
       } else {
-        alert(json.error || "Error al cambiar el estado del inspector.");
+        setFeedback({ type: "error", message: json.error || "Error al cambiar el estado del inspector." });
       }
     } catch {
-      alert("Error de conexión al cambiar el estado del inspector.");
+      setFeedback({ type: "error", message: "Error de conexión al cambiar el estado del inspector." });
     }
   };
 
@@ -375,17 +377,26 @@ export default function GestaoEquipePage() {
         });
         fetchTenantData();
       } else {
-        alert(json.error || "Error al actualizar permisos de visualización.");
+        setFeedback({ type: "error", message: json.error || "Error al actualizar permisos de visualización." });
       }
     } catch {
-      alert("Error al actualizar permisos de visualización.");
+      setFeedback({ type: "error", message: "Error al actualizar permisos de visualización." });
     }
   };
 
   const handleResetPassword = async (member: TeamMember) => {
-    const confirmed = window.confirm(
-      `¿Desea restablecer la contraseña de "${member.fullName}" (${member.email})? Se generará una nueva contraseña temporal segura.`
-    );
+    const confirmed = await confirm({
+      title: "¿Restablecer Contraseña?",
+      message: (
+        <span>
+          ¿Desea restablecer la contraseña de <strong>{member.fullName}</strong> ({member.email})? Se generará una nueva contraseña temporal segura.
+        </span>
+      ),
+      confirmLabel: "Restablecer Contraseña",
+      cancelLabel: "Cancelar",
+      variant: "warning",
+      icon: "lock_reset",
+    });
     if (!confirmed) return;
 
     try {
@@ -400,10 +411,10 @@ export default function GestaoEquipePage() {
           tempPass: json.temporaryPassword,
         });
       } else {
-        alert(json.error || "Error al restablecer contraseña.");
+        setFeedback({ type: "error", message: json.error || "Error al restablecer contraseña." });
       }
     } catch {
-      alert("Error al conectar para restablecer la contraseña.");
+      setFeedback({ type: "error", message: "Error al conectar para restablecer la contraseña." });
     }
   };
 
@@ -427,10 +438,10 @@ export default function GestaoEquipePage() {
         setInvalidationReason("");
         fetchTenantData();
       } else {
-        alert(json.error || "Error al anular la auditoría.");
+        setFeedback({ type: "error", message: json.error || "Error al anular la auditoría." });
       }
     } catch (err: any) {
-      alert(err.message || "Error al invalidar la auditoría.");
+      setFeedback({ type: "error", message: err.message || "Error al invalidar la auditoría." });
     } finally {
       setIsInvalidating(false);
     }
@@ -719,21 +730,31 @@ export default function GestaoEquipePage() {
                           <span>Reset Clave</span>
                         </button>
 
-                        <button
-                          type="button"
-                          onClick={() => handleToggleMemberActive(u)}
-                          className={`h-8 px-2.5 rounded-xl text-xs font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors ${
-                            u.isActive
-                              ? "bg-surface-container hover:bg-alert-red-bg/25 hover:text-alert-red text-on-surface"
-                              : "bg-status-pass-bg hover:bg-status-pass/20 text-status-pass"
-                          }`}
-                          title={u.isActive ? "Desactivar inspector (libera cupo)" : "Reactivar inspector"}
-                        >
-                          <span className="material-symbols-outlined text-[15px]">
-                            {u.isActive ? "block" : "check_circle"}
+                        {u.role !== "TENANT_ADMIN" ? (
+                          <button
+                            type="button"
+                            onClick={() => handleToggleMemberActive(u)}
+                            className={`h-8 px-2.5 rounded-xl text-xs font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors ${
+                              u.isActive
+                                ? "bg-surface-container hover:bg-alert-red-bg/25 hover:text-alert-red text-on-surface"
+                                : "bg-status-pass-bg hover:bg-status-pass/20 text-status-pass"
+                            }`}
+                            title={u.isActive ? "Desactivar inspector (libera cupo)" : "Reactivar inspector"}
+                          >
+                            <span className="material-symbols-outlined text-[15px]">
+                              {u.isActive ? "block" : "check_circle"}
+                            </span>
+                            <span>{u.isActive ? "Inactivar" : "Reactivar"}</span>
+                          </button>
+                        ) : (
+                          <span
+                            className="h-8 px-2.5 rounded-xl text-[11px] font-semibold text-slate-subtext dark:text-slate-400 bg-surface-container/40 inline-flex items-center gap-1 border border-slate-border/50 cursor-not-allowed"
+                            title="Solo un SuperAdministrador de la plataforma puede desactivar la cuenta del Administrador Principal"
+                          >
+                            <span className="material-symbols-outlined text-[14px] text-amber-500">shield_person</span>
+                            <span>Titular Protegido</span>
                           </span>
-                          <span>{u.isActive ? "Inactivar" : "Reactivar"}</span>
-                        </button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -1323,6 +1344,7 @@ export default function GestaoEquipePage() {
             </div>
           </div>
         )}
+        {ConfirmDialogComponent}
       </main>
     </>
   );

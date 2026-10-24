@@ -6,6 +6,79 @@ import { useAuthGuard } from "@/presentation/hooks/useAuthGuard";
 import { AuthLoadingScreen } from "@/presentation/components/AuthGuard";
 import { AuditsTable, AuditListItem } from "@/presentation/components/audits/AuditsTable";
 import { hasPermission } from "@/domain/security/roles-and-permissions";
+import { offlineDb } from "@/infrastructure/offline/offline-audit.db";
+import { OfflineSyncService } from "@/infrastructure/offline/offline-sync.service";
+import { DEFAULT_CONTROL_POINTS } from "@/domain/constants/default-control-points";
+import { ComplianceCalculatorService } from "@/domain/services/compliance-calculator.service";
+import { Audit } from "@/domain/entities/audit";
+import { Company } from "@/domain/entities/company";
+import { Auditor } from "@/domain/entities/auditor";
+import { ControlPointEvaluation } from "@/domain/entities/control-point";
+import { Cif } from "@/domain/value-objects/cif";
+
+function computeLocalAuditSummary(rec: any) {
+  if (!rec.evaluations || Object.keys(rec.evaluations).length === 0) {
+    const isFinalized = rec.status === "FINALIZED" || Boolean(rec.auditorSignatureBase64 && rec.auditedSignatureBase64);
+    return {
+      score: undefined,
+      verdict: undefined,
+      status: isFinalized ? "FINALIZED" : (rec.status || "IN_PROGRESS"),
+    };
+  }
+
+  try {
+    const evaluations: ControlPointEvaluation[] = DEFAULT_CONTROL_POINTS.map((p) => {
+      const ev = rec.evaluations[p.code];
+      const score = ev?.score !== undefined ? ev.score : 0;
+      return new ControlPointEvaluation({
+        code: p.code,
+        title: p.title,
+        category: p.category,
+        isCriticalCcp: p.isCriticalCcp,
+        score,
+        observations: ev?.observations || "",
+      });
+    });
+
+    const tempAudit = new Audit({
+      id: rec.id,
+      company: new Company({
+        id: "comp-local",
+        name: rec.companyName || "Empresa Auditada",
+        cif: Cif.createSafe(rec.companyCif || "B84920194"),
+        address: rec.companyAddress || "",
+      }),
+      auditor: new Auditor({
+        id: "aud-local",
+        authUserId: "auth-local",
+        fullName: rec.auditorSignatureName || "Auditor Oficial BioAudit",
+        officialId: "B-SANIDAD",
+        email: "auditor@sanidad.es",
+      }),
+      inspectionDate: rec.inspectionDate ? new Date(rec.inspectionDate) : new Date(),
+      normativeFramework: "Reglamento (CE) 852/2004 · APPCC / ISO 22000",
+      evaluations,
+    });
+
+    const report = ComplianceCalculatorService.calculateReport(tempAudit);
+    const isFinalized =
+      rec.status === "FINALIZED" ||
+      Boolean(rec.auditorSignatureBase64 && rec.auditedSignatureBase64);
+
+    return {
+      score: report.globalPercentage,
+      verdict: report.verdict,
+      status: isFinalized ? "FINALIZED" : (rec.status || "IN_PROGRESS"),
+    };
+  } catch (err) {
+    console.warn("Error computing local audit summary:", err);
+    return {
+      score: undefined,
+      verdict: undefined,
+      status: rec.status || "IN_PROGRESS",
+    };
+  }
+}
 
 export default function AuditoriasPage() {
   const { session, isAuthenticated, isLoading: isAuthLoading } = useAuthGuard();
@@ -30,24 +103,106 @@ export default function AuditoriasPage() {
     setIsLoading(true);
     setErrorMessage(null);
     try {
-      const res = await fetch("/api/audits");
-      if (!res.ok) {
-        throw new Error("No se pudo obtener el historial de auditorías.");
+      // 1. Obtém auditorias remotas do Supabase
+      let remoteAudits: AuditListItem[] = [];
+      try {
+        const res = await fetch("/api/audits");
+        if (res.ok) {
+          const data = await res.json();
+          remoteAudits = (data || []).map((a: any) => ({
+            id: a.id,
+            companyName: a.company?.name || a.companyName || "Empresa Sin Nombre",
+            companyCif: a.company?.cif || a.companyCif || "N/A",
+            inspectionDate: a.inspection_date || a.inspectionDate || a.createdAt || new Date().toISOString(),
+            normativeFramework: a.normative_framework || a.normativeFramework || "CE 852/2004",
+            complianceScore: a.compliance_score ?? a.score?.percentage ?? undefined,
+            verdict: a.verdict,
+            status: a.status || "DRAFT",
+            accessScope: a.access_scope || a.accessScope || "TENANT",
+            auditorName: a.auditor?.fullName || a.auditor_signature_name || a.auditorName,
+            auditorId: a.auditor?.authUserId || a.auditor?.id || a.auditor_id || a.auditorId,
+            tenantId: a.tenant_id || a.tenantId,
+            tenantName: a.tenant?.name || a.tenantName,
+            isSynced: true,
+          }));
+        }
+      } catch (err) {
+        console.warn("Fallo en consulta remota de auditorías:", err);
       }
-      const data = await res.json();
-      const mapped: AuditListItem[] = (data || []).map((a: any) => ({
-        id: a.id,
-        companyName: a.company?.name || a.companyName || "Empresa Sin Nombre",
-        companyCif: a.company?.cif || a.companyCif || "N/A",
-        inspectionDate: a.inspection_date || a.inspectionDate || a.createdAt || new Date().toISOString(),
-        normativeFramework: a.normative_framework || a.normativeFramework || "CE 852/2004",
-        complianceScore: a.compliance_score ?? a.score?.percentage ?? undefined,
-        verdict: a.verdict,
-        status: a.status || "DRAFT",
-        accessScope: a.access_scope || a.accessScope || "TENANT",
-        auditorName: a.auditor?.fullName || a.auditorName,
-      }));
-      setAudits(mapped);
+
+      // 2. Obtém réplicas locais do IndexedDB (Dexie)
+      let localAudits: AuditListItem[] = [];
+      let rawLocalRecords: any[] = [];
+      try {
+        rawLocalRecords = await offlineDb.audits.toArray();
+        localAudits = rawLocalRecords.map((rec) => {
+          const summary = computeLocalAuditSummary(rec);
+          return {
+            id: rec.id,
+            companyName: rec.companyName || "Empresa Sin Nombre",
+            companyCif: rec.companyCif || "N/A",
+            inspectionDate: rec.inspectionDate || rec.updatedAt || new Date().toISOString(),
+            normativeFramework: "CE 852/2004",
+            complianceScore: summary.score,
+            verdict: summary.verdict,
+            status: summary.status,
+            accessScope: rec.accessScope || "TENANT",
+            auditorName: rec.auditorSignatureName || rec.createdByEmail,
+            auditorId: rec.auditorId,
+            tenantId: rec.tenantId,
+            tenantName: rec.tenantName,
+            isSynced: Boolean(rec.isSynced),
+          };
+        });
+      } catch (err) {
+        console.warn("Fallo al leer réplica local Dexie:", err);
+      }
+
+      // 3. Mescla remota e local deduplicando por ID com prioridade de completude
+      const mergedMap = new Map<string, AuditListItem>();
+
+      for (const ra of remoteAudits) {
+        mergedMap.set(ra.id, ra);
+      }
+
+      for (const la of localAudits) {
+        const existing = mergedMap.get(la.id);
+        if (!existing) {
+          mergedMap.set(la.id, la);
+        } else {
+          // Se o registro local foi finalizado ou contém nota calculada e o remoto está pendente/DRAFT
+          if (
+            la.status === "FINALIZED" ||
+            (la.complianceScore !== undefined && existing.complianceScore === undefined)
+          ) {
+            mergedMap.set(la.id, {
+              ...existing,
+              ...la,
+              companyName:
+                la.companyName !== "Empresa Sin Nombre" ? la.companyName : existing.companyName,
+              companyCif:
+                la.companyCif !== "N/A" ? la.companyCif : existing.companyCif,
+              tenantId: existing.tenantId || la.tenantId,
+              tenantName: existing.tenantName || la.tenantName,
+              auditorId: existing.auditorId || la.auditorId,
+              isSynced: existing.isSynced || la.isSynced,
+            });
+          }
+        }
+      }
+
+      const combined = Array.from(mergedMap.values());
+      // Ordena por data decrescente
+      combined.sort(
+        (a, b) => new Date(b.inspectionDate).getTime() - new Date(a.inspectionDate).getTime()
+      );
+
+      setAudits(combined);
+
+      // 4. Sincronização em background imediata de registros locais na primeira oportunidade
+      OfflineSyncService.syncPendingAudits().catch((e) =>
+        console.warn("[AuditoriasPage] Sincronización automática diferida:", e)
+      );
     } catch (err: any) {
       setErrorMessage(err.message || "Error al cargar las inspecciones sanitarias.");
     } finally {
@@ -60,6 +215,17 @@ export default function AuditoriasPage() {
       loadAudits();
     }
   }, [isAuthenticated, loadAudits]);
+
+  // Recarga reactivamente cuando concluya cualquier ciclo de sincronización en segundo plano
+  useEffect(() => {
+    const handleSyncCompleted = () => {
+      loadAudits();
+    };
+    window.addEventListener("bioaudit:sync-completed", handleSyncCompleted);
+    return () => {
+      window.removeEventListener("bioaudit:sync-completed", handleSyncCompleted);
+    };
+  }, [loadAudits]);
 
   const handleConfirmInvalidate = async () => {
     if (!invalidationAudit) return;
@@ -80,6 +246,13 @@ export default function AuditoriasPage() {
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.error || "Error al anular la inspección");
+      }
+
+      // Marca também no Dexie como INVALIDATED
+      try {
+        await offlineDb.audits.update(invalidationAudit.id, { status: "INVALIDATED" });
+      } catch {
+        // Ignora
       }
 
       setInvalidationAudit(null);
@@ -105,7 +278,6 @@ export default function AuditoriasPage() {
 
   return (
     <div className="min-h-screen bg-surface-container-low text-on-surface">
-      
       <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-20 sm:pt-24 pb-16 space-y-6">
         {/* Banner de Título & CTA Principal */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-surface-container-lowest p-6 rounded-2xl border border-slate-border shadow-sm">
@@ -123,13 +295,15 @@ export default function AuditoriasPage() {
             </p>
           </div>
 
-          <Link
-            href="/auditorias/nova"
-            className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-primary hover:bg-primary-hover text-white font-bold text-xs uppercase tracking-wider shadow-sm transition-all cursor-pointer self-start sm:self-auto shrink-0"
-          >
-            <span className="material-symbols-outlined text-[18px]">add_circle</span>
-            <span>Nueva Inspección</span>
-          </Link>
+          {userRole !== "VIEWER" && (
+            <Link
+              href="/auditorias/nova"
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-primary hover:bg-primary-hover text-white font-bold text-xs uppercase tracking-wider shadow-sm transition-all cursor-pointer self-start sm:self-auto shrink-0"
+            >
+              <span className="material-symbols-outlined text-[18px]">add_circle</span>
+              <span>Nueva Inspección</span>
+            </Link>
+          )}
         </div>
 
         {/* Métricas / Cards Rápidas */}
@@ -179,6 +353,9 @@ export default function AuditoriasPage() {
             setInvalidationReason("");
             setInvalidationError(null);
           }}
+          currentUserRole={userRole}
+          currentUserId={session?.userId}
+          currentEmail={session?.identifier}
         />
       </main>
 

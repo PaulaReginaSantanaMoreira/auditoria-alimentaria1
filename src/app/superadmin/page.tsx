@@ -29,9 +29,11 @@ import { TenantRubricModal } from "@/presentation/components/superadmin/modals/T
 
 import { SuperAdminStatsCards } from "@/presentation/components/superadmin/tabs/SuperAdminStatsCards";
 import { TenantsTable } from "@/presentation/components/superadmin/tabs/TenantsTable";
+import { useConfirm } from "@/presentation/components/ui/ConfirmDialog";
 
 export default function SuperAdminPage() {
   const { isAuthenticated, isLoading: isAuthLoading } = useAuthGuard({ requiredRole: "PLATFORM_SUPERADMIN" });
+  const { confirm, ConfirmDialogComponent } = useConfirm();
 
   // Main Data States
   const [tenants, setTenants] = useState<TenantItem[]>([]);
@@ -286,10 +288,10 @@ export default function SuperAdminPage() {
         setSelectedTenantForEdit(null);
         fetchTenants();
       } else {
-        alert(json.error || "Error al actualizar la empresa.");
+        setNotification({ type: "error", message: json.error || "Error al actualizar la empresa." });
       }
     } catch (err: any) {
-      alert(err.message || "Error de conexión al actualizar la empresa.");
+      setNotification({ type: "error", message: err.message || "Error de conexión al actualizar la empresa." });
     } finally {
       setIsUpdatingTenant(false);
     }
@@ -319,9 +321,19 @@ export default function SuperAdminPage() {
   };
 
   const handleDeleteTenant = async (tenant: TenantItem) => {
-    const confirmed = window.confirm(
-      `¿Está absolutamente seguro de eliminar la empresa "${tenant.name}" (${tenant.cif})?\n\nEsta acción es irreversible y eliminará todos sus accesos e inspectores vinculados.`
-    );
+    const confirmed = await confirm({
+      title: `¿Eliminar Empresa "${tenant.name}"?`,
+      message: (
+        <span>
+          ¿Está seguro de eliminar definitivamente a <strong>{tenant.name}</strong> (CIF: {tenant.cif})?
+          Esta acción es irreversible y eliminará todos sus inspectores y accesos vinculados.
+        </span>
+      ),
+      confirmLabel: "Sí, Eliminar Empresa",
+      cancelLabel: "Cancelar",
+      variant: "danger",
+      icon: "delete_forever",
+    });
     if (!confirmed) return;
 
     try {
@@ -336,10 +348,10 @@ export default function SuperAdminPage() {
         });
         fetchTenants();
       } else {
-        alert(json.error || "Error al eliminar la empresa.");
+        setNotification({ type: "error", message: json.error || "Error al eliminar la empresa." });
       }
     } catch {
-      alert("Error de conexión al eliminar la empresa.");
+      setNotification({ type: "error", message: "Error de conexión al eliminar la empresa." });
     }
   };
 
@@ -360,7 +372,7 @@ export default function SuperAdminPage() {
         setSelectedTenantForSeats(null);
         fetchTenants();
       } else {
-        alert(json.error || "Error al guardar el cupo de inspectores.");
+        setNotification({ type: "error", message: json.error || "Error al guardar el cupo de inspectores." });
       }
     } catch {
       setNotification({ type: "error", message: "Error al guardar el límite de inspectores." });
@@ -408,10 +420,10 @@ export default function SuperAdminPage() {
           fullName: json.user.fullName,
         });
       } else {
-        alert(json.error || "Error al vincular usuario.");
+        setNotification({ type: "error", message: json.error || "Error al vincular usuario." });
       }
     } catch (err: any) {
-      alert(err.message || "Error al registrar usuario.");
+      setNotification({ type: "error", message: err.message || "Error al registrar usuario." });
     } finally {
       setIsAddingUser(false);
     }
@@ -419,9 +431,18 @@ export default function SuperAdminPage() {
 
   const handleResetUserPassword = async (user: TenantUserItem) => {
     if (!selectedTenantForUsers) return;
-    const confirmed = window.confirm(
-      `¿Deseas restablecer la contraseña de "${user.fullName}" (${user.email})? Se generará una nueva contraseña temporal segura.`
-    );
+    const confirmed = await confirm({
+      title: "¿Restablecer Contraseña?",
+      message: (
+        <span>
+          ¿Deseas restablecer la contraseña de <strong>{user.fullName}</strong> ({user.email})? Se generará una nueva contraseña temporal segura.
+        </span>
+      ),
+      confirmLabel: "Restablecer Contraseña",
+      cancelLabel: "Cancelar",
+      variant: "warning",
+      icon: "lock_reset",
+    });
     if (!confirmed) return;
 
     try {
@@ -441,10 +462,10 @@ export default function SuperAdminPage() {
           fullName: user.fullName,
         });
       } else {
-        alert(json.error || "Error al restablecer contraseña.");
+        setNotification({ type: "error", message: json.error || "Error al restablecer contraseña." });
       }
     } catch (err: any) {
-      alert(err.message || "Error al restablecer contraseña.");
+      setNotification({ type: "error", message: err.message || "Error al restablecer contraseña." });
     }
   };
 
@@ -474,10 +495,10 @@ export default function SuperAdminPage() {
         fetchTenantUsers(selectedTenantForUsers);
         fetchTenants();
       } else {
-        alert(json.error || "Error al actualizar inspector.");
+        setNotification({ type: "error", message: json.error || "Error al actualizar inspector." });
       }
     } catch (err: any) {
-      alert(err.message || "Error al guardar los cambios del inspector.");
+      setNotification({ type: "error", message: err.message || "Error al guardar los cambios del inspector." });
     } finally {
       setIsSavingUser(false);
     }
@@ -500,11 +521,32 @@ export default function SuperAdminPage() {
     }
   };
 
+  const refreshTenantAndContracts = async (tenantId: string) => {
+    try {
+      const res = await fetch("/api/superadmin/tenants");
+      const json = await res.json();
+      if (json.success && json.tenants) {
+        setTenants(json.tenants);
+        const updated = json.tenants.find((t: any) => t.id === tenantId);
+        if (updated) {
+          setSelectedTenantForContract(updated);
+          fetchContractHistory(updated);
+        }
+      }
+    } catch {
+      // Fallback
+    }
+  };
+
   const handleRenewContract = async (form: {
-    durationOption: "365" | "180" | "90" | "30" | "custom";
-    customDate: string;
+    planId?: string;
+    planName?: string;
+    planCode?: string;
+    daysToAdd?: number;
+    newExpiresAt?: string;
     newSeats: number;
     paymentStatus: "PAID" | "COURTESY" | "PENDING_PAYMENT";
+    paymentDueDate?: string;
     amount: number;
     invoiceRef: string;
     notes: string;
@@ -512,30 +554,20 @@ export default function SuperAdminPage() {
     if (!selectedTenantForContract) return;
     setIsRenewing(true);
 
-    let daysToAdd: number | undefined;
-    let newExpiresAt: string | undefined;
-
-    if (form.durationOption === "custom") {
-      if (!form.customDate) {
-        alert("Por favor seleccione una fecha de vencimiento personalizada.");
-        setIsRenewing(false);
-        return;
-      }
-      newExpiresAt = new Date(form.customDate).toISOString();
-    } else {
-      daysToAdd = Number(form.durationOption);
-    }
-
     try {
       const res = await fetch(`/api/superadmin/tenants/${selectedTenantForContract.id}/contracts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          daysToAdd,
-          newExpiresAt,
+          planId: form.planId,
+          planName: form.planName,
+          planCode: form.planCode,
+          daysToAdd: form.daysToAdd,
+          newExpiresAt: form.newExpiresAt,
           newSeats: Number(form.newSeats),
           paymentStatus: form.paymentStatus,
-          amount: form.amount ? Number(form.amount) : undefined,
+          paymentDueDate: form.paymentDueDate,
+          amount: form.amount ? Number(form.amount) : 0,
           invoiceRef: form.invoiceRef,
           notes: form.notes,
         }),
@@ -546,15 +578,103 @@ export default function SuperAdminPage() {
           type: "success",
           message: `Contrato de "${selectedTenantForContract.name}" actualizado con éxito.`,
         });
-        fetchTenants();
-        fetchContractHistory(selectedTenantForContract);
+        await refreshTenantAndContracts(selectedTenantForContract.id);
       } else {
-        alert(json.error || "Error al actualizar contrato.");
+        setNotification({ type: "error", message: json.error || "Error al actualizar contrato." });
       }
     } catch (err: any) {
-      alert(err.message || "Error al procesar la renovación de contrato.");
+      setNotification({ type: "error", message: err.message || "Error al procesar la renovación de contrato." });
     } finally {
       setIsRenewing(false);
+    }
+  };
+
+  const handleConfirmContractPayment = async (contractId: string) => {
+    if (!selectedTenantForContract) return;
+    try {
+      const res = await fetch(`/api/superadmin/tenants/${selectedTenantForContract.id}/contracts`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contractId,
+          action: "CONFIRM_PAYMENT",
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setNotification({
+          type: "success",
+          message: "Pago confirmado exitosamente y suscripción activada.",
+        });
+        await refreshTenantAndContracts(selectedTenantForContract.id);
+      } else {
+        setNotification({ type: "error", message: json.error || "Error al confirmar pago." });
+      }
+    } catch (err: any) {
+      setNotification({ type: "error", message: err.message || "Error al confirmar pago." });
+    }
+  };
+
+  const handleCancelContract = async (contractId: string, reason?: string) => {
+    if (!selectedTenantForContract) return;
+    try {
+      const res = await fetch(`/api/superadmin/tenants/${selectedTenantForContract.id}/contracts`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contractId,
+          action: "CANCEL_CONTRACT",
+          reason,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setNotification({
+          type: "success",
+          message: json.message || "Contrato o bonificación cancelada con éxito y vigencia recalculada.",
+        });
+        await refreshTenantAndContracts(selectedTenantForContract.id);
+      } else {
+        setNotification({ type: "error", message: json.error || "Error al cancelar contrato." });
+      }
+    } catch (err: any) {
+      setNotification({ type: "error", message: err.message || "Error al cancelar contrato." });
+    }
+  };
+
+  const handleRefundContract = async (params: {
+    contractId: string;
+    refundType: "TOTAL" | "PARTIAL";
+    refundAmount: number;
+    refundReason: string;
+    revokeAccess?: boolean;
+  }) => {
+    if (!selectedTenantForContract) return;
+    try {
+      const res = await fetch(`/api/superadmin/tenants/${selectedTenantForContract.id}/contracts`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contractId: params.contractId,
+          action: "REFUND",
+          refundType: params.refundType,
+          refundAmount: params.refundAmount,
+          refundReason: params.refundReason,
+          revokeAccess: params.revokeAccess,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setNotification({
+          type: "success",
+          message: `Reembolso de ${params.refundAmount.toFixed(2)} € procesado con éxito.`,
+        });
+        await refreshTenantAndContracts(selectedTenantForContract.id);
+      } else {
+        setNotification({ type: "error", message: json.error || "Error al procesar el reembolso." });
+      }
+    } catch (err: any) {
+      setNotification({ type: "error", message: err.message || "Error al procesar el reembolso." });
     }
   };
 
@@ -579,7 +699,7 @@ export default function SuperAdminPage() {
   const handleSaveGlobalRubric = async (pointsToSave?: ControlPointTemplate[]) => {
     const list = pointsToSave || globalRubricPoints;
     if (list.length === 0) {
-      alert("La rúbrica debe contener al menos 1 punto de control.");
+      setNotification({ type: "error", message: "La rúbrica debe contener al menos 1 punto de control." });
       return;
     }
     setIsSavingGlobalRubric(true);
@@ -598,19 +718,29 @@ export default function SuperAdminPage() {
         setGlobalRubricPoints(json.rubric?.templates || list);
         setGlobalRubricPointsCount(json.rubric?.templates?.length || list.length);
       } else {
-        alert(json.error || "Error al actualizar rúbrica base.");
+        setNotification({ type: "error", message: json.error || "Error al actualizar rúbrica base." });
       }
     } catch (err: any) {
-      alert(err.message || "Error al guardar la rúbrica base.");
+      setNotification({ type: "error", message: err.message || "Error al guardar la rúbrica base." });
     } finally {
       setIsSavingGlobalRubric(false);
     }
   };
 
   const handleResetGlobalRubric = async () => {
-    const confirmed = window.confirm(
-      "¿Desea restaurar la Rúbrica Base Oficial a los 30 puntos normativos originales de la plataforma? Todos los cambios manuales en la base se reajustarán."
-    );
+    const confirmed = await confirm({
+      title: "¿Restablecer Rúbrica Base Oficial?",
+      message: (
+        <span>
+          ¿Desea restaurar la Rúbrica Base Oficial a los <strong>30 puntos normativos oficiales</strong> por defecto?
+          Todos los cambios manuales y puntos agregados se reajustarán a la matriz original.
+        </span>
+      ),
+      confirmLabel: "Restaurar Rúbrica",
+      cancelLabel: "Cancelar",
+      variant: "warning",
+      icon: "restore",
+    });
     if (!confirmed) return;
     setIsSavingGlobalRubric(true);
     try {
@@ -624,10 +754,10 @@ export default function SuperAdminPage() {
         setGlobalRubricPoints(json.rubric?.templates || []);
         setGlobalRubricPointsCount(json.rubric?.templates?.length || 30);
       } else {
-        alert(json.error || "Error al restaurar.");
+        setNotification({ type: "error", message: json.error || "Error al restaurar." });
       }
     } catch (err: any) {
-      alert(err.message || "Error al restaurar.");
+      setNotification({ type: "error", message: err.message || "Error al restaurar." });
     } finally {
       setIsSavingGlobalRubric(false);
     }
@@ -661,7 +791,7 @@ export default function SuperAdminPage() {
         setIsTenantRubricCustomized(true);
       }
     } catch {
-      alert("Error al cargar la rúbrica base para clonación.");
+      setNotification({ type: "error", message: "Error al cargar la rúbrica base para clonación." });
     }
   };
 
@@ -673,7 +803,7 @@ export default function SuperAdminPage() {
   const handleSaveTenantRubric = async () => {
     if (!selectedTenantForRubric) return;
     if (tenantRubricPoints.length === 0) {
-      alert("La rúbrica debe contener al menos 1 punto de control.");
+      setNotification({ type: "error", message: "La rúbrica debe contener al menos 1 punto de control." });
       return;
     }
     setIsSavingTenantRubric(true);
@@ -692,10 +822,10 @@ export default function SuperAdminPage() {
         setIsTenantRubricCustomized(true);
         setSelectedTenantForRubric(null);
       } else {
-        alert(json.error || "Error al guardar la rúbrica de la empresa.");
+        setNotification({ type: "error", message: json.error || "Error al guardar la rúbrica de la empresa." });
       }
     } catch (err: any) {
-      alert(err.message || "Error al guardar.");
+      setNotification({ type: "error", message: err.message || "Error al guardar." });
     } finally {
       setIsSavingTenantRubric(false);
     }
@@ -711,7 +841,7 @@ export default function SuperAdminPage() {
     <>
       
       <main className="flex-1 flex flex-col relative w-full pt-20 pb-24 bg-surface dark:bg-slate-950 min-h-screen">
-        <div className="w-full max-w-5xl mx-auto px-margin-mobile space-y-space-md">
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-space-md">
           {/* Hero Banner Gobernanza */}
           <div className="bg-surface-container-lowest rounded-2xl p-space-md sm:p-space-lg border border-slate-border shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-space-md">
             <div className="flex-1 min-w-0 pr-0 md:pr-4">
@@ -851,6 +981,10 @@ export default function SuperAdminPage() {
           isLoadingContracts={isLoadingContracts}
           onRenewContract={handleRenewContract}
           isRenewing={isRenewing}
+          onConfirmPayment={handleConfirmContractPayment}
+          onCancelContract={handleCancelContract}
+          onCancelOffer={handleCancelContract}
+          onRefundContract={handleRefundContract}
         />
 
         <GlobalRubricModal
@@ -876,6 +1010,8 @@ export default function SuperAdminPage() {
           onSave={handleSaveTenantRubric}
           isSaving={isSavingTenantRubric}
         />
+
+        {ConfirmDialogComponent}
       </main>
     </>
   );

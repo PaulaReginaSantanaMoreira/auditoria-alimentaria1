@@ -51,6 +51,33 @@ export async function GET(request: NextRequest) {
           }
         }
 
+        if (!isSuper && payload.tenantId) {
+          try {
+            const { TenantRepository } = await import("@/infrastructure/database/repositories/tenant.repository");
+            const tenantRepo = new TenantRepository();
+            const tenantData = await tenantRepo.findById(payload.tenantId);
+            const sub = tenantData?.subscription;
+            if (
+              tenantData?.tenant.status === "SUSPENDED" ||
+              !sub ||
+              sub.isExpired() ||
+              (sub.paymentStatus !== "PAID" && sub.paymentStatus !== "COURTESY")
+            ) {
+              return NextResponse.json(
+                {
+                  authenticated: false,
+                  error:
+                    sub?.paymentStatus === "PENDING_PAYMENT"
+                      ? "Suscripción vencida con pago pendiente. Acceso bloqueado."
+                      : "Suscripción vencida. Acceso bloqueado.",
+                  subscriptionExpired: true,
+                },
+                { status: 403 }
+              );
+            }
+          } catch {}
+        }
+
         const scope: AuditAccessScope = isSuper
           ? "CONFIDENTIAL"
           : (payload.scope as AuditAccessScope) || "TENANT";
@@ -97,6 +124,33 @@ export async function GET(request: NextRequest) {
             .eq("is_active", true)
             .maybeSingle();
           tenantId = tenantUser?.tenant_id;
+        }
+
+        if (!isSuper && tenantId) {
+          try {
+            const { TenantRepository } = await import("@/infrastructure/database/repositories/tenant.repository");
+            const tenantRepo = new TenantRepository();
+            const tenantData = await tenantRepo.findById(tenantId);
+            const sub = tenantData?.subscription;
+            if (
+              tenantData?.tenant.status === "SUSPENDED" ||
+              !sub ||
+              sub.isExpired() ||
+              (sub.paymentStatus !== "PAID" && sub.paymentStatus !== "COURTESY")
+            ) {
+              return NextResponse.json(
+                {
+                  authenticated: false,
+                  error:
+                    sub?.paymentStatus === "PENDING_PAYMENT"
+                      ? "Suscripción vencida con pago pendiente. Acceso bloqueado."
+                      : "Suscripción vencida. Acceso bloqueado.",
+                  subscriptionExpired: true,
+                },
+                { status: 403 }
+              );
+            }
+          } catch {}
         }
 
         const scope: AuditAccessScope = isSuper ? "CONFIDENTIAL" : "TENANT";

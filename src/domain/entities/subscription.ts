@@ -1,6 +1,6 @@
 export type PlanTier = string;
 export type SubscriptionStatus = "ACTIVE" | "EXPIRED" | "SUSPENDED";
-export type SubscriptionPaymentStatus = "PAID" | "COURTESY" | "PENDING_PAYMENT";
+export type SubscriptionPaymentStatus = "PAID" | "COURTESY" | "PENDING_PAYMENT" | "CANCELLED" | "REFUNDED" | "PARTIALLY_REFUNDED";
 
 export interface SubscriptionFeatureFlags {
   customRubric: boolean;
@@ -22,6 +22,7 @@ export interface TenantSubscriptionProps {
   expiresAt: Date;
   featureFlags: SubscriptionFeatureFlags;
   paymentStatus?: SubscriptionPaymentStatus;
+  paymentDueDate?: Date;
   invoiceRef?: string;
   notes?: string;
   createdAt: Date;
@@ -40,6 +41,7 @@ export class TenantSubscription {
   private _expiresAt: Date;
   private _featureFlags: SubscriptionFeatureFlags;
   private _paymentStatus: SubscriptionPaymentStatus;
+  private _paymentDueDate?: Date;
   private _invoiceRef?: string;
   private _notes?: string;
   private readonly _createdAt: Date;
@@ -61,6 +63,7 @@ export class TenantSubscription {
     this._expiresAt = props.expiresAt;
     this._featureFlags = props.featureFlags;
     this._paymentStatus = props.paymentStatus || "PAID";
+    this._paymentDueDate = props.paymentDueDate;
     this._invoiceRef = props.invoiceRef;
     this._notes = props.notes;
     this._createdAt = props.createdAt;
@@ -82,6 +85,7 @@ export class TenantSubscription {
   get expiresAt(): Date { return this._expiresAt; }
   get featureFlags(): SubscriptionFeatureFlags { return this._featureFlags; }
   get paymentStatus(): SubscriptionPaymentStatus { return this._paymentStatus; }
+  get paymentDueDate(): Date | undefined { return this._paymentDueDate; }
   get invoiceRef(): string | undefined { return this._invoiceRef; }
   get notes(): string | undefined { return this._notes; }
   get createdAt(): Date { return this._createdAt; }
@@ -96,8 +100,16 @@ export class TenantSubscription {
   }
 
   public getDaysRemaining(): number {
-    const diffMs = this._expiresAt.getTime() - new Date().getTime();
-    return Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+    const now = new Date();
+    // Cálculo por días de calendario (medianoche a medianoche)
+    const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const expMidnight = new Date(
+      this._expiresAt.getFullYear(),
+      this._expiresAt.getMonth(),
+      this._expiresAt.getDate()
+    );
+    const diffMs = expMidnight.getTime() - todayMidnight.getTime();
+    return Math.max(0, Math.round(diffMs / (1000 * 60 * 60 * 24)));
   }
 
   public updateSeats(newSeats: number): void {

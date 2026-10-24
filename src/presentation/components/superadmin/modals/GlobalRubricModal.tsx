@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { ControlPointTemplate } from "@/domain/constants/default-control-points";
 import { CATEGORY_OPTIONS } from "../types";
+import { useConfirm } from "@/presentation/components/ui/ConfirmDialog";
 
 interface GlobalRubricModalProps {
   isOpen: boolean;
@@ -36,6 +37,8 @@ export function GlobalRubricModal({
     isCriticalCcp: false,
   });
 
+  const { confirm, ConfirmDialogComponent } = useConfirm();
+
   if (!isOpen) return null;
 
   const handleToggleActive = (idx: number) => {
@@ -45,11 +48,23 @@ export function GlobalRubricModal({
     setPoints(updated);
   };
 
-  const handleDelete = (idx: number) => {
-    if (confirm("¿Seguro que desea eliminar este punto de la rúbrica base?")) {
-      const updated = points.filter((_, i) => i !== idx);
-      setPoints(updated);
-    }
+  const handleDelete = async (idx: number) => {
+    const target = points[idx];
+    const ok = await confirm({
+      title: "¿Eliminar Punto de Control?",
+      message: (
+        <span>
+          ¿Seguro que desea eliminar el punto <strong>{target?.number || `#${idx + 1}`} - {target?.title || "sin título"}</strong> de la rúbrica base oficial?
+        </span>
+      ),
+      confirmLabel: "Sí, Eliminar Punto",
+      cancelLabel: "Cancelar",
+      variant: "danger",
+      icon: "delete",
+    });
+    if (!ok) return;
+    const updated = points.filter((_, i) => i !== idx);
+    setPoints(updated);
   };
 
   const handleAddSubmit = (e: React.FormEvent) => {
@@ -77,8 +92,14 @@ export function GlobalRubricModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="w-full max-w-4xl bg-surface-container-lowest rounded-2xl p-4 sm:p-6 shadow-2xl border border-slate-border animate-in zoom-in-95 duration-150 max-h-[92vh] flex flex-col">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-sm animate-in fade-in duration-150 cursor-default"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div
+        className="w-full max-w-4xl bg-surface-container-lowest dark:bg-slate-900 rounded-2xl p-4 sm:p-6 shadow-2xl border border-slate-border dark:border-slate-800 animate-in zoom-in-95 duration-150 max-h-[92vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex items-start justify-between border-b border-slate-border/70 pb-3 gap-3">
           <div>
@@ -465,6 +486,7 @@ export function GlobalRubricModal({
           </div>
         </div>
       </div>
+      {ConfirmDialogComponent}
     </div>
   );
 }

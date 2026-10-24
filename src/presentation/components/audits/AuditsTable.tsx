@@ -15,6 +15,10 @@ export interface AuditListItem {
   status: "DRAFT" | "IN_PROGRESS" | "EVALUATED" | "SIGNED" | "FINALIZED" | "INVALIDATED" | string;
   accessScope?: "TENANT" | "CONFIDENTIAL" | "PRIVATE" | string;
   auditorName?: string;
+  auditorId?: string;
+  tenantId?: string | null;
+  tenantName?: string;
+  isSynced?: boolean;
 }
 
 interface AuditsTableProps {
@@ -23,6 +27,9 @@ interface AuditsTableProps {
   onRefresh: () => void;
   canInvalidate?: boolean;
   onInvalidateAudit?: (audit: AuditListItem) => void;
+  currentUserRole?: string;
+  currentUserId?: string;
+  currentEmail?: string;
 }
 
 export function AuditsTable({
@@ -31,6 +38,9 @@ export function AuditsTable({
   onRefresh,
   canInvalidate = false,
   onInvalidateAudit,
+  currentUserRole = "AUDITOR",
+  currentUserId,
+  currentEmail,
 }: AuditsTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
@@ -165,14 +175,16 @@ export function AuditsTable({
           </div>
         ) : (
           <table className="w-full text-left text-sm">
-            <thead className="bg-surface-container text-xs font-bold text-slate-subtext uppercase tracking-wider border-b border-slate-border">
+            <thead className="bg-surface-container dark:bg-slate-800/90 text-xs font-bold text-slate-subtext dark:text-slate-300 uppercase tracking-wider border-b border-slate-border dark:border-slate-800">
               <tr>
-                <th className="py-3 px-space-md">Empresa / Entidad</th>
-                <th className="py-3 px-space-md">Fecha Inspección</th>
-                <th className="py-3 px-space-md">Normativa</th>
-                <th className="py-3 px-space-md">Puntuación / Veredicto</th>
-                <th className="py-3 px-space-md">Estado</th>
-                <th className="py-3 px-space-md text-right">Acciones</th>
+                <th className="py-3 px-space-md min-w-[220px]">Empresa / Entidad</th>
+                <th className="hidden sm:table-cell py-3 px-space-md min-w-[130px]">Fecha Inspección</th>
+                <th className="hidden md:table-cell py-3 px-space-md min-w-[120px]">Normativa</th>
+                <th className="hidden sm:table-cell py-3 px-space-md min-w-[150px]">Puntuación / Veredicto</th>
+                <th className="hidden md:table-cell py-3 px-space-md min-w-[110px]">Estado</th>
+                <th className="py-3 px-3 sm:px-space-md text-right sticky right-0 bg-surface-container dark:bg-slate-800/95 z-10 shadow-[-4px_0_8px_rgba(0,0,0,0.06)] dark:shadow-[-4px_0_12px_rgba(0,0,0,0.3)] min-w-[70px]">
+                  Acciones
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-border/60 text-on-surface font-body-sm">
@@ -193,7 +205,7 @@ export function AuditsTable({
                   },
                 ];
 
-                if (!isFinalized && !isInvalidated) {
+                if (!isFinalized && !isInvalidated && currentUserRole !== "VIEWER") {
                   menuItems.push({
                     id: "continue-rubric",
                     label: "Continuar Rúbrica",
@@ -225,28 +237,83 @@ export function AuditsTable({
                   });
                 }
 
+                const isMyAudit = Boolean(
+                  (currentUserId && a.auditorId && a.auditorId === currentUserId) ||
+                  (currentEmail && a.auditorName && (
+                    a.auditorName.toLowerCase() === currentEmail.toLowerCase() ||
+                    a.auditorName.toLowerCase().includes(currentEmail.toLowerCase())
+                  ))
+                );
+
                 return (
                   <tr
                     key={a.id}
-                    className="hover:bg-surface-container-low dark:hover:bg-slate-800/60 transition-colors"
+                    className="hover:bg-surface-container-low dark:hover:bg-slate-800/60 transition-colors group"
                   >
                     {/* Empresa / Entidade */}
                     <td className="py-space-md px-space-md">
-                      <div className="font-bold text-on-surface text-sm">{a.companyName}</div>
-                      <div className="text-label-sm text-slate-subtext font-mono mt-0.5">
+                      <div className="font-bold text-slate-900 dark:text-slate-100 text-sm">{a.companyName}</div>
+                      <div className="text-label-sm text-slate-500 dark:text-slate-400 font-mono mt-0.5">
                         CIF: {a.companyCif}
                       </div>
-                      {a.accessScope === "CONFIDENTIAL" && (
-                        <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300">
-                          <span className="material-symbols-outlined text-[12px]">lock</span>
-                          Confidencial Oficial
+
+                      {/* Badges de Atribución y Gobernanza (SuperAdmin vs Tenant Admin) */}
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                        {/* 1. VISUALIZACIÓN SUPERADMIN: Diferenciar auditorías propias de las de tenants */}
+                        {currentUserRole === "PLATFORM_SUPERADMIN" && (
+                          !a.tenantId || a.accessScope === "CONFIDENTIAL" || a.tenantId === "global" ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-200 dark:border-blue-900">
+                              <span className="material-symbols-outlined text-[12px]">shield</span>
+                              Global / SuperAdmin
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 dark:bg-purple-950/70 dark:text-purple-300 border border-purple-200 dark:border-purple-900">
+                              <span className="material-symbols-outlined text-[12px]">domain</span>
+                              {a.tenantName ? `Empresa: ${a.tenantName}` : "Tenant Vinculado"}
+                            </span>
+                          )
+                        )}
+
+                        {/* 2. VISUALIZACIÓN TENANT ADMIN: Saber si es propia o de un inspector vinculado */}
+                        {currentUserRole === "TENANT_ADMIN" && (
+                          isMyAudit ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900">
+                              <span className="material-symbols-outlined text-[12px]">person</span>
+                              Mi Inspección
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                              <span className="material-symbols-outlined text-[12px]">badge</span>
+                              Inspector: {a.auditorName || "Equipo"}
+                            </span>
+                          )
+                        )}
+
+                        {a.accessScope === "CONFIDENTIAL" && currentUserRole !== "PLATFORM_SUPERADMIN" && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300">
+                            <span className="material-symbols-outlined text-[12px]">lock</span>
+                            Confidencial Oficial
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Resumo Mobile */}
+                      <div className="sm:hidden mt-2 pt-2 border-t border-slate-border/50 dark:border-slate-800 flex flex-wrap gap-1.5 items-center">
+                        <span className="text-[10px] font-medium text-slate-600 dark:text-slate-300 inline-flex items-center gap-0.5">
+                          <span className="material-symbols-outlined text-[13px] text-slate-400">calendar_today</span>
+                          {new Date(a.inspectionDate).toLocaleDateString("es-ES", { day: "2-digit", month: "short" })}
                         </span>
-                      )}
+                        {a.complianceScore != null ? (
+                          <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200">
+                            {a.complianceScore}% {a.verdict ? `(${a.verdict})` : ""}
+                          </span>
+                        ) : null}
+                      </div>
                     </td>
 
                     {/* Data de Inspeção */}
-                    <td className="py-space-md px-space-md">
-                      <div className="text-body-sm font-medium">
+                    <td className="hidden sm:table-cell py-space-md px-space-md">
+                      <div className="text-body-sm font-medium text-slate-900 dark:text-slate-100">
                         {new Date(a.inspectionDate).toLocaleDateString("es-ES", {
                           day: "2-digit",
                           month: "short",
@@ -256,23 +323,23 @@ export function AuditsTable({
                     </td>
 
                     {/* Marco Normativo */}
-                    <td className="py-space-md px-space-md">
-                      <span className="text-label-sm px-2 py-1 rounded-md bg-surface-container font-mono text-on-surface-variant font-semibold">
+                    <td className="hidden md:table-cell py-space-md px-space-md">
+                      <span className="text-label-sm px-2 py-1 rounded-md bg-surface-container dark:bg-slate-800 font-mono text-slate-700 dark:text-slate-300 border border-slate-border/60 dark:border-slate-700 font-semibold">
                         {a.normativeFramework || "CE 852/2004"}
                       </span>
                     </td>
 
                     {/* Puntuación / Veredicto */}
-                    <td className="py-space-md px-space-md">
+                    <td className="hidden sm:table-cell py-space-md px-space-md">
                       {a.complianceScore !== undefined && a.complianceScore !== null ? (
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-on-surface">{a.complianceScore}%</span>
+                          <span className="font-bold text-slate-900 dark:text-slate-100">{a.complianceScore}%</span>
                           {a.verdict && (
                             <span
                               className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                                 isFavorable
-                                  ? "bg-status-pass-bg text-status-pass"
-                                  : "bg-alert-red-bg/25 text-alert-red"
+                                    ? "bg-status-pass-bg text-status-pass"
+                                    : "bg-alert-red-bg/25 text-alert-red"
                               }`}
                             >
                               {a.verdict}
@@ -280,32 +347,46 @@ export function AuditsTable({
                           )}
                         </div>
                       ) : (
-                        <span className="text-slate-subtext text-xs italic">Pendiente de evaluación</span>
+                        <span className="text-slate-subtext dark:text-slate-400 text-xs italic">Pendiente</span>
                       )}
                     </td>
 
                     {/* Estado */}
-                    <td className="py-space-md px-space-md">
-                      {isInvalidated ? (
-                        <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-alert-red-bg/25 text-alert-red inline-flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[12px]">cancel</span>
-                          Anulada
-                        </span>
-                      ) : isFinalized ? (
-                        <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-status-pass-bg text-status-pass inline-flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[12px]">verified</span>
-                          Finalizada
-                        </span>
-                      ) : (
-                        <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 inline-flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                          En Progreso
-                        </span>
-                      )}
+                    <td className="hidden md:table-cell py-space-md px-space-md">
+                      <div className="flex flex-col gap-1 items-start">
+                        {isInvalidated ? (
+                          <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-alert-red-bg/25 text-alert-red inline-flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[12px]">cancel</span>
+                            Anulada
+                          </span>
+                        ) : isFinalized ? (
+                          <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-status-pass-bg text-status-pass inline-flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[12px]">verified</span>
+                            Finalizada
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 inline-flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                            En Progreso
+                          </span>
+                        )}
+
+                        {a.isSynced === false ? (
+                          <span className="text-[9px] font-bold text-amber-600 dark:text-amber-400 inline-flex items-center gap-0.5" title="Guardada en este dispositivo. Pendiente de sincronizar con el servidor.">
+                            <span className="material-symbols-outlined text-[11px]">cloud_upload</span>
+                            <span>Pendiente Nube</span>
+                          </span>
+                        ) : (
+                          <span className="text-[9px] font-semibold text-emerald-600 dark:text-emerald-400 inline-flex items-center gap-0.5" title="Sincronizada con la base de datos oficial">
+                            <span className="material-symbols-outlined text-[11px]">cloud_done</span>
+                            <span>Sincronizada</span>
+                          </span>
+                        )}
+                      </div>
                     </td>
 
-                    {/* Acciones (ActionMenu 3 Pontinhos) */}
-                    <td className="py-space-md px-space-md text-right">
+                    {/* Acciones (ActionMenu 3 Pontinhos Sticky Right) */}
+                    <td className="py-space-md px-3 sm:px-space-md text-right sticky right-0 bg-surface-container-lowest dark:bg-slate-900 group-hover:bg-surface-container-low dark:group-hover:bg-slate-800/90 z-10 shadow-[-4px_0_8px_rgba(0,0,0,0.06)] dark:shadow-[-4px_0_12px_rgba(0,0,0,0.3)] transition-colors">
                       <div className="flex items-center justify-end">
                         <ActionMenu
                           label={`Acciones para inspección de ${a.companyName}`}

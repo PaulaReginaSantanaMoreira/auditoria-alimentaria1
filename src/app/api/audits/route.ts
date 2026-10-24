@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CreateAuditUseCase } from "@/application/use-cases/create-audit.use-case";
 import { createServerSupabaseClient } from "@/infrastructure/database/supabase/supabase-server";
+import { createAdminClient } from "@/infrastructure/database/supabase/supabase-admin";
 import { AuditRepository } from "@/infrastructure/database/repositories/audit.repository";
 import { CompanyRepository } from "@/infrastructure/database/repositories/company.repository";
 import {
@@ -13,7 +14,12 @@ import { resolveSessionAndRole } from "@/infrastructure/security/session-resolve
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const supabase = await createServerSupabaseClient();
+    let supabase: any;
+    try {
+      supabase = createAdminClient();
+    } catch {
+      supabase = await createServerSupabaseClient();
+    }
     const { role: callerRole } = await resolveSessionAndRole(req);
 
     // Se quem cria for PLATFORM_SUPERADMIN, o escopo da auditoria é CONFIDENTIAL por padrão
@@ -50,7 +56,12 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
-    const supabase = await createServerSupabaseClient();
+    let supabase: any;
+    try {
+      supabase = createAdminClient();
+    } catch {
+      supabase = await createServerSupabaseClient();
+    }
     const { searchParams } = new URL(req.url);
     const auditorId = searchParams.get("auditorId");
     const adminOnly = searchParams.get("adminOnly") === "true";
@@ -109,9 +120,9 @@ export async function GET(req: NextRequest) {
     // Se houver empresa (tenant) ativa no contexto da sessão (incluindo SuperAdmin impersonando tenant)
     const effectiveTenantId = session.tenantId && session.tenantId !== "global" ? session.tenantId : null;
     if (effectiveTenantId) {
-      let canViewAll = callerRole === "TENANT_ADMIN" || callerRole === "VIEWER" || callerRole === "PLATFORM_SUPERADMIN";
+      let canViewAll = callerRole === "TENANT_ADMIN" || callerRole === "PLATFORM_SUPERADMIN";
 
-      if (callerRole === "AUDITOR" && session.userId) {
+      if ((callerRole === "AUDITOR" || callerRole === "VIEWER") && session.userId) {
         const { data: member } = await supabase
           .from("tenant_users")
           .select("can_view_all_tenant_audits")
@@ -140,7 +151,7 @@ export async function GET(req: NextRequest) {
       const { data: globalAudits, error } = await supabase
         .from("audits")
         .select(
-          "id, inspection_date, status, normative_framework, compliance_score, verdict, access_scope, created_at, company:companies(name, cif)"
+          "id, inspection_date, status, normative_framework, compliance_score, verdict, access_scope, created_at, tenant_id, tenant:tenants(name), auditor_id, auditor_signature_name, company:companies(name, cif)"
         )
         .order("created_at", { ascending: false });
 

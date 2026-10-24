@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { createServerSupabaseClient } from "@/infrastructure/database/supabase/supabase-server";
 import { createAdminClient } from "@/infrastructure/database/supabase/supabase-admin";
 import { signSessionToken } from "@/infrastructure/security/jwt-service";
+import { TenantRepository } from "@/infrastructure/database/repositories/tenant.repository";
 
 export async function POST(request: Request) {
   try {
@@ -131,6 +132,32 @@ export async function POST(request: Request) {
         }
       } catch {
         // Fallback para AUDITOR
+      }
+
+      // Regra de Governança: Se a empresa estiver vencida e a renovação não estiver paga, bloqueia acesso
+      if (tenantId) {
+        try {
+          const tenantRepo = new TenantRepository();
+          const tenantData = await tenantRepo.findById(tenantId);
+
+          if (tenantData?.tenant.status === "SUSPENDED") {
+            return NextResponse.json(
+              { success: false, error: "La cuenta de su empresa se encuentra suspendida. Contacte al administrador de la plataforma." },
+              { status: 403 }
+            );
+          }
+
+          const sub = tenantData?.subscription;
+          if (!sub || sub.isExpired() || (sub.paymentStatus !== "PAID" && sub.paymentStatus !== "COURTESY")) {
+            const msg =
+              sub?.paymentStatus === "PENDING_PAYMENT"
+                ? "La suscripción de su empresa ha vencido y la renovación se encuentra pendiente de pago. El acceso a la plataforma está bloqueado hasta la confirmación del pago."
+                : "La suscripción de su empresa ha vencido. Contacte al administrador para regularizar la licencia.";
+            return NextResponse.json({ success: false, error: msg }, { status: 403 });
+          }
+        } catch (checkErr: any) {
+          console.warn("[Login] Aviso na checagem de subscrição:", checkErr.message);
+        }
       }
     }
 
